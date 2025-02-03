@@ -1,3 +1,7 @@
+MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS += --no-builtin-rules
+.SHELLFLAGS := -eu -c
+
 PLATFORM    = QEMU
 QEMU_PATH   = /home/ryan/lab/qemu/build/
 TOOLCHAIN   = arm-none-eabi
@@ -5,6 +9,7 @@ BUILD_DIR   = build
 OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
 OUTPUT_BIN  = $(BUILD_DIR)/kernel.bin
 OUTPUT_IMG  = $(BUILD_DIR)/sdcard.img
+OUTPUT_DIS  = $(BUILD_DIR)/disassembly.txt
 
 # Toolchain executables
 CC          = $(TOOLCHAIN)-gcc
@@ -16,9 +21,9 @@ RM          = rm -rf
 # Directories
 TEAM_REPO       = ../team-repo
 SRC_DIR         = src
+BASE_INCLUDE    = $(SRC_DIR)/include
 DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
 DRIVERS_BASE    = drivers
-BASE_INCLUDE    = $(TEAM_REPO)/src/include
 
 # Set flags
 CFLAGS = -Wall -Wextra -Wpedantic \
@@ -30,23 +35,25 @@ CFLAGS = -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-CFLAGS += -O2 -flto
-CFLAGS += -fstack-protector-strong -fno-stack-protector
+# CFLAGS += -O2
+# CFLAGS += -fstack-protector-strong -fno-stack-protector
 
-CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) \
-        -I$(SRC_DIR)/$(DRIVERS_BASE) -I$(BASE_INCLUDE)
-
+CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
 
-LDFLAGS = -T linker.ld --gc-sections \
-          --print-memory-usage
 
-LDFLAGS += -flto
+LDFLAGS = -T linker.ld
+# LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 
 # My kernel code
-KERNEL_SRCS = $(wildcard $(SRC_DIR)/*.c)
-KERNEL_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS))
+KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
+DRIVER_SRCS        = $(wildcard $(DRIVERS_DIR)/*.c)
+BASE_DRIVER_SRCS   = $(wildcard $(SRC_DIR)/$(DRIVERS_BASE)/*.c)
+
+KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS))
+DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
+BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
 # Git version
 GIT_VERSION = $(shell git describe --always --dirty)
@@ -62,7 +69,7 @@ TEAM_DRIVER_OBJS        = $(patsubst $(TEAM_REPO)/$(DRIVERS_DIR)/%.c,$(BUILD_DIR
 TEAM_BASE_DRIVER_OBJS   = $(patsubst $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/team/drivers/%.o,$(TEAM_BASE_DRIVER_SRCS))
 
 # ALL team repo objects
-ALL_OBJS = $(KERNEL_OBJS) $(TEAM_CORE_OBJS) $(TEAM_DRIVER_OBJS) $(TEAM_BASE_DRIVER_OBJS)
+ALL_OBJS = $(KERNEL_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(TEAM_CORE_OBJS) $(TEAM_DRIVER_OBJS) $(TEAM_BASE_DRIVER_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
 
 # Define build rules
@@ -114,12 +121,17 @@ $(BUILD_DIR):
 # Dependency inclusion
 -include $(DEP_FILES)
 
-disassemble: $(OUTPUT_ELF)
-	@echo "[DISASSEMBLY] Generating disassembly.txt"
-	$(TOOLCHAIN)-objdump -d $< > $(BUILD_DIR)/disassembly.txt
+
 
 $(TEAM_REPO):
 	$(MAKE) -C $(TEAM_REPO)
+
+
+$(OUTPUT_DIS): $(OUTPUT_ELF)
+	@echo "[DISASSEMBLY] Generating $(OUTPUT_DIS)"
+	$(TOOLCHAIN)-objdump -d $< > $(OUTPUT_DIS)
+
+disassemble: $(OUTPUT_DIS)
 
 # Clean up generated files
 clean:
