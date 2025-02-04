@@ -61,7 +61,7 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
     enable_irqs();
 
     kernel_mmu_init(bootloader_info);
-
+    printk("MMU enabled!\n");
     init_page_allocator(&kpage_allocator, bootloader_info);
 
     for (int i = 0; i < 30; i++) {

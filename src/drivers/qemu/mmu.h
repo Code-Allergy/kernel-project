@@ -13,6 +13,11 @@
 #define MMU_PAGE_DESCRIPTOR   (1 << 0)   // Page descriptor (b01)
 #define MMU_INVALID          (0 << 0)    // Invalid descriptor (b00)
 
+// L2 Page Table Descriptors
+#define L2_SMALL_PAGE        (2 << 0)    // Small page descriptor (b10)
+#define L2_LARGE_PAGE        (1 << 0)    // Large page descriptor (b01)
+
+
 // Domain Settings
 #define MMU_DOMAIN_KERNEL    0           // Domain 0 for kernel
 #define DACR_CLIENT_DOMAIN0  (1 << 0)    // Client access for domain 0

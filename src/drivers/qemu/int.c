@@ -42,6 +42,14 @@ void data_abort_handler() {
     while (1); // Halt
 }
 
+void prefetch_abort_c() {
+    uint32_t ifar, ifsr;
+    asm volatile("mrc p15, 0, %0, c6, c0, 2" : "=r"(ifar)); // IFAR
+    asm volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
+    printk("Prefetch abort! Addr: 0x%x, Status: 0x%x\n", ifar, ifsr);
+    while (1); // Halt
+}
+
 void uart_handler(int irq, void *data) {
     // Read UART IIR to check interrupt type and clear it
     uint32_t iir = UART0->IIR_FCR & 0x0F;  // Mask IIR bits

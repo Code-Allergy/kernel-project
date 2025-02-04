@@ -24,7 +24,6 @@ fiq_addr:      .word fiq_handler
 .section .text
 reset_handler:
 undef_handler:
-prefetch_abort_handler:
 fiq_handler:
     b .  /* Infinite loop for unhandled exceptions */
 
@@ -55,4 +54,6 @@ swi_handler:
     @ Restore registers and return
     LDMFD   SP!, {R0-R3, PC}^  @ Return from SVC
 
+prefetch_abort_handler:
+    b prefetch_abort_c
 
