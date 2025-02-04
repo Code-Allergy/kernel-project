@@ -1,5 +1,6 @@
 .section .vectors, "ax"
 .global _vectors
+.extern current_process
 .align 5
 _vectors:
     ldr pc, reset_addr    /* 0x00 Reset */
@@ -21,12 +22,54 @@ irq_addr:      .word irq_handler
 fiq_addr:      .word fiq_handler
 
 /* Default handlers */
+
+
 .section .text
 reset_handler:
-undef_handler:
 fiq_handler:
     b .  /* Infinite loop for unhandled exceptions */
 
+undef_handler:
+    /* Save Undefined mode LR and SPSR */
+    stmfd   sp!, {lr}
+    mrs     lr, spsr
+    stmfd   sp!, {lr}
+
+    /* Switch to System mode to access user registers */
+    cps     #0x1F                /* System mode */
+
+    /* Store user registers in process struct */
+    ldr     r1, =current_process
+    ldr     r1, [r1]
+    add     r1, r1, #20          /* process_t->regs offset (adjust if your struct differs) */
+    
+    stmia   r1!, {r0-r12}        /* Save R0-R12 */
+    str     sp, [r1], #4         /* Save user SP */
+    str     lr, [r1], #4         /* Save user LR */
+
+    /* Restore exception context */
+    cps     #0x1B                /* Undefined mode */
+    ldmfd   sp!, {r2}            /* Get saved SPSR (user CPSR) */
+    ldmfd   sp!, {r3}            /* Get exception LR (PC + 4) */
+    sub     r3, r3, #4           /* Actual PC of faulting instruction */
+
+    /* Store PC and CPSR in process struct */
+    str     r3, [r1], #4         /* Save PC */
+    str     r2, [r1], #4         /* Save CPSR */
+
+    /* Switch to SVC mode for kernel processing */
+    cps     #0x13                /* SVC mode */
+
+    /* Read exception syndrome */
+    mrc     p15, 0, r0, c5, c0, 0  /* Read ESR */
+    
+    /* Call C handler with ESR and process */
+    ldr     r1, =current_process
+    ldr     r1, [r1]
+    bl      handle_undefined
+
+    /* Schedule new process */
+    b       schedule
 
 irq_handler:
     sub lr, lr, #4        /* Adjust LR for IRQ return */
@@ -56,4 +99,3 @@ swi_handler:
 
 prefetch_abort_handler:
     b prefetch_abort_c
-

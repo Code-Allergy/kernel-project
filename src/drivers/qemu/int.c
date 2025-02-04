@@ -3,6 +3,7 @@
 #include <kernel/int.h>
 #include <kernel/uart.h>
 #include <kernel/syscall.h>
+#include <kernel/sched.h>
 
 #include "intc.h"
 #include "int.h"
@@ -97,6 +98,27 @@ int request_irq(int irq, irq_handler_t handler, void *data) {
     return 0;
 }
 
+void handle_undefined(uint32_t esr, process_t* p) {
+    const uint32_t ec = esr >> 26;
+    const uint32_t il = (esr >> 25) & 1;
+    const uint32_t iss = esr & 0x1FFFFFF;
+
+    // Log exception details
+    printk("Undefined Instruction in PID %d at %p\n", 
+           p->pid, p->regs.pc);
+    printk("Instruction: %p\n", *(uint32_t*)p->regs.pc);
+    printk("ESR: %p (EC=%p IL=%d ISS=%p)\n", 
+           esr, ec, il, iss);
+
+    // Mark process as killed
+    p->state = PROCESS_KILLED;
+    
+    // Optional: Dump register state
+    #ifdef DEBUG
+    dump_registers(&p->regs);
+    #endif
+}
+
 
 int intc_init() {
     uint32_t vbar_addr = (uint32_t)_vectors;
@@ -112,7 +134,7 @@ int intc_init() {
         : 
         : "r" (vbar_addr)
     );
-    
+
     // setup CSPR for IRQ mode
     __asm__ volatile(
         "mrs r0, cpsr \n"

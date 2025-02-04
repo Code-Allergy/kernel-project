@@ -36,8 +36,8 @@ CFLAGS = -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-# CFLAGS += -O2
-# CFLAGS += -fstack-protector-strong -fno-stack-protector
+CFLAGS += -O2
+CFLAGS += -fstack-protector-strong -fno-stack-protector
 
 CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
@@ -45,7 +45,7 @@ ASFLAGS = -mcpu=cortex-a8 -g
 
 
 LDFLAGS = -T linker.ld
-# LDFLAGS += --gc-sections --print-memory-usage
+LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 
 
@@ -99,6 +99,7 @@ $(OUTPUT_IMG): $(OUTPUT_BIN)
 	mkfs.fat -F 32 $@
 	mmd -i $@ ::/boot
 	mcopy -i $@ $< ::/boot/kernel.bin
+	mcopy -i $@ tester ::/bin
 
 ################################################################################################
 # kernel Compilation rules

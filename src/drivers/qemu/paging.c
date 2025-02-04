@@ -8,9 +8,9 @@
 
 page_allocator_t kpage_allocator;
 
-#define PAGING_START 0x40920000
+#define PAGING_START 0x40250000
 #define DDR_SIZE 0x20000000 // 512MB
-#define MEMORY_SIZE (DDR_SIZE - 0x920000)
+#define MEMORY_SIZE (DDR_SIZE - 0x250000)
 
 void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_info) {
     printk("Memory size: %d\n", MEMORY_SIZE);
@@ -30,6 +30,9 @@ void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_
     printk("Free list: %p\n", alloc->free_list);
     printk("First page: %p\n", alloc->free_list->paddr);
     printk("First page next: %p\n", alloc->free_list->next);
+    printk("First page next paddr: %p\n", alloc->free_list->next->paddr);
+
+
 }
 
 void* alloc_page(struct page_allocator *alloc) {

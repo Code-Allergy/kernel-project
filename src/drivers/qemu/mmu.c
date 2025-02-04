@@ -28,14 +28,6 @@ uint32_t make_section_entry(uint32_t phys_addr) {
            | MMU_BUFFERABLE;                 // bufferable
 }
 
-uint32_t make_l1_page_table_entry(uint32_t phys_addr) {
-    return (phys_addr & 0xFFFFFC00)          // physical base address
-           | MMU_PAGE_DESCRIPTOR            // descriptor type bits
-           | MMU_AP_RW                      // access permissions
-           | MMU_CACHEABLE                  // cacheable
-           | MMU_BUFFERABLE;                 // bufferable
-}
-
 uint32_t make_small_page_kernel(uint32_t phys_addr) {
     return (phys_addr & 0xFFFFF000)          // physical base address
            | L2_SMALL_PAGE                  // descriptor type bits
@@ -75,24 +67,10 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
         return;
     }
 
-    // Map kernel section to L1 table page
-    l1_page_table[bootloader_info->kernel_entry >> 20] = make_section_entry(bootloader_info->kernel_entry);
-    // l1_page_table[0x5FFE0000 >> 20] = make_section_entry(0x5FFE0000);
-
-    // map the first 10 pages on and after the kernek as L1 table pages 1MB
-    for (int i = 0; i < 8; i++) {
-        l1_page_table[(bootloader_info->kernel_entry >> 20) + i] = make_section_entry(bootloader_info->kernel_entry + (i << 20));
-    }
-
     uintptr_t next_avail_addr = bootloader_info->kernel_entry + (8 << 20);
 
     // map all sections as L2 pages by default
     for (uint32_t section = 0; section < 4096; section++) {
-        // Check if this section is already initialized by the kernel mapping
-        if (!((l1_page_table[section] & 0x3) != MMU_PAGE_DESCRIPTOR)) {
-            printk("Skipping section %u\n", section);
-            continue;
-        }
 
         // Set up the L1 entry to point to the L2 table for this 1MB region.
         // The physical address of the L2 table must be aligned to 1KB.
@@ -120,51 +98,25 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
                                                     | MMU_SHAREABLE;
     }
 
-    // for (int i = 0; i < 4; i++) {
-    //     uint32_t virt_addr = DRAM_BASE + (i << 20);
-    //     uint32_t l1_index = virt_addr >> 20;
-    //     l1_page_table[l1_index] = (virt_addr & ~0xFFFFF) | MMU_PAGE_DESCRIPTOR | MMU_DOMAIN_KERNEL;
-
-    //     // Fill L2 table for this 1MB section
-    //     uint32_t *l2_table = &l2_tables[i];
-    //     for (int j = 0; j < 256; j++) {
-    //         uint32_t phys_addr = virt_addr + (j << 12);
-    //         l2_table[j] = phys_addr | L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE;
-    //     }
-    // }
-
-    /*
-     * Map UART0 as device memory using small pages.
-     *
-     * The UART0 region is assumed to be 0x1000 bytes.
-     */
+    uint32_t mmc_section = 0x01C0F000 >> 20;
+    uint32_t mmc_page_index = (0x01C0F000 & 0xFFFFF) >> 12;
+    for (uint32_t i = 0; i < 1; i++) { // Map 4KB for MMC
+        uint32_t phys_addr = 0x01C0F000 + (i << 12);
+        l2_tables[mmc_section][mmc_page_index + i] = phys_addr | L2_SMALL_PAGE
+                                                    | MMU_AP_RW
+                                                    | MMU_DEVICE_MEMORY
+                                                    | MMU_SHAREABLE;
+    }
 
 
-    // /*
-    //  * Now override the entries that cover the UART0 physical address range.
-    //  * The index inside the 1MB section is determined by:
-    //  *     (UART0_BASE & 0xFFFFF) >> 12
-    //  *
-    //  * Since the UART0 region is 0x1000 (4KB * 1) or possibly 4 pages (if 0x4000),
-    //  * adjust the count accordingly.
-    //  */
-    // uint32_t uart_page_index = (UART0_BASE & 0xFFFFF) >> 12;
-    // // For example, if UART0 spans 0x1000 bytes (one 4KB page), map one page:
-    // // If it spans more, adjust 'pages_to_map'
-    // uint32_t pages_to_map =  (0x1000) >> 12;  // 0x1000 / 0x1000 = 1 page.
-    // // In many cases UART devices might require several pages (e.g. 4 pages). Adjust:
-    // // uint32_t pages_to_map = 4;
+    if (bootloader_info->kernel_size > 1024*1024) {
+        printk("Kernel too large to fit in 1MB: TODO\n");
+        return;
+    }
 
-    // for (uint32_t i = 0; i < pages_to_map; i++) {
-    //     uint32_t phys_addr = UART0_BASE + (i << 12);
-    //     l2_tables[uart_section][uart_page_index + i] = phys_addr | L2_SMALL_PAGE
-    //                                                    | MMU_AP_RW
-    //                                                    | MMU_DEVICE_MEMORY
-    //                                                    | MMU_SHAREABLE;
-    // }
-    // printk("Mapped UART0 at section %u, pages %u-%u\n", uart_section,
-    //        uart_page_index, uart_page_index + pages_to_map - 1);
-
+    uint32_t kernel_section = bootloader_info->kernel_entry >> 20;
+    // l1_page_table[kernel_section] = set_domain_l1_page_table_entry((uint32_t)&l2_tables[kernel_section], MMU_DOMAIN_KERNEL);
+    l1_page_table[kernel_section] |= (MMU_DOMAIN_KERNEL << 5);
 }
 
 void mmu_enable() {
@@ -224,8 +176,6 @@ void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint
         // Update the L1 entry to point to our L2 table
         *l1_entry = ((uint32_t)l2_tables[l1_index] & ~0x3FF) | MMU_PAGE_DESCRIPTOR;
     }
-
-    printk("L1 ENTRY: %p\n", l1_entry);
     // --- Step 3: Get a pointer to the L2 table ---
     l2_page_table_t *l2_table = (l2_page_table_t *)(*l1_entry & ~0x3FF);
     
