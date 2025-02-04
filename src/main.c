@@ -5,6 +5,9 @@
 #include <kernel/uart.h>
 #include <kernel/paging.h>
 
+#include <kernel/heap.h>
+#include <kernel/mmu.h>
+
 #include <stdint.h>
 
 #include "drivers/qemu/intc.h"
@@ -54,6 +57,11 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
         printk("Invalid bootloader magic: %x\n", bootloader_info->magic);
         return -1;
     }
+    
+    
+    setup_stacks();
+
+
     intc_init();
     kernel_init();
 
@@ -61,15 +69,24 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
     enable_irqs();
 
     kernel_mmu_init(bootloader_info);
-    printk("MMU enabled!\n");
+
     init_page_allocator(&kpage_allocator, bootloader_info);
 
-    for (int i = 0; i < 30; i++) {
-        void* page = alloc_page(&kpage_allocator);
-        printk("Allocated page: %p\n", page);
-    }
+    kernel_heap_init();
 
-    printk("Kernel busy loop\n");
+    // void* page = alloc_page(&kpage_allocator);
+    // map_page(&kpage_allocator, 0xF0000000, (uint32_t) page, (uint32_t)(3 << 10));
+
+    // test out writing to the page
+    // *(uint32_t*) 0xF0000000 = 0xDEADBEEF;
+
+    // printk("Value at 0xF0000000: %x\n", *(uint32_t*) 0x8000);
+
+    // printk("Kernel busy loop\n");
+
+    // printk("res: %u\n", kernel_heap_curr);
+
+    // int i = 4;
 
 
     scheduler_init();

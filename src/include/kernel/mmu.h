@@ -1,12 +1,9 @@
-#ifndef ALLWINNER_A10_MMU_H
-#define ALLWINNER_A10_MMU_H
+#ifndef KERNEL_MMU_H
+#define KERNEL_MMU_H
+#include <stdint.h>
+#include <kernel/paging.h>
 
-
-// static inline void enable_mmu(void) {
-// updatte this when we add L2 page table
-#define PAGE_SIZE 0x100000
-
-// }
+#define PAGE_SIZE 4096
 
 // Basic Descriptors
 #define MMU_SECTION_DESCRIPTOR (2 << 0)  // Section descriptor (b10)
@@ -54,10 +51,9 @@
 #define MMU_S               (1 << 16)     // Shareable
 #define MMU_AP2            (1 << 15)     // Access Permission extension
 
-
-
 void mmu_init_page_table(bootloader_t* bootloader_info);
 void mmu_enable();
 void mmu_set_domains();
+void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint32_t flags);
 
-#endif // ALLWINNER_A10_MMU_H
+#endif // KERNEL_MMU_H

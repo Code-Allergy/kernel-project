@@ -8,6 +8,8 @@
 #include "int.h"
 #include "../../../team-repo/src/drivers/qemu/uart.h"
 
+// extern void setup_stacks(void);
+
 static struct irq_entry handlers[MAX_IRQ_HANDLERS] = {0};
 static uint32_t svc_handlers[NR_SYSCALLS] = {0};
 
@@ -34,7 +36,7 @@ void handle_svc_c(void) {
     printk("SVC handler\n");
 }
 
-void data_abort_handler() {
+void __attribute__((interrupt("ABORT"))) data_abort_handler() {
     uint32_t dfsr, dfar;
     asm volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(dfsr)); // DFSR
     asm volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar)); // DFAR
@@ -110,16 +112,7 @@ int intc_init() {
         : 
         : "r" (vbar_addr)
     );
-
-    // setup stacks for IRQ and SVC modes
-    __asm__ volatile(
-        "cps #0x12 \n"        /* IRQ mode */
-        "ldr sp, =irq_stack_top \n"
-        "cps #0x13 \n"        /* SVC mode */
-        "ldr sp, =svc_stack_top \n"
-        "cps #0x1F \n"        /* System mode */
-    );
-
+    
     // setup CSPR for IRQ mode
     __asm__ volatile(
         "mrs r0, cpsr \n"

@@ -37,12 +37,24 @@ SECTIONS {
 
     .stacks : {
         . = ALIGN(8);
+        abort_stack_bottom = .;
+        . += 0x1000;
+        abort_stack_top = .;
+        undef_stack_bottom = .;
+        . += 0x1000;
+        undef_stack_top = .;
         irq_stack_bottom = .;
         . += 0x1000;
         irq_stack_top = .;
+        fiq_stack_bottom = .;
+        . += 0x1000;
+        fiq_stack_top = .;
         svc_stack_bottom = .;
         . += 0x1000;
         svc_stack_top = .;
+        sys_stack_bottom = .;
+        . += 0x1000;
+        sys_stack_top = .;
     } > RAM
 
     /* The .stack section for the stack */
