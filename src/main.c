@@ -30,6 +30,7 @@
 #define PIC_IRQ_STATUS ((volatile uint32_t*) 0x1c20400)
 #define TIMER_IRQ  (1 << 22)
 
+extern void syscall_test(void);
 
 static inline void enable_irqs(void) {
     __asm__ volatile("cpsie i");

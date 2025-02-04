@@ -13,7 +13,11 @@ TARGET = tester.elf
 SOURCES = tester.S
 
 # Default target: build the binary
-all: $(TARGET)
+all: $(TARGET) tester.bin
+
+# Build the binary
+tester.bin: $(TARGET)
+	arm-none-eabi-objcopy -O binary $(TARGET) tester.bin
 
 $(TARGET): $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES)

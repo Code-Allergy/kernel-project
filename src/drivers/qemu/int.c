@@ -34,6 +34,14 @@ void handle_irq_c(void) {
 }
 
 void handle_svc_c(void) {
+    // get syscall number
+    uint32_t svc_number;
+
+    asm volatile("mov %0, r7" : "=r"(svc_number));
+
+    printk("SVC handler: %d\n", svc_number);
+
+
     printk("SVC handler\n");
 }
 

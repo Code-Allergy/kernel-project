@@ -25,6 +25,7 @@ SRC_DIR         = src
 BASE_INCLUDE    = $(SRC_DIR)/include
 DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
 DRIVERS_BASE    = drivers
+USERSPACE_DIR   = $(SRC_DIR)/userspace
 
 # Set flags
 CFLAGS = -Wall -Wextra -Wpedantic \
@@ -61,6 +62,9 @@ KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
+# Kernel userspace binaries
+KERNEL_BINARIES := $(wildcard $(SRC_DIR)/userspace/build/bin/*)
+
 # Git version
 GIT_VERSION = $(shell git describe --always --dirty)
 
@@ -79,7 +83,7 @@ ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) 
 DEP_FILES = $(ALL_OBJS:.o=.d)
 
 # Define build rules
-.PHONY: all clean qemu-run disassemble distclean
+.PHONY: all clean qemu-run disassemble distclean userspace
 
 all: $(OUTPUT_BIN) $(OUTPUT_IMG) disassemble
 
@@ -92,14 +96,15 @@ $(OUTPUT_BIN): $(OUTPUT_ELF)
 	@echo "[OBJCOPY] Creating binary $@"
 	$(OBJCOPY) -O binary $< $@
 
-$(OUTPUT_IMG): $(OUTPUT_BIN)
+$(OUTPUT_IMG): $(OUTPUT_BIN) userspace
 	@echo "[IMG] Creating disk image"
 	@$(MKDIR) $(@D)
 	qemu-img create -f raw $@ 64M
 	mkfs.fat -F 32 $@
 	mmd -i $@ ::/boot
+	mmd -i $@ ::/bin
 	mcopy -i $@ $< ::/boot/kernel.bin
-	mcopy -i $@ tester ::/bin
+	mcopy -i $@ $(KERNEL_BINARIES) ::/bin
 
 ################################################################################################
 # kernel Compilation rules
@@ -173,6 +178,14 @@ disassemble: $(OUTPUT_DIS)
 $(OUTPUT_DIS): $(OUTPUT_ELF)
 	@echo "[DISASSEMBLY] Generating $(OUTPUT_DIS)"
 	$(TOOLCHAIN)-objdump -d $< > $(OUTPUT_DIS)
+
+
+################################################################################################
+# Userspace
+################################################################################################
+userspace:
+	$(MAKE) -C $(USERSPACE_DIR)
+
 
 
 ################################################################################################
