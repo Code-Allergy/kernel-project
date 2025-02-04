@@ -36,7 +36,7 @@ static inline void enable_irqs(void) {
     __asm__ volatile("cpsie i");
 }
 
-#define TEST_FILE "bin"
+#define TEST_FILE "bin/tester"
 
 int kernel_init() {
     // timer_init(KERNEL_HEARTBEAT_TIMER);
@@ -90,6 +90,10 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
 
     // read the file into the code page
     printk("file size = %d\n", userspace_application.file_size);
+    if (userspace_application.file_size == 0) {
+        printk("Empty file\n");
+        while(1);
+    }
 
     // set up the page table for user pages
     map_page(&kpage_allocator, 0x80000000, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);

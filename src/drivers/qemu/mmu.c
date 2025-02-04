@@ -3,20 +3,6 @@
 
 #include <kernel/printk.h>
 #include <kernel/mmu.h>
-
-// Align to 16KB (ARMv7 requirement for TTBR0)
-#define MMU_TABLE_ALIGN  __attribute__((aligned(16384)))
-
-#define MMU_SECTION_DESCRIPTOR (2 << 0)     // Section descriptor (b10)
-#define MMU_DOMAIN_KERNEL      0            // Domain 0 for kernel
-#define MMU_AP_RW              (3 << 10)    // Read/write access
-#define MMU_CACHEABLE          (1 << 3)     // Enable caching
-#define MMU_BUFFERABLE         (1 << 2)     // Enable write buffering
-#define MMU_DEVICE_MEMORY (0 << 3)          // Disable caching for device memory
-#define MMU_SHAREABLE (1 << 10)             // Mark as shareable
-
-#define DACR_CLIENT_DOMAIN0 (1 << 0)
-
 #define UART0_BASE 0x01C28000
 
 uint32_t make_section_entry(uint32_t phys_addr) {
@@ -50,9 +36,7 @@ void mmu_set_domains(void) {
 }
 
 // L1 Page Table (4096 entries, 4KB each for 4GB address space)
-static uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
-
-typedef uint32_t l2_page_table_t[256];
+uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 void mmu_init_page_table(bootloader_t* bootloader_info) {

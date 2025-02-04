@@ -32,8 +32,8 @@
 #define MMU_NON_CACHEABLE   (0 << 3)     // Disable caching
 
 // Shareability and Execute Permissions
-#define MMU_SHAREABLE       (1 << 16)    // Mark as shareable
-#define MMU_NON_SHAREABLE   (0 << 16)    // Mark as non-shareable
+#define MMU_SHAREABLE       (1 << 10)    // Mark as shareable
+#define MMU_NON_SHAREABLE   (1 << 10)    // Mark as non-shareable
 #define MMU_EXECUTE_NEVER   (1 << 4)     // Prevent instruction fetches
 
 // Memory Region Types
@@ -51,9 +51,17 @@
 #define MMU_S               (1 << 16)     // Shareable
 #define MMU_AP2            (1 << 15)     // Access Permission extension
 
+#define MMU_TABLE_ALIGN  __attribute__((aligned(16384)))
+
 void mmu_init_page_table(bootloader_t* bootloader_info);
 void mmu_enable();
 void mmu_set_domains();
 void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint32_t flags);
+
+
+typedef uint32_t l2_page_table_t[256];
+// // L1 Page Table (4096 entries, 4KB each for 4GB address space)
+// extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+// extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 #endif // KERNEL_MMU_H

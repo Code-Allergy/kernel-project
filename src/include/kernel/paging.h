@@ -9,6 +9,9 @@ struct page {
     struct page *next;
     uint32_t flags;
     void* paddr;
+
+    // pointer to the page table entry
+    uint32_t* pte;
 };
 
 struct page_allocator {

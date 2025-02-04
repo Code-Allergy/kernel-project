@@ -83,13 +83,6 @@ irq_handler:
     subs pc, lr, #0       /* Return from exception */
 
 swi_handler:
-        @ Save registers
-    STMFD   SP!, {R0-R3, LR}  @ Push R0-R3 and return address
-
-    @ Read the SVC instruction from LR - 4
-    SUB     LR, LR, #4
-    LDR     R0, [LR]           @ Load SVC instruction
-    BIC     R0, R0, #0xFF000000 @ Extract syscall number (last byte)
 
     @ Call the syscall dispatcher
     BL      handle_svc_c
@@ -99,3 +92,12 @@ swi_handler:
 
 prefetch_abort_handler:
     b prefetch_abort_c
+
+old_swi:
+        @ Save registers
+    STMFD   SP!, {R0-R3, LR}  @ Push R0-R3 and return address
+
+    @ Read the SVC instruction from LR - 4
+    SUB     LR, LR, #4
+    LDR     R0, [LR]           @ Load SVC instruction
+    BIC     R0, R0, #0xFF000000 @ Extract syscall number (last byte)

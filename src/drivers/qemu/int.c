@@ -39,10 +39,23 @@ void handle_svc_c(void) {
 
     asm volatile("mov %0, r7" : "=r"(svc_number));
 
+    if (svc_number == 0) {
+        char* user_char_ptr;
+        uint32_t user_char_len;
+        asm volatile("mov %0, r0" : "=r"(user_char_ptr));
+        asm volatile("mov %0, r1" : "=r"(user_char_len));
+
+        printk("User char addr: %p\n", user_char_ptr);
+        printk("User char ptr: %s\n", user_char_ptr);
+        printk("User char len: %d\n", user_char_len);
+        
+    }
+
+
     printk("SVC handler: %d\n", svc_number);
 
 
-    printk("SVC handler\n");
+    while(1);
 }
 
 void __attribute__((interrupt("ABORT"))) data_abort_handler() {

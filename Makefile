@@ -28,7 +28,7 @@ DRIVERS_BASE    = drivers
 USERSPACE_DIR   = $(SRC_DIR)/userspace
 
 # Set flags
-CFLAGS = -Wall -Wextra -Wpedantic \
+CFLAGS := -Wall -Wextra -Wpedantic \
          -mcpu=cortex-a8 -marm \
          -ffreestanding -nostdlib \
          -fno-builtin -fno-common \
@@ -63,7 +63,7 @@ DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFO
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
 # Kernel userspace binaries
-KERNEL_BINARIES := $(wildcard $(SRC_DIR)/userspace/build/bin/*)
+KERNEL_BINARIES = $(wildcard $(SRC_DIR)/userspace/build/bin/*)
 
 # Git version
 GIT_VERSION = $(shell git describe --always --dirty)
@@ -194,6 +194,7 @@ userspace:
 clean:
 	@echo "[CLEAN] Removing build artifacts"
 	$(RM) $(BUILD_DIR)
+	$(MAKE) -C $(USERSPACE_DIR) clean
 
 distclean: clean
 	$(RM) $(OUTPUT_IMG) $(DEP_DIR)

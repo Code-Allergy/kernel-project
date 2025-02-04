@@ -56,3 +56,13 @@ void free_page(struct page_allocator *alloc, void *ptr) {
     alloc->free_list = page;
     alloc->free_pages++;
 }
+
+int copy_from_user(void *dst, void *src, uint32_t size) {
+    // for now, just works like memcpy, but we can add checks later
+    return memcpy(dst, src, size);
+}
+
+int copy_to_user(void *dst, void *src, uint32_t size) {
+    // for now, just works like memcpy, but we can add checks later
+    return memcpy(dst, src, size);
+}
