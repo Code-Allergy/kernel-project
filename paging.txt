@@ -9,3 +9,35 @@ LV2: Fine page tables:
 Large Pages (64KB)
 Small Pages (4KB)
 Tiny Pages (1KB) (ARMv6 feature, rarely used in ARMv7)
+
+31       20 19          0
+[Section ID][Offset within section]
+
+
+Address Space Division
+
+
+32-bit address space is 4GB (2^32 bytes)
+Page table divides this into 4096 sections
+Each section is 1MB (2^20 bytes)
+
+
+Calculation Breakdown
+
+
+i << 20 converts the page table index to a base address
+Example:
+
+i = 0x400 → 0x400 << 20 = 0x40000000
+This matches the 1MB section size and base address
+
+
+
+
+Page Table Entry Structure
+
+
+Top 12 bits (31:20) used for section identification
+Bottom 20 bits used for offset within the section
+i << 20 generates the base address for each 1MB section
+

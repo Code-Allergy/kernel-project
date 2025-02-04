@@ -2,12 +2,14 @@
 #include <kernel/printk.h>
 #include <kernel/int.h>
 #include <kernel/uart.h>
+#include <kernel/syscall.h>
 
 #include "intc.h"
 #include "int.h"
 #include "../../../team-repo/src/drivers/qemu/uart.h"
 
 static struct irq_entry handlers[MAX_IRQ_HANDLERS] = {0};
+static uint32_t svc_handlers[NR_SYSCALLS] = {0};
 
 /* Initial vector table for ARM, memory is pointed to here in register */
 extern uint32_t _vectors[];
@@ -26,6 +28,18 @@ void handle_irq_c(void) {
             pending &= pending - 1;
         }
     }
+}
+
+void handle_svc_c(void) {
+    printk("SVC handler\n");
+}
+
+void data_abort_handler() {
+    uint32_t dfsr, dfar;
+    asm volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(dfsr)); // DFSR
+    asm volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar)); // DFAR
+    printk("Data abort! Addr: 0x%x, Status: 0x%x\n", dfar, dfsr);
+    while (1); // Halt
 }
 
 void uart_handler(int irq, void *data) {

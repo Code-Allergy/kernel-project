@@ -45,7 +45,7 @@ ASFLAGS = -mcpu=cortex-a8 -g
 
 
 LDFLAGS = -T linker.ld
-LDFLAGS += --gc-sections --print-memory-usage
+# LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 
 

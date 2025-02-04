@@ -3,6 +3,7 @@
 #include <kernel/printk.h>
 #include <kernel/sched.h>
 #include <kernel/uart.h>
+#include <kernel/paging.h>
 
 #include <stdint.h>
 
@@ -30,30 +31,20 @@ static inline void enable_irqs(void) {
     __asm__ volatile("cpsie i");
 }
 
-
-
-uint32_t read_vbar(void) {
-    uint32_t vbar;
-    __asm__ volatile("mrc p15, 0, %0, c12, c0, 0" : "=r"(vbar));
-    return vbar;
-}
-
-// void intc_init() {
-//     PIC->ENABLE[1] |= (1 << (UART_IRQ - 32));
-//     PIC->MASK[1] &= ~(1 << (UART_IRQ - 32));
-
-//     PIC->PROT_EN = 0x01;  // Enable protection
-//     PIC->NMI_CTRL = 0x00;
-// }
-
-
 int kernel_init() {
-    timer_init(KERNEL_HEARTBEAT_TIMER);
+    // timer_init(KERNEL_HEARTBEAT_TIMER);
     
     request_irq(1, uart_handler, NULL);
 
     
     return 0;
+}
+
+void kernel_mmu_init(bootloader_t* bootloader_info) {
+    mmu_init_page_table(bootloader_info); // Populate L1 table
+    mmu_set_domains();     // Configure domains
+    mmu_enable();          // Load TTBR0 and enable MMU
+    printk("MMU enabled!\n");
 }
 
 
@@ -63,17 +54,24 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
         printk("Invalid bootloader magic: %x\n", bootloader_info->magic);
         return -1;
     }
-    // intc_init();
-    
     intc_init();
     kernel_init();
 
     uart_init_interrupts();
     enable_irqs();
 
-    printk("Kernel busy loop\n");
-    while(1) {
-        asm volatile("wfi");
+    kernel_mmu_init(bootloader_info);
+
+    init_page_allocator(&kpage_allocator, bootloader_info);
+
+    for (int i = 0; i < 30; i++) {
+        void* page = alloc_page(&kpage_allocator);
+        printk("Allocated page: %p\n", page);
     }
+
+    printk("Kernel busy loop\n");
+
+
+    scheduler_init();
     __builtin_unreachable();
 }

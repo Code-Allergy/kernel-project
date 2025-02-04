@@ -24,9 +24,7 @@ fiq_addr:      .word fiq_handler
 .section .text
 reset_handler:
 undef_handler:
-swi_handler:
 prefetch_abort_handler:
-data_abort_handler:
 fiq_handler:
     b .  /* Infinite loop for unhandled exceptions */
 
@@ -41,4 +39,20 @@ irq_handler:
     pop {r0, r1-r12, lr}  /* Restore context and SPSR */
     msr spsr_cxsf, r0     /* Restore SPSR */
     subs pc, lr, #0       /* Return from exception */
+
+swi_handler:
+        @ Save registers
+    STMFD   SP!, {R0-R3, LR}  @ Push R0-R3 and return address
+
+    @ Read the SVC instruction from LR - 4
+    SUB     LR, LR, #4
+    LDR     R0, [LR]           @ Load SVC instruction
+    BIC     R0, R0, #0xFF000000 @ Extract syscall number (last byte)
+
+    @ Call the syscall dispatcher
+    BL      handle_svc_c
+
+    @ Restore registers and return
+    LDMFD   SP!, {R0-R3, PC}^  @ Return from SVC
+
 
