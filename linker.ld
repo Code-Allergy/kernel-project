@@ -1,9 +1,14 @@
 /* linker.ld */
 ENTRY(kernel_main)  /* Entry point */
 
+MEMORY
+{
+    RAM (rwx) : ORIGIN = 0x40120000, LENGTH = 0x4000000 /* 64MB */
+}
+
+
 SECTIONS {
-    /* Set the memory regions: we are using 0x80000000 as the start address */
-    . = 0x40120000; /* Start at 0x80000000 */
+    . = ORIGIN(RAM);
 
     /* The .text section holds executable code */
     .text : {
@@ -11,6 +16,12 @@ SECTIONS {
 
         *(.text*)    /* Include all .text sections (code) */
     }
+    
+    .vectors : {
+        KEEP(*(.vectors))  /* Force inclusion of vector section */
+        . = ALIGN(32);     /* Mandatory for VBAR alignment */
+        _vvectors = .;     /* Create symbol for VBAR initialization */
+    } > RAM
 
     /* The .data section holds initialized data */
     .data : {
@@ -21,6 +32,18 @@ SECTIONS {
     .bss : {
         *(.bss)     /* Include all .bss sections (uninitialized variables) */
     }
+
+
+
+    .stacks : {
+        . = ALIGN(8);
+        irq_stack_bottom = .;
+        . += 0x1000;
+        irq_stack_top = .;
+        svc_stack_bottom = .;
+        . += 0x1000;
+        svc_stack_top = .;
+    } > RAM
 
     /* The .stack section for the stack */
     .stack : {

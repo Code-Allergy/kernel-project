@@ -14,6 +14,7 @@ OUTPUT_DIS  = $(BUILD_DIR)/disassembly.txt
 # Toolchain executables
 CC          = $(TOOLCHAIN)-gcc
 LD          = $(TOOLCHAIN)-ld
+AS		  	= $(TOOLCHAIN)-as
 OBJCOPY     = $(TOOLCHAIN)-objcopy
 MKDIR       = mkdir -p
 RM          = rm -rf
@@ -40,18 +41,23 @@ CFLAGS = -Wall -Wextra -Wpedantic \
 
 CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
+ASFLAGS = -mcpu=cortex-a8 -g
 
 
 LDFLAGS = -T linker.ld
-# LDFLAGS += --gc-sections --print-memory-usage
+LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
+
+
 
 # My kernel code
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
+KERNEL_ASM_SRCS    = $(wildcard $(SRC_DIR)/*.S)
 DRIVER_SRCS        = $(wildcard $(DRIVERS_DIR)/*.c)
 BASE_DRIVER_SRCS   = $(wildcard $(SRC_DIR)/$(DRIVERS_BASE)/*.c)
 
 KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS))
+KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_ASM_SRCS))
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
@@ -69,11 +75,11 @@ TEAM_DRIVER_OBJS        = $(patsubst $(TEAM_REPO)/$(DRIVERS_DIR)/%.c,$(BUILD_DIR
 TEAM_BASE_DRIVER_OBJS   = $(patsubst $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/team/drivers/%.o,$(TEAM_BASE_DRIVER_SRCS))
 
 # ALL team repo objects
-ALL_OBJS = $(KERNEL_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(TEAM_CORE_OBJS) $(TEAM_DRIVER_OBJS) $(TEAM_BASE_DRIVER_OBJS)
+ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(TEAM_CORE_OBJS) $(TEAM_DRIVER_OBJS) $(TEAM_BASE_DRIVER_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
 
 # Define build rules
-.PHONY: all clean qemu-run disassemble
+.PHONY: all clean qemu-run disassemble distclean
 
 all: $(OUTPUT_BIN) $(OUTPUT_IMG) disassemble
 
@@ -91,14 +97,37 @@ $(OUTPUT_IMG): $(OUTPUT_BIN)
 	@$(MKDIR) $(@D)
 	qemu-img create -f raw $@ 64M
 	mkfs.fat -F 32 $@
-	mcopy -i $@ $< ::/
+	mmd -i $@ ::/boot
+	mcopy -i $@ $< ::/boot/kernel.bin
 
-# Compilation rules
+################################################################################################
+# kernel Compilation rules
+################################################################################################
 $(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@echo "[CC] Kernel: $<"
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
+	@echo "Kernel ASM: $<"
+	$(CC) $(IFLAGS) $(CFLAGS) -E $< -o $(BUILD_DIR)/kernel/$*.i
+	$(AS) $(ASFLAGS) $(BUILD_DIR)/kernel/$*.i -o $@
+
+
+$(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)
+	@echo "[CC] Kernel Platform Drivers: $<"
+	@$(MKDIR) $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/drivers/%.o: $(SRC_DIR)/$(DRIVERS_BASE)/%.c | $(BUILD_DIR)
+	@echo "[CC] Kernel Base Drivers: $<"
+	@$(MKDIR) $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+
+################################################################################################
+# Team repo compilation rules
+################################################################################################
 $(BUILD_DIR)/team/core/%.o: $(TEAM_REPO)/$(SRC_DIR)/%.c | $(BUILD_DIR)
 	@echo "[CC] Team Core: $<"
 	@$(MKDIR) $(@D)
@@ -114,12 +143,20 @@ $(BUILD_DIR)/team/drivers/%.o: $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/%.c | $(B
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+
+################################################################################################
 # Build directory creation
+################################################################################################
+
 $(BUILD_DIR):
 	@$(MKDIR) $@
 
+
+################################################################################################
 # Dependency inclusion
+################################################################################################
 -include $(DEP_FILES)
+
 
 
 
@@ -127,16 +164,31 @@ $(TEAM_REPO):
 	$(MAKE) -C $(TEAM_REPO)
 
 
+################################################################################################
+# Debug disassembly
+################################################################################################
+disassemble: $(OUTPUT_DIS)
+
 $(OUTPUT_DIS): $(OUTPUT_ELF)
 	@echo "[DISASSEMBLY] Generating $(OUTPUT_DIS)"
 	$(TOOLCHAIN)-objdump -d $< > $(OUTPUT_DIS)
 
-disassemble: $(OUTPUT_DIS)
 
-# Clean up generated files
+################################################################################################
+# Clean up
+################################################################################################
 clean:
 	@echo "[CLEAN] Removing build artifacts"
 	$(RM) $(BUILD_DIR)
+
+distclean: clean
+	$(RM) $(OUTPUT_IMG) $(DEP_DIR)
+	$(MAKE) -C $(TEAM_REPO) clean
+
+
+################################################################################################
+# Run in QEMU
+################################################################################################
 
 qemu-run: $(OUTPUT_IMG)
 	$(MAKE) -C $(TEAM_REPO) qemu-run QEMU_PATH=$(QEMU_PATH) QEMU_SD_IMG=$(realpath $(OUTPUT_IMG)) PLATFORM=QEMU

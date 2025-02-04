@@ -1,0 +1,11 @@
+2 level paging
+
+LV1: Section & Coarse page tables 
+- 1MB sections - Direct mappings in a single-level lookup.
+- Coarse Page Tables: Point to Level 2 page tables.
+
+
+LV2: Fine page tables:
+Large Pages (64KB)
+Small Pages (4KB)
+Tiny Pages (1KB) (ARMv6 feature, rarely used in ARMv7)
