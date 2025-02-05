@@ -16,9 +16,9 @@
 
 
 // Domain Settings
-#define MMU_DOMAIN_KERNEL    0           // Domain 0 for kernel
-#define DACR_CLIENT_DOMAIN0  (1 << 0)    // Client access for domain 0
-#define DACR_MANAGER_DOMAIN0 (3 << 0)    // Manager access for domain 0
+#define MMU_DOMAIN_KERNEL    1           // Domain 1 for kernel
+#define DACR_CLIENT_DOMAIN1  (1 << 1)    // Client access for domain 1
+#define DACR_MANAGER_DOMAIN1 (3 << 1)    // Manager access for domain 1
 
 // Access Permissions
 #define MMU_AP_RW           (3 << 10)    // Read/write access
@@ -53,9 +53,6 @@
 
 #define MMU_TABLE_ALIGN  __attribute__((aligned(16384)))
 
-void mmu_init_page_table(bootloader_t* bootloader_info);
-void mmu_enable();
-void mmu_set_domains();
 void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 uint32_t alloc_l1_table(struct page_allocator *alloc);
 void kernel_mmu_init(bootloader_t* bootloader_info);

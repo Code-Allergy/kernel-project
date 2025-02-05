@@ -61,12 +61,45 @@ void handle_svc_c(void) {
     while(1);
 }
 
-void data_abort_handler() {
-    uint32_t dfsr, dfar;
-    asm volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(dfsr)); // DFSR
-    asm volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar)); // DFAR
-    printk("Data abort! Addr: %p, Status: %p\n", dfar, dfsr);
-    while (1); // Halt
+void data_abort_handler(uint32_t lr) {
+    uint32_t dfsr, dfar, status, domain;
+
+    // Read the Fault Status Register (DFSR)
+    __asm__ volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(dfsr));
+    // Read the Fault Address Register (DFAR)
+    __asm__ volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar));
+
+    // Extract status bits (bits [4:0] and bit [10])
+    status = (dfsr & 0b1111) | ((dfsr >> 6) & 0b10000);
+    domain = (dfsr >> 4) & 0xF;  // Fault domain
+
+    printk("Data Abort at address: 0x%08x\n", dfar);
+    printk("Fault Status: 0x%02x (Domain: %d)\n", status, domain);
+
+    switch (status) {
+        case 0b00001: printk("Alignment fault\n"); break;
+        case 0b00011: printk("Debug event\n"); break;
+        case 0b00100: printk("Instruction cache maintenance fault\n"); break;
+        case 0b01100: printk("Translation fault (Level 1)\n"); break;
+        case 0b01110: printk("Translation fault (Level 2)\n"); break;
+        case 0b01000: printk("Access flag fault (Level 1)\n"); break;
+        case 0b01010: printk("Access flag fault (Level 2)\n"); break;
+        case 0b00110: printk("Domain fault (Level 1)\n"); break;
+        case 0b00111: printk("Domain fault (Level 2)\n"); break;
+        case 0b01101: printk("Permission fault (Level 1)\n"); break;
+        case 0b01111: printk("Permission fault (Level 2)\n"); break;
+        case 0b01001: printk("Synchronous External Abort\n"); break;
+        case 0b01011: printk("TLB conflict abort\n"); break;
+        case 0b10100: printk("Lockdown fault\n"); break;
+        case 0b10110: printk("Coprocessor fault\n"); break;
+        case 0b00000: printk("Unknown fault\n"); break;
+        default: printk("Reserved fault status\n"); break;
+    }
+
+    printk("Returning to LR: 0x%08x\n", lr);
+
+    // Kernel panic or recovery logic
+    while (1);
 }
 
 void prefetch_abort_c() {
@@ -89,7 +122,7 @@ void uart_handler(int irq, void *data) {
     }
 
     // Acknowledge interrupt in INTC (platform-specific)
-    INTC->IRQ_PEND[0] = (irq << 1); 
+    INTC->IRQ_PEND[0] = (irq << 1);
 
     printk("IRQ %d: UART fired!\n", irq);
 }
@@ -128,15 +161,15 @@ void handle_undefined(uint32_t esr, process_t* p) {
     const uint32_t iss = esr & 0x1FFFFFF;
 
     // Log exception details
-    printk("Undefined Instruction in PID %d at %p\n", 
+    printk("Undefined Instruction in PID %d at %p\n",
            p->pid, p->regs.pc);
     printk("Instruction: %p\n", *(uint32_t*)p->regs.pc);
-    printk("ESR: %p (EC=%p IL=%d ISS=%p)\n", 
+    printk("ESR: %p (EC=%p IL=%d ISS=%p)\n",
            esr, ec, il, iss);
 
     // Mark process as killed
     p->state = PROCESS_KILLED;
-    
+
     // Optional: Dump register state
     #ifdef DEBUG
     dump_registers(&p->regs);
@@ -144,10 +177,10 @@ void handle_undefined(uint32_t esr, process_t* p) {
 }
 
 
-int intc_init() {
+int intc_init(void) {
     uint32_t vbar_addr = (uint32_t)_vectors;
     if(vbar_addr & 0x1F) {
-        printk("VBAR unaligned! Fixing 0x%08x → 0x%08x\n", 
+        printk("VBAR unaligned! Fixing 0x%08x → 0x%08x\n",
                vbar_addr, vbar_addr & ~0x1F);
         vbar_addr &= ~0x1F;
         return -1;
@@ -156,7 +189,7 @@ int intc_init() {
         "mcr p15, 0, %0, c12, c0, 0 \n"  /* Write VBAR */
         "dsb \n"
         "isb \n"
-        : 
+        :
         : "r" (vbar_addr)
     );
 

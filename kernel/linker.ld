@@ -16,7 +16,7 @@ SECTIONS {
 
         *(.text*)    /* Include all .text sections (code) */
     }
-    
+
     .vectors : {
         KEEP(*(.vectors))  /* Force inclusion of vector section */
         . = ALIGN(32);     /* Mandatory for VBAR alignment */
@@ -27,13 +27,6 @@ SECTIONS {
     .data : {
         *(.data)    /* Include all .data sections (initialized variables) */
     }
-
-    /* The .bss section holds uninitialized data */
-    .bss : {
-        *(.bss)     /* Include all .bss sections (uninitialized variables) */
-    }
-
-
 
     .stacks : {
         . = ALIGN(8);
@@ -57,9 +50,11 @@ SECTIONS {
         sys_stack_top = .;
     } > RAM
 
-    /* The .stack section for the stack */
-    .stack : {
-        . = ALIGN(8);
-        *(.stack)
-    }
+    /* The .bss section holds uninitialized data */
+    .bss : {
+        __bss_start = .;
+        *(.bss*)
+        *(COMMON)
+        __bss_end = .;
+    } > RAM
 }

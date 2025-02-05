@@ -17,10 +17,7 @@
           pkgs.gcc-arm-embedded
           pkgs.util-linux
           pkgs.qemu
-          # pkgs.arm-none-eabi-binutils
-          # pkgs.arm-none-eabi-gcc
-          # pkgs.arm-none-eabi-newlib
-          # pkgs.qemu
+          pkgs.bear
         ];
 
         # Optionally, you can set environment variables if needed by your build system:

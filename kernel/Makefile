@@ -46,6 +46,8 @@ CFLAGS += -fstack-protector-strong -fno-stack-protector
 
 CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
+CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
+
 ASFLAGS = -mcpu=cortex-a8 -g
 
 

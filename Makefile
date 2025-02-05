@@ -58,7 +58,7 @@ $(SDCARD_BUILD_DIR)/$(SDCARD_IMAGE_NAME): kernel bootloader userspace
 	@mcopy -i $@ $(USERSPACE_BUILD)/elf/* ::$(SDCARD_USERSPACE_ELF)
 	@echo "SD card image created at $@"
 
-kernel: 
+kernel:
 	@$(MAKE) -C $(KERNEL_DIR) BUILD_DIR=$(BUILD_DIR) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU) 1> /dev/null
 
 bootloader:
@@ -71,9 +71,18 @@ qemu: sdcard
 	$(QEMU_PATH)qemu-system-arm -m 512M -M cubieboard \
 	-cpu cortex-a8 -drive if=sd,format=raw,file=$(OUTPUT_IMG) \
 	-serial mon:stdio -nographic \
-	-d guest_errors,unimp \
+	-d guest_errors,unimp,int \
 	-kernel $(BOOTLOADER_BIN)
 
 
+
+CLEAN_LABEL = [\033[0;32mCLEAN\033[0m]
 clean:
-	$(RM) $(BUILD_DIR)
+	@echo "[CLEAN] Cleaning up build directory"
+	@$(RM) $(BUILD_DIR)
+	@echo "[CLEAN] Cleaning up kernel"
+	@$(MAKE) -C $(KERNEL_DIR) clean 1> /dev/null
+	@echo "[CLEAN] Cleaning up bootloader"
+	@$(MAKE) -C $(BOOTLOADER_DIR) clean 1> /dev/null
+	@echo "[CLEAN] Cleaning up userspace"
+	@$(MAKE) -C $(USERSPACE_DIR) clean 1> /dev/null

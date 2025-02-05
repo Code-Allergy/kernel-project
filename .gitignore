@@ -1,5 +1,6 @@
 build/
 .out
 output.txt
-
+.cache
+compile_commands.json
 .direnv/

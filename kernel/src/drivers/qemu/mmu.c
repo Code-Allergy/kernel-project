@@ -6,7 +6,14 @@
 #include <kernel/string.h>
 #define UART0_BASE 0x01C28000
 
+extern uint32_t __bss_end;
+
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
+
+#define SECTION_INDEX(addr) ((addr) >> 20)
+#define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
+
+#define L2_DEVICE_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
 
 uint32_t make_section_entry(uint32_t phys_addr) {
     return (phys_addr & 0xFFF00000)          // physical base address
@@ -30,11 +37,12 @@ void mmu_set_domains(void) {
     uint32_t dacr = 0;
     // Domain 0: client (01)
     dacr |= (0x1 << (0 * 2));
-    // Domains 1-15: manager (11)
-    for (int d = 1; d < 16; d++) {
+    dacr |= (0x1 << (1 * 2));
+    // Domains 2-15: manager (11)
+    for (int d = 2; d < 16; d++) {
         dacr |= (0x3 << (d * 2));
     }
-    
+
     asm volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
 }
 
@@ -42,35 +50,16 @@ void mmu_set_domains(void) {
 uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
-void mmu_init_page_table(bootloader_t* bootloader_info) {
+int mmu_init_page_table(bootloader_t* bootloader_info) {
     /* Verify page table alignment */
     if (((uintptr_t)l1_page_table & 0x3FFF) != 0) {
         printk("Page table not 16KB aligned\n");
-        return;
+        return -1;
     }
 
     if (((uintptr_t)l2_tables & 0x3FF) != 0) {
         printk("L2 tables not 1KB aligned\n");
-        return;
-    }
-
-    // map all sections as L2 pages by default
-    for (uint32_t section = 0; section < 4096; section++) {
-
-        // Set up the L1 entry to point to the L2 table for this 1MB region.
-        // The physical address of the L2 table must be aligned to 1KB.
-        l1_page_table[section] = ((uint32_t)&l2_tables[section] & ~0x3FF)
-                                | MMU_PAGE_DESCRIPTOR;
-        
-        // Fill in all 256 L2 entries for this section.
-        for (uint32_t page = 0; page < 256; page++) {
-            uint32_t phys_addr = (section << 20) | (page << 12);
-            l2_tables[section][page] = phys_addr | L2_SMALL_PAGE
-                                        | MMU_AP_RW
-                                        | MMU_SHAREABLE
-                                        | MMU_CACHEABLE
-                                        | MMU_BUFFERABLE;
-        }
+        return -1;
     }
 
     if (bootloader_info->kernel_size > 1024*1024) {
@@ -78,44 +67,38 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
         return;
     }
 
-    uint32_t uart_section = UART0_BASE >> 20;
-    uint32_t uart_page_index = (UART0_BASE & 0xFFFFF) >> 12;
-    for (uint32_t i = 0; i < 1; i++) { // Map 4KB for UART
-        uint32_t phys_addr = UART0_BASE + (i << 12);
-        l2_tables[uart_section][uart_page_index + i] = phys_addr | L2_SMALL_PAGE
-                                                    | MMU_AP_RW
-                                                    | MMU_DEVICE_MEMORY
-                                                    | MMU_SHAREABLE;
+    // map all sections as L2 pages by default
+    for (uint32_t section = 0; section < 4096; section++) {
+        // Set up the L1 entry to point to the L2 table for this 1MB region.
+        // The physical address of the L2 table must be aligned to 1KB.
+        l1_page_table[section] = ((uint32_t)&l2_tables[section] & ~0x3FF)
+                                | MMU_PAGE_DESCRIPTOR;
     }
 
-    uint32_t mmc_section = 0x01C0F000 >> 20;
-    uint32_t mmc_page_index = (0x01C0F000 & 0xFFFFF) >> 12;
-    for (uint32_t i = 0; i < 1; i++) { // Map 4KB for MMC
-        uint32_t phys_addr = 0x01C0F000 + (i << 12);
-        l2_tables[mmc_section][mmc_page_index + i] = phys_addr | L2_SMALL_PAGE
-                                                    | MMU_AP_RW
-                                                    | MMU_DEVICE_MEMORY
-                                                    | MMU_SHAREABLE;
+    l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+    // Map 4KB for MMC0
+    l2_tables[SECTION_INDEX(0x01C0F000)][PAGE_INDEX(0x01C0F000)] = 0x01C0F000 | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+    // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
+    l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+
+    printk("BSS_END: %p\n", &__bss_end);
+    for (uint32_t addr = KERNEL_ENTRY; addr < (uint32_t)&__bss_end; addr += 4096) {
+        map_page(l1_page_table, (void*)addr, (void*)addr,
+                L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE | (MMU_DOMAIN_KERNEL << 5));
     }
 
-    // 
-    // if (bootloader_info->kernel_size > 1024*1024) {
-    //     printk("Kernel too large to fit in 1MB: TODO\n");
-    //     return;
-    // }
-
-    uint32_t kernel_section = bootloader_info->kernel_entry >> 20;
-    // l1_page_table[kernel_section] = set_domain_l1_page_table_entry((uint32_t)&l2_tables[kernel_section], MMU_DOMAIN_KERNEL);
-    l1_page_table[kernel_section] |= (MMU_DOMAIN_KERNEL << 5);
+    return 0;
 }
 
-void mmu_enable() {
+void mmu_enable(void) {
     // Load TTBR0 with the physical address of the L1 table
     uint32_t ttbr0 = (uint32_t)l1_page_table;
-    asm volatile("mcr p15, 0, %0, c2, c0, 0" : : "r"(ttbr0));
-    asm volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(0)); // DACR
-    // TODO: disable this, this is for testing. this disables DACR, we need to setup domains for the kernel and other regions.
-    asm volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(0x33333333));
+    asm volatile(
+        "mcr p15, 0, %0, c2, c0, 0 \n" // TTBR0
+        "dsb \n"
+        "isb \n"
+        : : "r"(ttbr0)
+    );
 
     // Invalidate TLB and caches
     asm volatile("mcr p15, 0, %0, c8, c7, 0" : : "r"(0)); // Invalidate TLB
@@ -130,7 +113,7 @@ void mmu_enable() {
     sctlr |= (1 << 0)  // Enable MMU
            | (1 << 2)  // Enable D-cache
            | (1 << 12) // Enable I-cache
-        //    | (1 << 11) // Enable branch prediction
+           | (1 << 11) // Enable branch prediction
            ;
     asm volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr));
 
@@ -173,15 +156,15 @@ void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
     // --- L2 Table Management ---
     uint32_t *l2_table;
-    
+
     if ((*l1_entry & 0x3) != 0x1) {        // Check if L2 table exists
         // Allocate new L2 table if needed
         l2_table = alloc_page(&kpage_allocator);
         if (!l2_table) panic("Out of L2 tables");
-        
+
         // Initialize L2 table (4096 entries * 4 bytes = 16KB)
         memset(l2_table, 0, 4096 * sizeof(uint32_t));
-        
+
         // Update L1 entry (Section 3.5.1 of ARM ARM)
         *l1_entry = (uint32_t)l2_table | 0x1; // Set as page table
     } else {
@@ -223,21 +206,21 @@ void kernel_mmu_init(bootloader_t* bootloader_info) {
 //             printk("No L2 table available for vaddr %x\n", vaddr);
 //             return;
 //         }
-        
+
 //         // Update the L1 entry to point to our L2 table
 //         *l1_entry = ((uint32_t)l2_tables[l1_index] & ~0x3FF) | MMU_PAGE_DESCRIPTOR;
 //     }
 //     // --- Step 3: Get a pointer to the L2 table ---
 //     l2_page_table_t *l2_table = (l2_page_table_t *)(*l1_entry & ~0x3FF);
-    
+
 //     // --- Step 4: Determine the L2 index ---
 //     // Bits 19:12 of the virtual address (since each L2 entry maps 4 KB).
 //     uint32_t l2_index = (vaddr >> 12) & 0xFF;
-    
+
 //     // --- Step 5: Set the L2 entry ---
 //     // The entry should contain the physical base address (aligned to 4 KB)
 //     // plus the flags and the small page descriptor.
 //     (*l2_table)[l2_index] = (paddr & ~0xFFF) | flags | L2_SMALL_PAGE;
-    
+
 //     // Optionally, you might want to flush the TLB for this entry.
 // }
