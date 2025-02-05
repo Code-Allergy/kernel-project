@@ -73,6 +73,11 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
         }
     }
 
+    if (bootloader_info->kernel_size > 1024*1024) {
+        printk("Kernel too large to fit in 1MB: TODO\n");
+        return;
+    }
+
     uint32_t uart_section = UART0_BASE >> 20;
     uint32_t uart_page_index = (UART0_BASE & 0xFFFFF) >> 12;
     for (uint32_t i = 0; i < 1; i++) { // Map 4KB for UART
@@ -93,11 +98,11 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
                                                     | MMU_SHAREABLE;
     }
 
-
-    if (bootloader_info->kernel_size > 1024*1024) {
-        printk("Kernel too large to fit in 1MB: TODO\n");
-        return;
-    }
+    // 
+    // if (bootloader_info->kernel_size > 1024*1024) {
+    //     printk("Kernel too large to fit in 1MB: TODO\n");
+    //     return;
+    // }
 
     uint32_t kernel_section = bootloader_info->kernel_entry >> 20;
     // l1_page_table[kernel_section] = set_domain_l1_page_table_entry((uint32_t)&l2_tables[kernel_section], MMU_DOMAIN_KERNEL);

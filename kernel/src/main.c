@@ -39,6 +39,8 @@ static inline void enable_irqs(void) {
 
 #define TEST_FILE "bin/initial"
 
+static bootloader_t bootloader_info_kernel;
+
 int kernel_init(bootloader_t* bootloader_info) {
     timer_init(KERNEL_HEARTBEAT_TIMER, TIMER0_IDX);
     
@@ -145,15 +147,29 @@ void test_process_creation() {
 
 
 __attribute__((section(".text.kernel_main")))
-int kernel_main(bootloader_t* bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
+int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
+    setup_stacks();
+    char *src = (char *)_bootloader_info;
+    char *dest = (char *)&bootloader_info_kernel;
+    for (size_t i = 0; i < sizeof(bootloader_t); i++) {
+        dest[i] = src[i];
+    }
+
+    bootloader_t* bootloader_info = &bootloader_info_kernel;
+    
     if (bootloader_info->magic != 0xFEEDFACE) {
         printk("Invalid bootloader magic: %x\n", bootloader_info->magic);
         return -1;
     }
-    // should be done in kernel_main
-    setup_stacks();
-    kernel_init(bootloader_info);
 
+    if (bootloader_info->kernel_checksum != 
+    calculate_checksum((void*)kernel_main, bootloader_info->kernel_size)) {
+        printk("Kernel checksum failed\n");
+        return -1;
+    }
+
+    // should be done in kernel_main
+    kernel_init(bootloader_info);
     scheduler_init();
     __builtin_unreachable();
 }
