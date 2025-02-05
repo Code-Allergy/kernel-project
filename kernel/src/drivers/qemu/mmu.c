@@ -13,10 +13,9 @@ extern uint32_t kernel_code_end;
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 
-#define L2_DEVICE_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
-#define L2_KERNEL_CODE_PAGE (L2_SMALL_PAGE | MMU_AP_RO | MMU_CACHEABLE | MMU_BUFFERABLE)
-#define L2_KERNEL_DATA_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE)
-
+// L1 Page Table (4096 entries, 4KB each for 4GB address space)
+uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 // void mmu_set_domains(void) {
 //     uint32_t dacr = 0;
@@ -36,10 +35,6 @@ void mmu_set_domains(void) {
     uint32_t dacr = (0x3 << (MMU_DOMAIN_KERNEL * 2)) | (0x1 << (MMU_DOMAIN_USER * 2));
     asm volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
 }
-
-// L1 Page Table (4096 entries, 4KB each for 4GB address space)
-uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
-l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 int is_kernel_page(uint32_t paddr) {
     return paddr >= KERNEL_ENTRY && paddr < (uint32_t)&kernel_end;

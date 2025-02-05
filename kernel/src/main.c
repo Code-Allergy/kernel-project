@@ -159,7 +159,6 @@ void test_process_creation(void) {
     // printk("Switched to user pages\n");
 
 
-
     // printk("Switching to user mode\n");
     // printk("First instruction: %p\n", *(uint32_t*)new_process->regs.pc);
     //
@@ -175,14 +174,15 @@ __attribute__((noreturn)) void kernel_panic(void) {
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
-    // set return address to kernel_panic in case of a return from kernel_main
-    // __asm__ volatile("mov lr, %0" : : "r"(kernel_panic));
+    printk("Kernel starting - version %s\n", GIT_VERSION);
 
     char *src = (char *)_bootloader_info;
     char *dest = (char *)&bootloader_info_kernel;
     for (size_t i = 0; i < sizeof(bootloader_t); i++) {
         dest[i] = src[i];
     }
+
+
 
     bootloader_t* bootloader_info = &bootloader_info_kernel;
     if (bootloader_info->magic != 0xFEEDFACE) {
@@ -199,9 +199,23 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     kernel_init(bootloader_info);
     test_domain_protection();
 
-    // printk("Testing process creation:\n");
-    // test_process_creation();
 
+    char* some_array;
+    some_array = (char*) kmalloc(2048);
+    if (some_array == NULL) {
+        printk("Failed to allocate memory\n");
+    }
+
+    some_array[0] = 'c';
+    some_array[1] = 'a';
+    some_array[2] = 't';
+    some_array[3] = 't';
+    some_array[4] = 'l';
+    some_array[5] = 'e';
+    some_array[6] = '\0';
+    printk("Array: %s\n", some_array);
+
+    printk("Address of memory: %p\n", some_array);
 
     scheduler_init();
     __builtin_unreachable();

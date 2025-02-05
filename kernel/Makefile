@@ -3,7 +3,6 @@ MAKEFLAGS += --no-builtin-rules
 .SHELLFLAGS := -eu -c
 
 PLATFORM    = QEMU
-QEMU_PATH   = /home/ryan/lab/qemu/build/
 TOOLCHAIN   = arm-none-eabi
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 BUILD_DIR 	:= $(MAKEFILE_DIR)build
@@ -11,6 +10,7 @@ OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
 OUTPUT_BIN  = $(BUILD_DIR)/kernel.bin
 OUTPUT_IMG  = $(BUILD_DIR)/sdcard.img
 OUTPUT_DIS  = $(BUILD_DIR)/disassembly.txt
+GIT_VERSION = $(shell git describe --always --dirty)
 
 # Toolchain executables
 CC          = $(TOOLCHAIN)-gcc
@@ -41,8 +41,8 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-# CFLAGS += -O2
-# CFLAGS += -fstack-protector-strong -fno-stack-protector
+CFLAGS += -O2
+CFLAGS += -fstack-protector-strong -fno-stack-protector
 
 CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
@@ -52,7 +52,7 @@ ASFLAGS = -mcpu=cortex-a8 -g
 
 
 LDFLAGS = -T linker.ld
-# LDFLAGS += --gc-sections --print-memory-usage
+LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 
 
@@ -67,9 +67,6 @@ KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRC
 KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_ASM_SRCS))
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
-
-# Git version
-GIT_VERSION = $(shell git describe --always --dirty)
 
 # Other repo code to compile and link against
 TEAM_CORE_SRCS          = $(wildcard $(TEAM_REPO)/$(SRC_DIR)/*.c)

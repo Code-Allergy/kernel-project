@@ -50,6 +50,9 @@
 #define MMU_NORMAL_MEMORY   (MMU_CACHEABLE | MMU_BUFFERABLE)
 #define MMU_DEVICE_SHARED   (MMU_DEVICE_MEMORY | MMU_SHAREABLE)
 #define MMU_DEVICE_NON_SHARED (MMU_DEVICE_MEMORY)
+#define L2_DEVICE_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
+#define L2_KERNEL_CODE_PAGE (L2_SMALL_PAGE | MMU_AP_RO | MMU_CACHEABLE | MMU_BUFFERABLE)
+#define L2_KERNEL_DATA_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE)
 
 // TEX[2:0] Memory Type Extensions
 #define MMU_TEX(x)          ((x) << 12)  // TEX bits
@@ -66,14 +69,16 @@
 #define SECTION_INDEX(addr) ((addr) >> 20)
 #define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
 
+
+
 void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 uint32_t alloc_l1_table(struct page_allocator *alloc);
 void kernel_mmu_init(bootloader_t* bootloader_info);
 
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
-// extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
-// extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 void test_domain_protection(void);
 
 #endif // KERNEL_MMU_H
