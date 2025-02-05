@@ -41,7 +41,7 @@ void* simple_block_alloc(uint32_t size) {
 }
 
 void* kmalloc(uint32_t size) {
-    simple_block_alloc(size);
+    return simple_block_alloc(size);
 }
 
 

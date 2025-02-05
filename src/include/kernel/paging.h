@@ -35,12 +35,4 @@ void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_
 
 void* alloc_aligned_pages(struct page_allocator *alloc, size_t count);
 
-
-// memory layout
-#define USER_CODE_BASE   0x80000000   // Start of .text
-#define USER_DATA_BASE   0x80001000   // Start of .data
-#define USER_HEAP_BASE   0x01000000   // Grow upwards
-#define USER_STACK_BASE  0x7F000000   // Grow downwards
-#define KERNEL_BASE      0x80000000   // Kernel space
-
 #endif

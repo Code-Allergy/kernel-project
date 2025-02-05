@@ -26,6 +26,7 @@ static inline void flush_tlb(void) {
 
 // never return
 int scheduler_init() {
+    printk("No scheduler implemented, halting!\n");
     while(1) {
         asm volatile("wfi");
     }
@@ -45,16 +46,31 @@ uint8_t allocate_asid() {
     return 1;
 }
 
+// void copy_kernel_mappings(uint32_t *ttbr0) {
+//     // Get kernel's TTBR1 table (assumes identity mapped)
+//     uint32_t *kernel_ttbr1;
+//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 1" : "=r"(kernel_ttbr1));
+    
+//     // Copy upper half (kernel space) mappings
+//     for(int i=2048; i<4096; i++) {  // Entries 2048-4096 = 0x80000000+
+//         ttbr0[i] = kernel_ttbr1[i];
+//     }
+// }
+
 void copy_kernel_mappings(uint32_t *ttbr0) {
-    // Get kernel's TTBR1 table (assumes identity mapped)
     uint32_t *kernel_ttbr1;
     __asm__ volatile("mrc p15, 0, %0, c2, c0, 1" : "=r"(kernel_ttbr1));
     
-    // Copy upper half (kernel space) mappings
-    for(int i=2048; i<4096; i++) {  // Entries 2048-4096 = 0x80000000+
+    // Kernel at 0x40120000
+    // 0x40120000 >> 20 = 1025 (entry number for start of kernel)
+    const int KERNEL_START_ENTRY = 1025;  // Entry for 0x40120000
+    const int KERNEL_SIZE_ENTRIES = 32;   // Adjust based on kernel size
+
+    for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
         ttbr0[i] = kernel_ttbr1[i];
     }
 }
+
 
 void schedule(void) {
     // Your scheduling logic here
@@ -72,7 +88,7 @@ void schedule(void) {
 }
 
 
-process_t* create_process(uint32_t code_page, uint32_t data_page) {
+process_t* create_process(uint32_t code_page, uint32_t data_page, uint32_t* bytes, uint32_t size) {
     process_t* proc = &process_table[0];
 
     // Allocate 16KB-aligned L1 table

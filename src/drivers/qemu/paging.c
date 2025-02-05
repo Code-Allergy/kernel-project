@@ -22,7 +22,7 @@ void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_
     printk("Total pages: %d\n", alloc->total_pages);
 
     for (uint32_t i = alloc->total_pages; i > 0 ; i--) {
-        uint32_t paddr = PHYS_BASE + i * PAGE_SIZE;
+        uint32_t paddr = PAGING_START + i * PAGE_SIZE;
         alloc->pages[i].paddr = (void*)paddr;
         // Verify natural alignment
         if((paddr & (PAGE_SIZE-1)) != 0) 
@@ -126,7 +126,7 @@ int copy_from_user(void *dst, void *src, uint32_t size) {
     return memcpy(dst, src, size);
 }
 
-int copy_to_user(void *dst, void *src, uint32_t size) {
-    // for now, just works like memcpy, but we can add checks later
-    return memcpy(dst, src, size);
-}
+// int copy_to_user(void *dst, void *src, uint32_t size) {
+//     // for now, just works like memcpy, but we can add checks later
+//     return memcpy(dst, src, size);
+// }

@@ -46,7 +46,7 @@ typedef struct {
     // rest of registers from user mode
 } process_t;
 
-process_t* create_process(uint32_t code_page, uint32_t data_page);
+process_t* create_process(uint32_t code_page, uint32_t data_page, uint32_t* bytes, uint32_t size);
 
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
