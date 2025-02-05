@@ -58,13 +58,6 @@ int kernel_init(bootloader_t* bootloader_info) {
     return 0;
 }
 
-void kernel_mmu_init(bootloader_t* bootloader_info) {
-    mmu_init_page_table(bootloader_info); // Populate L1 table
-    mmu_set_domains();     // Configure domains
-    mmu_enable();          // Load TTBR0 and enable MMU
-    printk("MMU enabled!\n");
-}
-
 void switch_to_user_pages(process_t* proc) {
     uint32_t ttbr0 = (uint32_t)proc->ttbr0 |
                      (proc->asid << 6) |    // ASID in bits 6-13
@@ -97,7 +90,7 @@ int copy_to_user(void *user_dest, const void *kernel_src, size_t len) {
     // Copy one byte at a time to handle page boundaries
     for (size_t i = 0; i < len; i++) {
         // Try to write - might page fault
-        if (__put_user(dst[i], src[i]) != 0) {
+        if (__put_user(&dst[i], src[i]) != 0) {
             return -1;
         }
     }
@@ -110,12 +103,12 @@ void test_process_creation() {
     fat32_file_t userspace_application;
     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
         printk("Failed to mount SD card\n");
-        return -1;
+        return;
     }
 
     if (fat32_open(&sd_card, TEST_FILE, &userspace_application)) {
         printk("Failed to open file\n");
-        return -1;
+        return;
     }
 
 

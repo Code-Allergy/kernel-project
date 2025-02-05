@@ -150,6 +150,7 @@ int intc_init() {
         printk("VBAR unaligned! Fixing 0x%08x → 0x%08x\n", 
                vbar_addr, vbar_addr & ~0x1F);
         vbar_addr &= ~0x1F;
+        return -1;
     }
     __asm__ volatile(
         "mcr p15, 0, %0, c12, c0, 0 \n"  /* Write VBAR */
@@ -165,4 +166,6 @@ int intc_init() {
         "bic r0, r0, #0x80 \n"
         "msr cpsr_c, r0 \n"
     );
+
+    return 0;
 }

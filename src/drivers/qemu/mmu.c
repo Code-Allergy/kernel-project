@@ -3,6 +3,7 @@
 
 #include <kernel/printk.h>
 #include <kernel/mmu.h>
+#include <kernel/string.h>
 #define UART0_BASE 0x01C28000
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
@@ -52,8 +53,6 @@ void mmu_init_page_table(bootloader_t* bootloader_info) {
         printk("L2 tables not 1KB aligned\n");
         return;
     }
-
-    uintptr_t next_avail_addr = bootloader_info->kernel_entry + (8 << 20);
 
     // map all sections as L2 pages by default
     for (uint32_t section = 0; section < 4096; section++) {
@@ -156,15 +155,15 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
 
 
 // Map a 4KB page into virtual memory using process-specific page tables
-void map_page(uint32_t *ttbr0, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
+void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // --- Sanity Checks ---
     // Verify 4KB alignment (last 12 bits must be 0)
-    if ((vaddr & 0xFFF) != 0 || (paddr & 0xFFF) != 0) {
+    if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
         panic("Unaligned vaddr(%08x) or paddr(%08x)", vaddr, paddr);
     }
 
     // --- L1 Table Lookup ---
-    uint32_t l1_index = vaddr >> 20;       // Bits [31:20]
+    uint32_t l1_index = (uint32_t) vaddr >> 20;       // Bits [31:20]
     uint32_t *l1_entry = &ttbr0[l1_index]; // Pointer to L1 entry
 
     // --- L2 Table Management ---
@@ -186,8 +185,8 @@ void map_page(uint32_t *ttbr0, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
     }
 
     // --- L2 Entry Setup ---
-    uint32_t l2_index = (vaddr >> 12) & 0xFF; // Bits [19:12]
-    l2_table[l2_index] = paddr | flags | 0x2; // Small page descriptor
+    uint32_t l2_index = ((uint32_t) vaddr >> 12) & 0xFF; // Bits [19:12]
+    l2_table[l2_index] = (uint32_t) paddr | flags | 0x2; // Small page descriptor
 
     // --- Cache/TLB Maintenance ---
     // dsb();          // Ensure writes complete
@@ -196,6 +195,12 @@ void map_page(uint32_t *ttbr0, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
         : : "r" (vaddr)
     );
     // isb();
+}
+
+void kernel_mmu_init(bootloader_t* bootloader_info) {
+    mmu_init_page_table(bootloader_info); // Populate L1 table
+    mmu_set_domains();     // Configure domains
+    mmu_enable();          // Load TTBR0 and enable MMU
 }
 
 

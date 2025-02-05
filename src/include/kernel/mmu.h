@@ -56,9 +56,9 @@
 void mmu_init_page_table(bootloader_t* bootloader_info);
 void mmu_enable();
 void mmu_set_domains();
-void map_page(uint32_t *ttbr0, uint32_t vaddr, uint32_t paddr, uint32_t flags);
+void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 uint32_t alloc_l1_table(struct page_allocator *alloc);
-
+void kernel_mmu_init(bootloader_t* bootloader_info);
 
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)

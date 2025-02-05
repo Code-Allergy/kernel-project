@@ -1,5 +1,5 @@
-#ifndef _INTERRUPTS_H
-#define _INTERRUPTS_H
+#ifndef ALLWINNER_A10_INTERRUPTS_H
+#define ALLWINNER_A10_INTERRUPTS_H
 
 #include <stdint.h>
 
@@ -82,4 +82,4 @@
 #define A10_IRQ_GPU_RSV5              79
 #define A10_IRQ_GPU_RSV6              80
 
-#endif // _INTERRUPTS_H
+#endif // ALLWINNER_A10_INTERRUPTS_H

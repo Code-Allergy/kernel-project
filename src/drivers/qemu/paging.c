@@ -3,6 +3,7 @@
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/mmu.h>
+#include <kernel/string.h>
 
 #define MB_ALIGN_DOWN(addr) ((addr) & ~0xFFFFF)
 
@@ -72,7 +73,7 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
             uint32_t valid = 1;
             
             // Verify next 3 pages are contiguous
-            for(int i=0; i<count-1; i++) {
+            for(size_t i=0; i<count-1; i++) {
                 if(!check->next || 
                    (uint32_t)check->next->paddr != (uint32_t)check->paddr + PAGE_SIZE) {
                     valid = 0;
@@ -105,7 +106,7 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
     
     // Mark pages as used
     struct page *p = start_block;
-    for(int i=0; i<count; i++) {
+    for(size_t i=0; i < count; i++) {
         p->used = 1;
         p = p->next;
     }
@@ -121,10 +122,10 @@ void free_page(struct page_allocator *alloc, void *ptr) {
     alloc->free_pages++;
 }
 
-int copy_from_user(void *dst, void *src, uint32_t size) {
-    // for now, just works like memcpy, but we can add checks later
-    return memcpy(dst, src, size);
-}
+// int copy_from_user(void *dst, void *src, uint32_t size) {
+//     // for now, just works like memcpy, but we can add checks later
+//     return memcpy(dst, src, size);
+// }
 
 // int copy_to_user(void *dst, void *src, uint32_t size) {
 //     // for now, just works like memcpy, but we can add checks later

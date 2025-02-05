@@ -1,6 +1,8 @@
 #ifndef KERNEL_SCHED_H
 #define KERNEL_SCHED_H
 
+#include <stddef.h>
+
 
 
 /* Process state definitions */
@@ -46,7 +48,7 @@ typedef struct {
     // rest of registers from user mode
 } process_t;
 
-process_t* create_process(uint32_t code_page, uint32_t data_page, uint32_t* bytes, uint32_t size);
+process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size);
 
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;

@@ -3,6 +3,8 @@
 #include <kernel/mmu.h>
 #include <kernel/sched.h>
 #include <kernel/paging.h>
+#include <kernel/printk.h>
+#include <kernel/string.h>
 
 #define MAX_PROCESSES 16
 
@@ -40,6 +42,7 @@ uint8_t allocate_asid() {
         }
     }
     // If all ASIDs are used, flush TLB and reuse
+    
     flush_tlb();
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
@@ -88,16 +91,16 @@ void schedule(void) {
 }
 
 
-process_t* create_process(uint32_t code_page, uint32_t data_page, uint32_t* bytes, uint32_t size) {
+process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size) {
     process_t* proc = &process_table[0];
 
     // Allocate 16KB-aligned L1 table
-    proc->ttbr0 = alloc_l1_table(&kpage_allocator);
+    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
     if(!proc->ttbr0) {
         return NULL;
     }
 
-    proc->ttbr0[MEMORY_USER_CODE_BASE >> 20] = code_page | MMU_SECTION_DESCRIPTOR | MMU_AP_RO | MMU_CACHEABLE;
+    proc->ttbr0[MEMORY_USER_CODE_BASE >> 20] = (uint32_t)code_page | MMU_SECTION_DESCRIPTOR | MMU_AP_RO | MMU_CACHEABLE;
 
     // Copy kernel mappings (TTBR1 content)
     copy_kernel_mappings(proc->ttbr0);
