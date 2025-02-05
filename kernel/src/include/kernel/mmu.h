@@ -15,15 +15,25 @@
 #define L2_LARGE_PAGE        (1 << 0)    // Large page descriptor (b01)
 
 
+#define MMU_DOMAIN_MANAGER (0x3)
+#define MMU_DOMAIN_CLIENT (0x1)
+#define MMU_DOMAIN_NO_ACCESS (0x0)
+
+#define MMU_DOMAIN_DEVICE    2
+
 // Domain Settings
 #define MMU_DOMAIN_KERNEL    1           // Domain 1 for kernel
-#define DACR_CLIENT_DOMAIN1  (1 << 1)    // Client access for domain 1
-#define DACR_MANAGER_DOMAIN1 (3 << 1)    // Manager access for domain 1
+#define DACR_CLIENT_DOMAIN_KERNEL  (1 << MMU_DOMAIN_KERNEL)    // Client access for domain kernel
+#define DACR_MANAGER_DOMAIN_KERNEL (3 << MMU_DOMAIN_KERNEL)    // Manager access for domain kernel
+
+#define MMU_DOMAIN_USER      0           // Domain 2 for user
+#define DACR_CLIENT_DOMAIN_USER    (1 << MMU_DOMAIN_USER)      // Client access for domain user
+#define DACR_MANAGER_DOMAIN_USER   (3 << MMU_DOMAIN_USER)      // Manager access for domain user
 
 // Access Permissions
-#define MMU_AP_RW           (3 << 10)    // Read/write access
-#define MMU_AP_RO           (2 << 10)    // Read-only access
-#define MMU_AP_NO_ACCESS    (0 << 10)    // No access
+#define MMU_AP_RW           (3 << 8)    // Read/write access
+#define MMU_AP_RO           (2 << 8)    // Read-only access
+#define MMU_AP_NO_ACCESS    (0 << 8)    // No access
 
 // Memory Type
 #define MMU_CACHEABLE       (1 << 3)     // Enable caching
@@ -53,6 +63,9 @@
 
 #define MMU_TABLE_ALIGN  __attribute__((aligned(16384)))
 
+#define SECTION_INDEX(addr) ((addr) >> 20)
+#define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
+
 void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 uint32_t alloc_l1_table(struct page_allocator *alloc);
 void kernel_mmu_init(bootloader_t* bootloader_info);
@@ -61,5 +74,6 @@ typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 // extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 // extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+void test_domain_protection(void);
 
 #endif // KERNEL_MMU_H

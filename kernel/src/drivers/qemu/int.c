@@ -73,8 +73,8 @@ void data_abort_handler(uint32_t lr) {
     status = (dfsr & 0b1111) | ((dfsr >> 6) & 0b10000);
     domain = (dfsr >> 4) & 0xF;  // Fault domain
 
-    printk("Data Abort at address: 0x%08x\n", dfar);
-    printk("Fault Status: 0x%02x (Domain: %d)\n", status, domain);
+    printk("Data Abort at address: %p\n", dfar);
+    printk("Fault Status: %p (Domain: %d)\n", status, domain);
 
     switch (status) {
         case 0b00001: printk("Alignment fault\n"); break;
@@ -96,7 +96,7 @@ void data_abort_handler(uint32_t lr) {
         default: printk("Reserved fault status\n"); break;
     }
 
-    printk("Returning to LR: 0x%08x\n", lr);
+    printk("Returning to LR: %p\n", lr);
 
     // Kernel panic or recovery logic
     while (1);
@@ -180,7 +180,7 @@ void handle_undefined(uint32_t esr, process_t* p) {
 int intc_init(void) {
     uint32_t vbar_addr = (uint32_t)_vectors;
     if(vbar_addr & 0x1F) {
-        printk("VBAR unaligned! Fixing 0x%08x → 0x%08x\n",
+        printk("VBAR unaligned! Fixing %p → %p\n",
                vbar_addr, vbar_addr & ~0x1F);
         vbar_addr &= ~0x1F;
         return -1;

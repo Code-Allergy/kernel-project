@@ -5,50 +5,45 @@
 #include <kernel/mmu.h>
 #include <kernel/string.h>
 #define UART0_BASE 0x01C28000
+#define UART4_BASE 0x01c29000
+#define MMC0_BASE 0x01C0F000
 
-extern uint32_t __bss_end;
+extern uint32_t kernel_end;
+extern uint32_t kernel_code_end;
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 
-#define SECTION_INDEX(addr) ((addr) >> 20)
-#define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
-
 #define L2_DEVICE_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
+#define L2_KERNEL_CODE_PAGE (L2_SMALL_PAGE | MMU_AP_RO | MMU_CACHEABLE | MMU_BUFFERABLE)
+#define L2_KERNEL_DATA_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE)
 
-uint32_t make_section_entry(uint32_t phys_addr) {
-    return (phys_addr & 0xFFF00000)          // physical base address
-           | MMU_SECTION_DESCRIPTOR         // descriptor type bits
-           | (MMU_DOMAIN_KERNEL << 5)         // domain bits (bits 5-8)
-           | MMU_AP_RW                      // access permissions
-           | MMU_CACHEABLE                  // cacheable
-           | MMU_BUFFERABLE;                 // bufferable
-}
 
-uint32_t make_small_page_kernel(uint32_t phys_addr) {
-    return (phys_addr & 0xFFFFF000)          // physical base address
-           | L2_SMALL_PAGE                  // descriptor type bits
-           | MMU_AP_RW                      // access permissions
-           | MMU_CACHEABLE                  // cacheable
-           | MMU_BUFFERABLE;                 // bufferable
-}
+// void mmu_set_domains(void) {
+//     uint32_t dacr = 0;
+//     // every domain is set to client
+//     for (int d = 0; d < 16; d++) {
+//         dacr |= (0x1 << (d * 2));
+//     }
+
+//     __asm__ volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
+// }
+//
+
 
 void mmu_set_domains(void) {
-    // Set domain 0 to client (0b01) and all others to manager (0b11)
-    uint32_t dacr = 0;
-    // Domain 0: client (01)
-    dacr |= (0x1 << (0 * 2));
-    dacr |= (0x1 << (1 * 2));
-    // Domains 2-15: manager (11)
-    for (int d = 2; d < 16; d++) {
-        dacr |= (0x3 << (d * 2));
-    }
-
+    // Domain 0 (Kernel): Manager (bypass permissions)
+    // Domain 1 (User): Client (enforce page table AP bits)
+    uint32_t dacr = (0x3 << (MMU_DOMAIN_KERNEL * 2)) | (0x1 << (MMU_DOMAIN_USER * 2));
     asm volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
 }
 
 // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+
+int is_kernel_page(uint32_t paddr) {
+    return paddr >= KERNEL_ENTRY && paddr < (uint32_t)&kernel_end;
+}
 
 int mmu_init_page_table(bootloader_t* bootloader_info) {
     /* Verify page table alignment */
@@ -64,34 +59,45 @@ int mmu_init_page_table(bootloader_t* bootloader_info) {
 
     if (bootloader_info->kernel_size > 1024*1024) {
         printk("Kernel too large to fit in 1MB: TODO\n");
-        return;
+        return -1;
     }
 
-    // map all sections as L2 pages by default
+    // map all l1 entries to l2 tables
     for (uint32_t section = 0; section < 4096; section++) {
-        // Set up the L1 entry to point to the L2 table for this 1MB region.
-        // The physical address of the L2 table must be aligned to 1KB.
         l1_page_table[section] = ((uint32_t)&l2_tables[section] & ~0x3FF)
-                                | MMU_PAGE_DESCRIPTOR;
+                                | MMU_PAGE_DESCRIPTOR | (1 << 5);
     }
 
-    l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+    // Map 4KB for UART0-UART3
+    l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
+    // Map 4KB for UART4-UART7 (not used)
+    l2_tables[SECTION_INDEX(UART4_BASE)][PAGE_INDEX(UART4_BASE)] = UART4_BASE | L2_DEVICE_PAGE;
     // Map 4KB for MMC0
-    l2_tables[SECTION_INDEX(0x01C0F000)][PAGE_INDEX(0x01C0F000)] = 0x01C0F000 | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+    l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
-    l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE | (MMU_DOMAIN_KERNEL << 5);
+    l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
 
-    printk("BSS_END: %p\n", &__bss_end);
-    for (uint32_t addr = KERNEL_ENTRY; addr < (uint32_t)&__bss_end; addr += 4096) {
-        map_page(l1_page_table, (void*)addr, (void*)addr,
-                L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE | (MMU_DOMAIN_KERNEL << 5));
+    for (uint32_t addr = KERNEL_ENTRY; addr < (uint32_t)&kernel_end; addr += 4096) {
+        if (addr < (uint32_t)&kernel_code_end) {
+            l2_tables[SECTION_INDEX(addr)][PAGE_INDEX(addr)] =  addr | L2_KERNEL_CODE_PAGE;
+        } else {
+            l2_tables[SECTION_INDEX(addr)][PAGE_INDEX(addr)] = addr | L2_KERNEL_DATA_PAGE;
+        }
     }
 
+    // identity map all of DRAM for now
+    for (uint32_t paddr = DRAM_BASE; paddr < DRAM_BASE + DRAM_SIZE; paddr += 4096) {
+        // Skip already mapped kernel code/data
+        if (!is_kernel_page(paddr)) {
+            l2_tables[SECTION_INDEX(paddr)][PAGE_INDEX(paddr)] =
+                paddr | L2_KERNEL_DATA_PAGE;
+        }
+    }
     return 0;
 }
 
 void mmu_enable(void) {
-    // Load TTBR0 with the physical address of the L1 table
+    // Load TTBR1 with the physical address of the L1 table
     uint32_t ttbr0 = (uint32_t)l1_page_table;
     asm volatile(
         "mcr p15, 0, %0, c2, c0, 0 \n" // TTBR0
@@ -116,19 +122,6 @@ void mmu_enable(void) {
            | (1 << 11) // Enable branch prediction
            ;
     asm volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr));
-
-        // Read back SCTLR to confirm settings
-    uint32_t sctlr_readback;
-    asm volatile("mrc p15, 0, %0, c1, c0, 0" : "=r"(sctlr_readback));
-    // Check if critical bits are set
-    if (!(sctlr_readback & (1 << 0)) ||  // MMU
-        !(sctlr_readback & (1 << 2)) ||  // D-cache
-        !(sctlr_readback & (1 << 12))) { // I-cache
-
-        printk("Failed to enable MMU\n");
-        // Handle configuration error
-        return;
-    }
 }
 
 uint32_t alloc_l1_table(struct page_allocator *alloc) {
@@ -136,11 +129,15 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
     void *addr = alloc_aligned_pages(alloc, 4);
     if(!addr) return 0;
 
+    // initialize the 4 pages from the allocation
+    for (int i = 0; i < 4; i++) {
+        l2_tables[SECTION_INDEX((uint32_t)addr + i*4096)][PAGE_INDEX((uint32_t)addr + i*4096)] = ((uint32_t)addr + i*4096) | L2_KERNEL_DATA_PAGE;
+    }
+
     // Initialize L1 table
     memset(addr, 0, 16*1024);
     return (uint32_t)addr;
 }
-
 
 // Map a 4KB page into virtual memory using process-specific page tables
 void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
@@ -149,21 +146,21 @@ void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
         panic("Unaligned vaddr(%08x) or paddr(%08x)", vaddr, paddr);
     }
-
     // --- L1 Table Lookup ---
     uint32_t l1_index = (uint32_t) vaddr >> 20;       // Bits [31:20]
     uint32_t *l1_entry = &ttbr0[l1_index]; // Pointer to L1 entry
 
     // --- L2 Table Management ---
     uint32_t *l2_table;
-
     if ((*l1_entry & 0x3) != 0x1) {        // Check if L2 table exists
         // Allocate new L2 table if needed
         l2_table = alloc_page(&kpage_allocator);
         if (!l2_table) panic("Out of L2 tables");
 
+        l2_tables[SECTION_INDEX((uint32_t)l2_table)][PAGE_INDEX((uint32_t)l2_table)] = (uint32_t)l2_table | L2_KERNEL_DATA_PAGE; // map the page as itself and kernel data
         // Initialize L2 table (4096 entries * 4 bytes = 16KB)
         memset(l2_table, 0, 4096 * sizeof(uint32_t));
+        printk("Here\n");
 
         // Update L1 entry (Section 3.5.1 of ARM ARM)
         *l1_entry = (uint32_t)l2_table | 0x1; // Set as page table
@@ -180,7 +177,7 @@ void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // dsb();          // Ensure writes complete
     __asm__ volatile(
         "mcr p15, 0, %0, c8, c7, 1" // Invalidate TLB entry (MVA=va)
-        : : "r" (vaddr)
+        : : "r" (0)
     );
     // isb();
 }
@@ -224,3 +221,46 @@ void kernel_mmu_init(bootloader_t* bootloader_info) {
 
 //     // Optionally, you might want to flush the TLB for this entry.
 // }
+
+
+// Helper function to verify domain settings
+void verify_domain_access(void) {
+    uint32_t dacr;
+    asm volatile("mrc p15, 0, %0, c3, c0, 0" : "=r"(dacr));
+
+    printk("DACR: 0x%08x\n", dacr);
+
+    // Check specific domain settings
+    uint32_t kernel_domain = (dacr >> (MMU_DOMAIN_KERNEL * 2)) & 0x3;
+    uint32_t device_domain = (dacr >> (MMU_DOMAIN_DEVICE * 2)) & 0x3;
+
+    printk("Kernel domain access: %s\n",
+           kernel_domain == MMU_DOMAIN_MANAGER ? "Manager" :
+           kernel_domain == MMU_DOMAIN_CLIENT ? "Client" : "No Access");
+
+    printk("Device domain access: %s\n",
+           device_domain == MMU_DOMAIN_MANAGER ? "Manager" :
+           device_domain == MMU_DOMAIN_CLIENT ? "Client" : "No Access");
+}
+
+// Add this to your mmu_init function after setting up page tables
+void test_domain_protection(void) {
+    // Test writing to a code page
+    uint32_t *code_ptr = (uint32_t *)KERNEL_ENTRY;
+    uint32_t old_value = *code_ptr;
+
+    printk("Testing domain protection...\n");
+    printk("Attempting to write to code section at %p\n", code_ptr);
+
+    // Try to write - should cause domain fault if properly configured
+    *code_ptr = 0xDEADBEEF;
+
+    // If we get here, domain protection failed
+    if (*code_ptr == 0xDEADBEEF) {
+        printk("WARNING: Successfully wrote to code section - domain protection failed!\n");
+        // Restore the original value
+        *code_ptr = old_value;
+    } else {
+        printk("Domain protection working - write was prevented\n");
+    }
+}

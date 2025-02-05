@@ -6,35 +6,77 @@
 #include <kernel/boot.h>
 #include <kernel/string.h>
 
+extern uint32_t kernel_code_end; // Defined in linker script, end of kernel code space, pages should be RO
+extern uint32_t kernel_end; // Defined in linker script, end of kernel memory space
 #define MB_ALIGN_DOWN(addr) ((addr) & ~0xFFFFF)
 
 page_allocator_t kpage_allocator;
 
+// void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_info) {
+//     alloc->total_pages = DRAM_SIZE / PAGE_SIZE;
+//     alloc->reserved_pages = ((uint32_t)&kernel_end - DRAM_BASE) / PAGE_SIZE + 1;
+//     printk("Reserved by kernel: %d\n", alloc->reserved_pages);
+//     printk("Kernel end: %p end: %p\n", &kernel_end, DRAM_BASE);
+//     alloc->free_pages = alloc->total_pages - alloc->reserved_pages;
+//     alloc->free_list = NULL;
+
+
+//     // Map all pages after reserved kernel pages to the free list
+//     for (uint32_t i = alloc->total_pages; i >= alloc->reserved_pages; i--) {
+//         uint32_t paddr = (uint32_t)&kernel_end + i * PAGE_SIZE;
+//         printk("Mapping reserve paddr at %p\n", paddr);
+//         alloc->pages[i].paddr = (void*)paddr;
+//         alloc->pages[i].next = alloc->free_list;
+//         alloc->free_list = &alloc->pages[i];
+//     }
+
+//     // printk("Total pages: %d (%dKB) %d\n", alloc->total_pages, alloc->free_pages, PAGE_SIZE);
+//     printk("Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE);
+//     printk("Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
+//     printk("Free list: %p\n", alloc->free_list);
+//     printk("First page: %p\n", alloc->free_list->paddr);
+//     printk("First page next: %p\n", alloc->free_list->next);
+//     printk("First page next paddr: %p\n", alloc->free_list->next->paddr);
+// }
+//
+
 void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_info) {
-    printk("Memory size: %d\n", DRAM_SIZE);
-    alloc->total_pages = DRAM_SIZE / PAGE_SIZE;
-    alloc->free_pages = alloc->total_pages;
+    // Compute total pages correctly
+    uint32_t dram_start = DRAM_BASE;
+    uint32_t dram_size = DRAM_SIZE;
+    alloc->total_pages = dram_size / PAGE_SIZE;
+
+    // Compute reserved pages: kernel occupies from DRAM_BASE to kernel_end
+    uint32_t kernel_size = (uint32_t)&kernel_end - dram_start;
+    alloc->reserved_pages = (kernel_size + PAGE_SIZE - 1) / PAGE_SIZE; // Round up
+
+    alloc->free_pages = alloc->total_pages - alloc->reserved_pages;
     alloc->free_list = NULL;
 
-    printk("Total pages: %d\n", alloc->total_pages);
-
-    for (uint32_t i = alloc->total_pages; i > 0 ; i--) {
-        uint32_t paddr = DRAM_BASE + i * PAGE_SIZE;
+    // start at end and loop to front, stopping at reserved pages
+    for (uint32_t i = alloc->total_pages - 1; i >= alloc->reserved_pages; i--) {
+        // Physical address = DRAM start + page index * PAGE_SIZE
+        uint32_t paddr = DRAM_BASE + (i * PAGE_SIZE);
         alloc->pages[i].paddr = (void*)paddr;
-        // Verify natural alignment
-        if((paddr & (PAGE_SIZE-1)) != 0)
-            panic("Misaligned physical page");
         alloc->pages[i].next = alloc->free_list;
         alloc->free_list = &alloc->pages[i];
     }
 
-    printk("Free pages: %d\n", alloc->free_pages);
-    printk("Free list: %p\n", alloc->free_list);
-    printk("First page: %p\n", alloc->free_list->paddr);
-    printk("First page next: %p\n", alloc->free_list->next);
-    printk("First page next paddr: %p\n", alloc->free_list->next->paddr);
 
+    // Start loop from the first FREE page (after reserved pages)
+    // for (uint32_t i = alloc->reserved_pages; i < alloc->total_pages; i++) {
+    //     // Physical address = DRAM start + page index * PAGE_SIZE
+    //     uint32_t paddr = dram_start + (i * PAGE_SIZE);
+    //     alloc->pages[i].paddr = (void*)paddr;
+    //     // Add to free list (insert at head for simplicity)
+    //     alloc->pages[i].next = alloc->free_list;
+    //     alloc->free_list = &alloc->pages[i];
+    // }
 
+    // Debug prints
+    printk("Total pages: %d (%dKB)\n", alloc->total_pages, alloc->total_pages * PAGE_SIZE / 1024);
+    printk("Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
+    printk("Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE / 1024);
 }
 
 void* alloc_page(struct page_allocator *alloc) {
@@ -47,8 +89,6 @@ void* alloc_page(struct page_allocator *alloc) {
     alloc->free_list = desc->next;
     alloc->free_pages--;
 
-    // Clear the page before returning
-    memset(desc->paddr, 0, PAGE_SIZE);
     return desc->paddr;
 }
 
@@ -107,6 +147,7 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
     }
 
     alloc->free_pages -= count;
+    printk("Returning end: %p\n", start_block->paddr);
     return start_block->paddr;
 }
 

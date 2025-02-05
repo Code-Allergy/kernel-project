@@ -6,14 +6,13 @@ MEMORY
     RAM (rwx) : ORIGIN = 0x40000000, LENGTH = 0x4000000 /* 64MB */
 }
 
-
 SECTIONS {
     . = ORIGIN(RAM);
 
     /* The .text section holds executable code */
     .text : {
+        . = ALIGN(4096);
         KEEP(*(.text.kernel_main))
-
         *(.text*)    /* Include all .text sections (code) */
     }
 
@@ -22,6 +21,12 @@ SECTIONS {
         . = ALIGN(32);     /* Mandatory for VBAR alignment */
         _vvectors = .;     /* Create symbol for VBAR initialization */
     } > RAM
+
+    .padding_after_code : {  /* padding to 4KB */
+        . = ALIGN(4096);
+    } > RAM
+
+    kernel_code_end = .;
 
     /* The .data section holds initialized data */
     .data : {
@@ -57,4 +62,10 @@ SECTIONS {
         *(COMMON)
         __bss_end = .;
     } > RAM
+
+    .padding_after_bss : {  /* padding to 4KB */
+        . = ALIGN(4096);
+    } > RAM
+
+    kernel_end = .;
 }

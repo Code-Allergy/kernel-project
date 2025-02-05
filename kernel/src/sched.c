@@ -60,17 +60,17 @@ uint8_t allocate_asid(void) {
 //     }
 // }
 
-void copy_kernel_mappings(uint32_t *ttbr0) {
-    uint32_t *kernel_ttbr1;
-    __asm__ volatile("mrc p15, 0, %0, c2, c0, 1" : "=r"(kernel_ttbr1));
+void copy_kernel_mappings(uint32_t *ttbr1) {
+    uint32_t *kernel_ttbr0;
+    __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
 
     // Kernel at 0x40120000
     // 0x40120000 >> 20 = 1025 (entry number for start of kernel)
-    const int KERNEL_START_ENTRY = 1025;  // Entry for 0x40120000
+    const int KERNEL_START_ENTRY = 1024;  // Entry for 0x40120000
     const int KERNEL_SIZE_ENTRIES = 32;   // Adjust based on kernel size
 
     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
-        ttbr0[i] = kernel_ttbr1[i];
+        ttbr1[i] = kernel_ttbr0[i];
     }
 }
 
@@ -95,17 +95,25 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     process_t* proc = &process_table[0];
 
     // Allocate 16KB-aligned L1 table
-    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
-    if(!proc->ttbr0) return NULL;
+    proc->ttbr1 = (uint32_t*) alloc_l1_table(&kpage_allocator);
+    if(!proc->ttbr1) return NULL;
 
-    proc->ttbr0[MEMORY_USER_CODE_BASE >> 20] = (uint32_t)code_page | MMU_SECTION_DESCRIPTOR | MMU_AP_RO | MMU_CACHEABLE;
+    map_page(proc->ttbr1, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    map_page(proc->ttbr1, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    memcpy(code_page, bytes, size);
+    // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
+    // proc->ttbr1[l1_index] = (uint32_t)alloc_page(&kpage_allocator) | MMU_PAGE_DESCRIPTOR;
+    // proc->ttbr1[l1_index] |= 1 << 5;
+    // uint32_t *l2_table = (uint32_t*)(proc->ttbr1[l1_index] & ~0x3FF);
+    // l2_table[PAGE_INDEX(MEMORY_USER_CODE_BASE)] = (uint32_t)code_page | L2_SMALL_PAGE | MMU_AP_RO;
 
     // Copy kernel mappings (TTBR1 content)
-    copy_kernel_mappings(proc->ttbr0);
-
+    printk("Kernel mappings=precopied\n");
+    //
+    copy_kernel_mappings(proc->ttbr1);
+    printk("Kernel mappings copied\n");
     // Set ASID
     proc->asid = allocate_asid();
-
     proc->pid = 0;
     proc->priority = 0;
     proc->state = 0;
@@ -132,6 +140,7 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
 
     // TODO
     proc->regs.lr = 0;
+    printk("returning process\n");
 
     return proc;
 }

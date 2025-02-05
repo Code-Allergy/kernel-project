@@ -17,10 +17,10 @@ struct page {
 
 struct page_allocator {
     struct page pages[DRAM_SIZE / PAGE_SIZE];
-    struct page *kernel_list;
     struct page *free_list;
     uint32_t total_pages;
     uint32_t free_pages;
+    uint32_t reserved_pages;
 };
 
 

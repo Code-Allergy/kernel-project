@@ -1,6 +1,6 @@
 2 level paging
 
-LV1: Section & Coarse page tables 
+LV1: Section & Coarse page tables
 - 1MB sections - Direct mappings in a single-level lookup.
 - Coarse Page Tables: Point to Level 2 page tables.
 
@@ -41,3 +41,5 @@ Top 12 bits (31:20) used for section identification
 Bottom 20 bits used for offset within the section
 i << 20 generates the base address for each 1MB section
 
+
+Invalid descriptor leaves bits 31:2 available for software to use, they are ignored by cpu.
