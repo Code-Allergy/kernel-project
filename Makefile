@@ -3,7 +3,6 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 .SHELLFLAGS := -eu -c
 
-QEMU_PATH   = /home/ryan/lab/qemu/build/
 TOOLCHAIN   = arm-none-eabi
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 BUILD_DIR 	:= $(MAKEFILE_DIR)build
@@ -72,7 +71,7 @@ qemu: sdcard
 	$(QEMU_PATH)qemu-system-arm -m 512M -M cubieboard \
 	-cpu cortex-a8 -drive if=sd,format=raw,file=$(OUTPUT_IMG) \
 	-serial mon:stdio -nographic \
-	-d guest_errors,mmu,unimp,invalid_mem,page,int \
+	-d guest_errors,unimp \
 	-kernel $(BOOTLOADER_BIN)
 
 
