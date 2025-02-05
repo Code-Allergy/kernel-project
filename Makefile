@@ -5,7 +5,8 @@ MAKEFLAGS += --no-builtin-rules
 PLATFORM    = QEMU
 QEMU_PATH   = /home/ryan/lab/qemu/build/
 TOOLCHAIN   = arm-none-eabi
-BUILD_DIR   = build
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BUILD_DIR 	:= $(MAKEFILE_DIR)build
 OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
 OUTPUT_BIN  = $(BUILD_DIR)/kernel.bin
 OUTPUT_IMG  = $(BUILD_DIR)/sdcard.img
@@ -25,7 +26,10 @@ SRC_DIR         = src
 BASE_INCLUDE    = $(SRC_DIR)/include
 DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
 DRIVERS_BASE    = drivers
-USERSPACE_DIR   = $(SRC_DIR)/userspace
+USERSPACE_DIR   = userspace
+USERSPACE_BUILD = $(BUILD_DIR)/userspace
+USERSPACE_ELF   = $(USERSPACE_BUILD)/elf
+USERSPACE_BIN   = $(USERSPACE_BUILD)/bin
 
 # Set flags
 CFLAGS := -Wall -Wextra -Wpedantic \
@@ -61,9 +65,6 @@ KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRC
 KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_ASM_SRCS))
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
-
-# Kernel userspace binaries
-KERNEL_BINARIES = $(wildcard $(SRC_DIR)/userspace/build/bin/*)
 
 # Git version
 GIT_VERSION = $(shell git describe --always --dirty)
@@ -103,8 +104,10 @@ $(OUTPUT_IMG): $(OUTPUT_BIN) userspace
 	mkfs.fat -F 32 $@
 	mmd -i $@ ::/boot
 	mmd -i $@ ::/bin
+	mmd -i $@ ::/elf
 	mcopy -i $@ $< ::/boot/kernel.bin
-	mcopy -i $@ $(KERNEL_BINARIES) ::/bin
+	mcopy -i $@ $(USERSPACE_BIN)/* ::/bin
+	mcopy -i $@ $(USERSPACE_ELF)/* ::/elf
 
 ################################################################################################
 # kernel Compilation rules
@@ -184,7 +187,7 @@ $(OUTPUT_DIS): $(OUTPUT_ELF)
 # Userspace
 ################################################################################################
 userspace:
-	$(MAKE) -C $(USERSPACE_DIR)
+	$(MAKE) -C $(USERSPACE_DIR) BUILD_DIR=$(USERSPACE_BUILD)
 
 
 
@@ -194,13 +197,6 @@ userspace:
 clean:
 	@echo "[CLEAN] Removing build artifacts"
 	$(RM) $(BUILD_DIR)
-	$(MAKE) -C $(USERSPACE_DIR) clean
-
-distclean: clean
-	$(RM) $(OUTPUT_IMG) $(DEP_DIR)
-	$(MAKE) -C $(TEAM_REPO) clean
-
-
 ################################################################################################
 # Run in QEMU
 ################################################################################################

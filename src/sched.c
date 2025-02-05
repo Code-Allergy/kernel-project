@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <kernel/mm.h>
+#include <kernel/mmu.h>
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 
@@ -7,10 +9,50 @@
 process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
 
+#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
+static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
+
+static inline void flush_tlb(void) {
+    __asm__ volatile (
+        "dsb ish\n"        // Ensure all previous memory accesses complete
+        "tlbi alle2\n"     // Invalidate all TLB entries at EL2
+        "dsb ish\n"        // Ensure completion of TLB invalidation
+        "isb\n"            // Synchronize the instruction stream
+        : // No output operands
+        : // No input operands
+        : "memory"         // Clobbers memory
+    );
+}
+
 // never return
 int scheduler_init() {
     while(1) {
         asm volatile("wfi");
+    }
+}
+
+uint8_t allocate_asid() {
+    for (uint8_t i = 1; i <= MAX_ASID; i++) {  // Skip ASID 0 (reserved)
+        if (!asid_bitmap[i]) {
+            asid_bitmap[i] = 1;
+            return i;
+        }
+    }
+    // If all ASIDs are used, flush TLB and reuse
+    flush_tlb();
+    memset(asid_bitmap, 0, sizeof(asid_bitmap));
+    asid_bitmap[1] = 1;
+    return 1;
+}
+
+void copy_kernel_mappings(uint32_t *ttbr0) {
+    // Get kernel's TTBR1 table (assumes identity mapped)
+    uint32_t *kernel_ttbr1;
+    __asm__ volatile("mrc p15, 0, %0, c2, c0, 1" : "=r"(kernel_ttbr1));
+    
+    // Copy upper half (kernel space) mappings
+    for(int i=2048; i<4096; i++) {  // Entries 2048-4096 = 0x80000000+
+        ttbr0[i] = kernel_ttbr1[i];
     }
 }
 
@@ -33,12 +75,26 @@ void schedule(void) {
 process_t* create_process(uint32_t code_page, uint32_t data_page) {
     process_t* proc = &process_table[0];
 
+    // Allocate 16KB-aligned L1 table
+    proc->ttbr0 = alloc_l1_table(&kpage_allocator);
+    if(!proc->ttbr0) {
+        return NULL;
+    }
+
+    proc->ttbr0[MEMORY_USER_CODE_BASE >> 20] = code_page | MMU_SECTION_DESCRIPTOR | MMU_AP_RO | MMU_CACHEABLE;
+
+    // Copy kernel mappings (TTBR1 content)
+    copy_kernel_mappings(proc->ttbr0);
+    
+    // Set ASID
+    proc->asid = allocate_asid();
+
     proc->pid = 0;
     proc->priority = 0;
     proc->state = 0;
 
-    proc->code_page = code_page;
-    proc->data_page = data_page;
+    proc->code_page = MEMORY_USER_CODE_BASE;
+    proc->data_page = MEMORY_USER_DATA_BASE;
 
     proc->regs.r0 = 0;
     proc->regs.r1 = 0;
@@ -53,8 +109,8 @@ process_t* create_process(uint32_t code_page, uint32_t data_page) {
     proc->regs.r10 = 0;
     proc->regs.r11 = 0;
     proc->regs.r12 = 0;
-    proc->regs.sp = data_page + PAGE_SIZE;
-    proc->regs.pc = code_page;
+    proc->regs.sp = MEMORY_USER_STACK_BASE;
+    proc->regs.pc = MEMORY_USER_CODE_BASE;
     proc->regs.cpsr = 0x10; // user mode
 
     // TODO

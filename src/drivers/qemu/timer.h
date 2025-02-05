@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define TIMER_BASE 0x01C20C00
-
 typedef struct {
     // Global registers (0x00-0x0C)
     volatile uint32_t irq_enable;    // 0x00
@@ -33,14 +31,24 @@ typedef struct {
     volatile uint32_t reserved3[0x400/4 - 0xAC/4];
 } AW_Timer;
 
+#define TIMER_BASE 0x01C20C00
 #define TIMER0 ((AW_Timer *)TIMER_BASE)
+
+enum {
+    TIMER0_IDX = 0,
+    TIMER1_IDX = 1,
+    TIMER2_IDX = 2,
+    TIMER3_IDX = 3,
+    TIMER4_IDX = 4,
+    TIMER5_IDX = 5,
+};
 
 static inline uint32_t get_timer_irq_idx(uint32_t timer_idx) {
     static const uint32_t lookup_table[] = {22, 23, 24, 25, 67, 68};
     return (timer_idx < 6) ? lookup_table[timer_idx] : 0;
 }
 
-void timer_init(uint64_t interval_us);
+void timer_init(uint64_t interval_us, int timer_idx);
 
 // Control register bits
 #define TIMER_ENABLE    (1 << 0)

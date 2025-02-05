@@ -14,13 +14,14 @@ uint32_t kernel_heap_curr  = KHEAP_START;
 
 
 int kernel_heap_init() {
+    return -1;
     for (uint32_t i = kernel_heap_start; i < kernel_heap_end; i += PAGE_SIZE) {
         void* page = alloc_page(&kpage_allocator);
         if (!page) {
             printk("Failed to allocate page for kernel heap\n");
             return -1;
         }
-        map_page(&kpage_allocator, i, page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+        // map_page(&kpage_allocator, i, page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     }
 
     return 0;

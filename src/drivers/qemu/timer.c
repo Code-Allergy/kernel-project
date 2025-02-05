@@ -12,7 +12,7 @@ volatile uint64_t sleep_until = 0;
 
 // TEMP in here: this can be kernel heartbeat timer
 void timer_handler(int irq, void *data) {
-    AW_Timer *t = TIMER0;
+    AW_Timer *t = TIMER_BASE;
     
     // Clear timer interrupt
     t->irq_status ^= (1 << 1); // Toggle bit 1
@@ -23,7 +23,7 @@ void timer_handler(int irq, void *data) {
 
 
 void set_timer_usec(uint32_t usec, uint32_t timer_idx, uint32_t flags) {
-    AW_Timer *t = TIMER0;
+    AW_Timer *t = TIMER_BASE;
     
     t->timer[timer_idx].control = 0; // Disable first
     t->timer[timer_idx].interval = 24 * usec; // 24MHz
@@ -34,7 +34,7 @@ void set_timer_usec(uint32_t usec, uint32_t timer_idx, uint32_t flags) {
 
 
 void sleep_us(uint32_t usec) {
-    AW_Timer *t = TIMER0;
+    AW_Timer *t = TIMER_BASE;
     const int timer_idx = 0;
     set_timer_usec(usec, SLEEP_TIMER, TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN | TIMER_ONESHOT);
     
@@ -45,9 +45,8 @@ void sleep_us(uint32_t usec) {
     t->irq_status = 1 << get_timer_irq_idx(SLEEP_TIMER);
 }
 
-void timer_init(uint64_t interval_us) {
-    AW_Timer *t = TIMER0;
-    const int timer_idx = 0;
+void timer_init(uint64_t interval_us, int timer_idx) {
+    AW_Timer *t = TIMER_BASE;
 
     t->irq_enable = 0x3F; // Enable timer 1 and 2 interrupts
     t->timer[timer_idx].control = 0; // Disable first
@@ -57,5 +56,5 @@ void timer_init(uint64_t interval_us) {
     t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN;
     
     /* setup interrupt handler */
-    request_irq(22, timer_handler, NULL);
+    request_irq(get_timer_irq_idx(timer_idx), timer_handler, NULL);
 }

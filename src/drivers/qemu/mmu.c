@@ -5,6 +5,8 @@
 #include <kernel/mmu.h>
 #define UART0_BASE 0x01C28000
 
+#define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
+
 uint32_t make_section_entry(uint32_t phys_addr) {
     return (phys_addr & 0xFFF00000)          // physical base address
            | MMU_SECTION_DESCRIPTOR         // descriptor type bits
@@ -142,35 +144,90 @@ void mmu_enable() {
     }
 }
 
-// Example: Map a 4 KB page with the given flags (attributes).
-// 'alloc' is used if a new L2 table needs to be allocated.
-void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
-    // --- Step 1: Determine the L1 index for this virtual address ---
-    uint32_t l1_index = vaddr >> 20;  // Each L1 entry covers 1 MB
-    uint32_t *l1_entry = &l1_page_table[l1_index];
+uint32_t alloc_l1_table(struct page_allocator *alloc) {
+    // Allocate 4 contiguous 4KB pages (16KB total)
+    void *addr = alloc_aligned_pages(alloc, 4);
+    if(!addr) return 0;
 
-    // --- Step 2: Check if this L1 entry already points to an L2 table ---
-    if ((*l1_entry & 0x3) != MMU_PAGE_DESCRIPTOR) {
-        // No L2 table exists here yet. Link to the corresponding L2 table
-        if (!l2_tables[l1_index]) {
-            printk("No L2 table available for vaddr %x\n", vaddr);
-            return;
-        }
-        
-        // Update the L1 entry to point to our L2 table
-        *l1_entry = ((uint32_t)l2_tables[l1_index] & ~0x3FF) | MMU_PAGE_DESCRIPTOR;
-    }
-    // --- Step 3: Get a pointer to the L2 table ---
-    l2_page_table_t *l2_table = (l2_page_table_t *)(*l1_entry & ~0x3FF);
-    
-    // --- Step 4: Determine the L2 index ---
-    // Bits 19:12 of the virtual address (since each L2 entry maps 4 KB).
-    uint32_t l2_index = (vaddr >> 12) & 0xFF;
-    
-    // --- Step 5: Set the L2 entry ---
-    // The entry should contain the physical base address (aligned to 4 KB)
-    // plus the flags and the small page descriptor.
-    (*l2_table)[l2_index] = (paddr & ~0xFFF) | flags | L2_SMALL_PAGE;
-    
-    // Optionally, you might want to flush the TLB for this entry.
+    // Initialize L1 table
+    memset(addr, 0, 16*1024);
+    return (uint32_t)addr;
 }
+
+
+// Map a 4KB page into virtual memory using process-specific page tables
+void map_page(uint32_t *ttbr0, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
+    // --- Sanity Checks ---
+    // Verify 4KB alignment (last 12 bits must be 0)
+    if ((vaddr & 0xFFF) != 0 || (paddr & 0xFFF) != 0) {
+        panic("Unaligned vaddr(%08x) or paddr(%08x)", vaddr, paddr);
+    }
+
+    // --- L1 Table Lookup ---
+    uint32_t l1_index = vaddr >> 20;       // Bits [31:20]
+    uint32_t *l1_entry = &ttbr0[l1_index]; // Pointer to L1 entry
+
+    // --- L2 Table Management ---
+    uint32_t *l2_table;
+    
+    if ((*l1_entry & 0x3) != 0x1) {        // Check if L2 table exists
+        // Allocate new L2 table if needed
+        l2_table = alloc_page(&kpage_allocator);
+        if (!l2_table) panic("Out of L2 tables");
+        
+        // Initialize L2 table (4096 entries * 4 bytes = 16KB)
+        memset(l2_table, 0, 4096 * sizeof(uint32_t));
+        
+        // Update L1 entry (Section 3.5.1 of ARM ARM)
+        *l1_entry = (uint32_t)l2_table | 0x1; // Set as page table
+    } else {
+        // Existing L2 table
+        l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    }
+
+    // --- L2 Entry Setup ---
+    uint32_t l2_index = (vaddr >> 12) & 0xFF; // Bits [19:12]
+    l2_table[l2_index] = paddr | flags | 0x2; // Small page descriptor
+
+    // --- Cache/TLB Maintenance ---
+    // dsb();          // Ensure writes complete
+    __asm__ volatile(
+        "mcr p15, 0, %0, c8, c7, 1" // Invalidate TLB entry (MVA=va)
+        : : "r" (vaddr)
+    );
+    // isb();
+}
+
+
+// // Example: Map a 4 KB page with the given flags (attributes).
+// // 'alloc' is used if a new L2 table needs to be allocated.
+// void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
+//     // --- Step 1: Determine the L1 index for this virtual address ---
+//     uint32_t l1_index = vaddr >> 20;  // Each L1 entry covers 1 MB
+//     uint32_t *l1_entry = &l1_page_table[l1_index];
+
+//     // --- Step 2: Check if this L1 entry already points to an L2 table ---
+//     if ((*l1_entry & 0x3) != MMU_PAGE_DESCRIPTOR) {
+//         // No L2 table exists here yet. Link to the corresponding L2 table
+//         if (!l2_tables[l1_index]) {
+//             printk("No L2 table available for vaddr %x\n", vaddr);
+//             return;
+//         }
+        
+//         // Update the L1 entry to point to our L2 table
+//         *l1_entry = ((uint32_t)l2_tables[l1_index] & ~0x3FF) | MMU_PAGE_DESCRIPTOR;
+//     }
+//     // --- Step 3: Get a pointer to the L2 table ---
+//     l2_page_table_t *l2_table = (l2_page_table_t *)(*l1_entry & ~0x3FF);
+    
+//     // --- Step 4: Determine the L2 index ---
+//     // Bits 19:12 of the virtual address (since each L2 entry maps 4 KB).
+//     uint32_t l2_index = (vaddr >> 12) & 0xFF;
+    
+//     // --- Step 5: Set the L2 entry ---
+//     // The entry should contain the physical base address (aligned to 4 KB)
+//     // plus the flags and the small page descriptor.
+//     (*l2_table)[l2_index] = (paddr & ~0xFFF) | flags | L2_SMALL_PAGE;
+    
+//     // Optionally, you might want to flush the TLB for this entry.
+// }

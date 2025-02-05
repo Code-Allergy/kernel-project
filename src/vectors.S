@@ -83,6 +83,7 @@ irq_handler:
     subs pc, lr, #0       /* Return from exception */
 
 swi_handler:
+    STMFD   SP!, {R0-R3, LR}  @ Push R0-R3 and return address
 
     @ Call the syscall dispatcher
     BL      handle_svc_c

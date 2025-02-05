@@ -7,6 +7,7 @@
 
 #include <kernel/heap.h>
 #include <kernel/mmu.h>
+#include <kernel/mm.h>
 #include <kernel/fat32.h>
 
 #include <stdint.h>
@@ -36,12 +37,22 @@ static inline void enable_irqs(void) {
     __asm__ volatile("cpsie i");
 }
 
-#define TEST_FILE "bin/tester"
+#define TEST_FILE "bin/initial"
 
-int kernel_init() {
-    // timer_init(KERNEL_HEARTBEAT_TIMER);
+int kernel_init(bootloader_t* bootloader_info) {
+    timer_init(KERNEL_HEARTBEAT_TIMER, TIMER0_IDX);
     
+    
+    intc_init();
+
+    // these 2 can be combined when we rewrite drivers
+    uart_init_interrupts();
     request_irq(1, uart_handler, NULL);
+    enable_irqs();
+    kernel_mmu_init(bootloader_info);
+    init_page_allocator(&kpage_allocator, bootloader_info);
+    kernel_heap_init();
+    printk("Kernel initialized\n");
 
     
     return 0;
@@ -63,16 +74,11 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
         printk("Invalid bootloader magic: %x\n", bootloader_info->magic);
         return -1;
     }
+    // should be done in kernel_main
     setup_stacks();
-    intc_init();
-    kernel_init();
-    uart_init_interrupts();
-    enable_irqs();
-    kernel_mmu_init(bootloader_info);
-    init_page_allocator(&kpage_allocator, bootloader_info);
-    kernel_heap_init();
-    printk("Kernel initialized\n");
-    
+    kernel_init(bootloader_info);
+
+
     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
         printk("Failed to mount SD card\n");
         return -1;
@@ -94,20 +100,21 @@ int kernel_main(bootloader_t* bootloader_info) { // we can pass a different stru
         printk("Empty file\n");
         while(1);
     }
-
+    
+    process_t* new_process = create_process(code_page, data_page);
     // set up the page table for user pages
-    map_page(&kpage_allocator, 0x80000000, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    fat32_read(&userspace_application, 0x80000000, userspace_application.file_size);
+    map_page(new_process->ttbr0, MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    fat32_read(&userspace_application, MEMORY_USER_CODE_BASE, userspace_application.file_size);
     printk("first bytes = %p\n", *(uint32_t*)code_page);
 
     // set up the data page    
-    map_page(&kpage_allocator, 0x80001000, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    map_page(&new_process->ttbr0, MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
 
     // create a new process
 
     struct cpu_regs kregs;
     get_kernel_regs(&kregs);
-    process_t* new_process = create_process(0x80000000, 0x80001000);
+    
 
 
     printk("Switching to user mode\n");

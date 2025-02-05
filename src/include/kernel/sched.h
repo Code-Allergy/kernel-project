@@ -36,8 +36,8 @@ typedef struct {
     uint32_t state;
 
         // Memory management
-    uint32_t ttbr0;       // Physical address of translation table base
-    // uint32_t asid;        // Address Space ID (if using ASIDs) TODO
+    uint32_t* ttbr0;       // Physical address of translation table base
+    uint32_t asid;        // Address Space ID (if using ASIDs) TODO
 
     uint32_t code_page;
     uint32_t data_page;

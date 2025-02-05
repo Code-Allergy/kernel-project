@@ -44,11 +44,14 @@ void handle_svc_c(void) {
         uint32_t user_char_len;
         asm volatile("mov %0, r0" : "=r"(user_char_ptr));
         asm volatile("mov %0, r1" : "=r"(user_char_len));
-
-        printk("User char addr: %p\n", user_char_ptr);
-        printk("User char ptr: %s\n", user_char_ptr);
-        printk("User char len: %d\n", user_char_len);
-        
+        printk("U: %s", user_char_ptr);
+        return;
+    } else if (svc_number == 1) {
+        uint32_t sleep_time;
+        asm volatile("mov %0, r0" : "=r"(sleep_time));
+        printk("Sleeping for %d\n", sleep_time);
+        // start timer1 for sleep_time
+        return;
     }
 
 
@@ -58,11 +61,11 @@ void handle_svc_c(void) {
     while(1);
 }
 
-void __attribute__((interrupt("ABORT"))) data_abort_handler() {
+void data_abort_handler() {
     uint32_t dfsr, dfar;
     asm volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(dfsr)); // DFSR
     asm volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar)); // DFAR
-    printk("Data abort! Addr: 0x%x, Status: 0x%x\n", dfar, dfsr);
+    printk("Data abort! Addr: %p, Status: %p\n", dfar, dfsr);
     while (1); // Halt
 }
 
@@ -70,7 +73,7 @@ void prefetch_abort_c() {
     uint32_t ifar, ifsr;
     asm volatile("mrc p15, 0, %0, c6, c0, 2" : "=r"(ifar)); // IFAR
     asm volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
-    printk("Prefetch abort! Addr: 0x%x, Status: 0x%x\n", ifar, ifsr);
+    printk("Prefetch abort! Addr: %p, Status: %p\n", ifar, ifsr);
     while (1); // Halt
 }
 
