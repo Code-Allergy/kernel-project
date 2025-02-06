@@ -4,58 +4,46 @@
 #include <kernel/sched.h>
 #include <kernel/uart.h>
 #include <kernel/paging.h>
+#include <kernel/panic.h>
 
 #include <kernel/heap.h>
 #include <kernel/mmu.h>
 #include <kernel/mm.h>
 #include <kernel/fat32.h>
 
+#include <kernel/intc.h>
+#include <kernel/timer.h>
+
 #include <stdint.h>
 
 #include "drivers/qemu/intc.h"
-#include "drivers/qemu/timer.h"
-#include "drivers/qemu/uart.h"
 
-#define KERNEL_HEARTBEAT_TIMER 1000000 // us
-
-
-#define TEST_IRQ 23
-#define UART_IRQ 1
-
-#define TIMER0_CTRL      ((volatile uint32_t*) 0x1c20c10)
-#define TIMER0_INTV      ((volatile uint32_t*) 0x1c20c14)
-#define TIMER0_CUR       ((volatile uint32_t*) 0x1c20c18)
-#define TIMER_IRQ_ENABLE (1 << 2)  // Bit for enabling interrupt
-
-#define PIC_IRQ_ENABLE ((volatile uint32_t*) 0x1c20410)
-#define PIC_IRQ_STATUS ((volatile uint32_t*) 0x1c20400)
-#define TIMER_IRQ  (1 << 22)
-
-extern void syscall_test(void);
-
-static inline void enable_irqs(void) {
-    __asm__ volatile("cpsie i");
-}
-
+#define KERNEL_HEARTBEAT_TIMER 10000000 // us
 #define TEST_FILE "bin/initial"
 
-static bootloader_t bootloader_info_kernel;
+bootloader_t bootloader_info;
 
-int kernel_init(bootloader_t* bootloader_info) {
-    timer_init(KERNEL_HEARTBEAT_TIMER, TIMER0_IDX);
+// TEMP in here: this can be kernel heartbeat timer
+void system_clock(void) {
 
+}
 
-    intc_init();
+int kernel_init(void) {
+    clock_timer.init();
+    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
+    interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
-    uart_init_interrupts();
-    request_irq(1, uart_handler, NULL);
-    enable_irqs();
-    kernel_mmu_init(bootloader_info);
-    init_page_allocator(&kpage_allocator, bootloader_info);
-    kernel_heap_init();
-    printk("Kernel initialized\n");
+    uart_driver.enable_interrupts();
+    interrupt_controller.register_irq(1, uart_handler, NULL);
+    interrupt_controller.enable_irq(1);
+    interrupt_controller.enable_irq_global();
 
+
+    mmu_driver.enable();
+    init_page_allocator(&kpage_allocator, &bootloader_info);
+    kernel_heap_init();
+    debug_l1_l2_entries(0x40000000);
 
     return 0;
 }
@@ -165,57 +153,19 @@ void test_process_creation(void) {
     enter_user_mode(new_process);
 }
 
-__attribute__((noreturn)) void kernel_panic(void) {
-    printk("Kernel panic\n");
-    while(1);
-}
-
-
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
+    for (size_t i = 0; i < sizeof(bootloader_t); i++)
+        ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
+
     printk("Kernel starting - version %s\n", GIT_VERSION);
+    if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
+    if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) !=
+        bootloader_info.kernel_checksum) panic("Checksum check failed!");
+    printk("Passed initial checks!\n");
 
-    char *src = (char *)_bootloader_info;
-    char *dest = (char *)&bootloader_info_kernel;
-    for (size_t i = 0; i < sizeof(bootloader_t); i++) {
-        dest[i] = src[i];
-    }
-
-
-
-    bootloader_t* bootloader_info = &bootloader_info_kernel;
-    if (bootloader_info->magic != 0xFEEDFACE) {
-        printk("Invalid bootloader magic: %x\n", bootloader_info->magic);
-        return -1;
-    }
-
-    if (bootloader_info->kernel_checksum !=
-    calculate_checksum((void*)kernel_main, bootloader_info->kernel_size)) {
-        printk("Kernel checksum failed\n");
-        return -1;
-    }
-
-    kernel_init(bootloader_info);
-    test_domain_protection();
-
-
-    char* some_array;
-    some_array = (char*) kmalloc(2048);
-    if (some_array == NULL) {
-        printk("Failed to allocate memory\n");
-    }
-
-    some_array[0] = 'c';
-    some_array[1] = 'a';
-    some_array[2] = 't';
-    some_array[3] = 't';
-    some_array[4] = 'l';
-    some_array[5] = 'e';
-    some_array[6] = '\0';
-    printk("Array: %s\n", some_array);
-
-    printk("Address of memory: %p\n", some_array);
+    kernel_init();
 
     scheduler_init();
     __builtin_unreachable();

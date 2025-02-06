@@ -1,7 +1,11 @@
-#include "timer.h"
-#include <kernel/printk.h>
 #include <stddef.h>
 
+#include <kernel/printk.h>
+#include <kernel/intc.h>
+#include <kernel/timer.h>
+#include <kernel/panic.h>
+
+#include "timer.h"
 #include "intc.h"
 
 
@@ -10,51 +14,98 @@
 volatile uint64_t sleep_until = 0;
 
 
-// TEMP in here: this can be kernel heartbeat timer
-void timer_handler(int irq, void *data) {
-    AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    
-    // Clear timer interrupt
-    t->irq_status ^= (1 << 1); // Toggle bit 1
-    INTC->IRQ_PEND[0] = (1 << 1); 
-    
-    printk("IRQ %d: Timer fired!\n", irq);
+
+static void timer_init(void) {
+    clock_timer.initialized = 1;
+    // whatever else at runtime
 }
 
+// void set_timer_usec(uint32_t usec, uint32_t timer_idx, uint32_t flags) {
+//     AW_Timer *t = (AW_Timer*) TIMER_BASE;
 
-void set_timer_usec(uint32_t usec, uint32_t timer_idx, uint32_t flags) {
+//     t->timer[timer_idx].control = 0; // Disable first
+//     t->timer[timer_idx].interval = 24 * usec; // 24MHz
+
+//     // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
+//     t->timer[timer_idx].control = flags;
+// }
+
+
+// void sleep_us(uint32_t usec) {
+//     AW_Timer *t = (AW_Timer*) TIMER_BASE;
+//     set_timer_usec(usec, SLEEP_TIMER, TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN | TIMER_ONESHOT);
+
+//     // Wait for timer to finish
+//     while(!(t->irq_status & (1 << get_timer_irq_idx(SLEEP_TIMER))));
+
+//     // Clear timer interrupt
+//     t->irq_status = 1 << get_timer_irq_idx(SLEEP_TIMER);
+// }
+
+static void system_clock(int irq, void* data) {
+    (void)data;
+    printk("Clock activated! irq %d\n", irq);
     AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    
-    t->timer[timer_idx].control = 0; // Disable first
-    t->timer[timer_idx].interval = 24 * usec; // 24MHz
-    
-    // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
-    t->timer[timer_idx].control = flags;
+    t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
 }
 
-
-void sleep_us(uint32_t usec) {
-    AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    const int timer_idx = 0;
-    set_timer_usec(usec, SLEEP_TIMER, TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN | TIMER_ONESHOT);
-    
-    // Wait for timer to finish
-    while(!(t->irq_status & (1 << get_timer_irq_idx(SLEEP_TIMER))));
-    
-    // Clear timer interrupt
-    t->irq_status = 1 << get_timer_irq_idx(SLEEP_TIMER);
-}
-
-void timer_init(uint64_t interval_us, int timer_idx) {
+void timer_start(int timer_idx, uint32_t interval_us) {
     AW_Timer *t = (AW_Timer*) TIMER_BASE;
 
     t->irq_enable = 0x3F; // Enable timer 1 and 2 interrupts
     t->timer[timer_idx].control = 0; // Disable first
     t->timer[timer_idx].interval = interval_us * 24; // 24MHz
-    
+
     // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
     t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN;
-    
+
     /* setup interrupt handler */
-    request_irq(get_timer_irq_idx(timer_idx), timer_handler, NULL);
+    interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), system_clock, NULL);
+    interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
 }
+
+void handle_callback(int irq, void* __attribute__((unused)) data) {
+    uint32_t timer_idx = get_timer_idx_from_irq(irq);
+    if (clock_timer.callbacks[timer_idx] == NULL) {
+        panic("No callback set for timer %d\n", timer_idx);
+    }
+
+    // call the callback
+    clock_timer.callbacks[timer_idx]();
+    // reset the timer
+    AW_Timer *t = (AW_Timer*) TIMER_BASE;
+    t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
+}
+
+void timer_start_callback(int timer_idx, uint32_t interval_us, void (*callback)(void)) {
+    AW_Timer *t = (AW_Timer*) TIMER_BASE;
+    if (timer_idx >= (int)clock_timer.total) panic("Timer index out of bounds\n");
+
+    t->irq_enable = (1 << timer_idx);
+    t->timer[timer_idx].control = 0;
+    t->timer[timer_idx].interval = interval_us * 24; // 24MHz clock selected
+
+    // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
+    t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN;
+
+    clock_timer.callbacks[timer_idx] = callback;
+    clock_timer.available--;
+
+    /* setup interrupt handler */
+    interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), handle_callback, NULL);
+    interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
+}
+
+
+
+void handle_oneshot_callback(int timer_idx, void (*callback)(void)) {
+    // todo
+}
+
+timer_t clock_timer = {
+    .available = 6,
+    .total = 6,
+    .init = timer_init,
+    .start_idx = timer_start,
+    .start_idx_callback = timer_start_callback,
+};

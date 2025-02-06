@@ -73,12 +73,67 @@
 
 void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 uint32_t alloc_l1_table(struct page_allocator *alloc);
-void kernel_mmu_init(bootloader_t* bootloader_info);
+// void kernel_mmu_init(bootloader_t* bootloader_info);
 
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 void test_domain_protection(void);
+void debug_l1_l2_entries(void *va);
+
+typedef struct {
+    // Configuration state
+    uint32_t ttbr0;             // Translation Table Base Register 0 value
+    uint32_t ttbr1;             // Translation Table Base Register 1 value
+    uint32_t domain_access;      // Domain access control register value
+    uint32_t control_register;   // Control register value
+
+    // Memory management info
+    size_t total_pages;         // Total number of pages managed
+    size_t free_pages;          // Number of available pages
+    size_t kernel_pages;        // Pages used by kernel
+
+    // Architecture specifics
+    uint32_t page_size;         // Size of a memory page
+    uint32_t section_size;      // Size of a section
+    uint8_t max_domains;        // Maximum number of domains supported
+
+
+    // Basic MMU control functions
+    void (*enable)(void);
+    void (*disable)(void);
+    void (*flush_tlb)(void);
+
+    // Page table management
+    void (*map_page)(void* vaddr, void* paddr, uint32_t flags);
+    void (*unmap_page)(void* vaddr);
+    void* (*get_physical_address)(void* vaddr);
+
+    // // Domain access control
+    // void (*set_domain_access)(uint32_t domain, uint32_t access);
+    // uint32_t (*get_domain_access)(uint32_t domain);
+
+    // // Cache operations
+    // void (*invalidate_cache)(void);
+    // void (*clean_cache)(void);
+    // void (*flush_cache)(void);
+
+    // // TLB operations
+    // void (*invalidate_tlb_entry)(void* vaddr);
+    // void (*set_ttbr0)(uint32_t ttbr0);
+    // uint32_t (*get_ttbr0)(void);
+
+    // // Memory attribute control
+    // void (*set_memory_attributes)(void* vaddr, uint32_t size, uint32_t attrs);
+    // uint32_t (*get_memory_attributes)(void* vaddr);
+
+    // // Status and debug
+    // uint32_t (*get_fault_status)(void);
+    // void* (*get_fault_address)(void);
+    // void (*debug_dump)(void)
+} mmu_t;
+
+extern mmu_t mmu_driver;
 
 #endif // KERNEL_MMU_H

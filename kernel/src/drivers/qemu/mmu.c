@@ -4,6 +4,8 @@
 #include <kernel/printk.h>
 #include <kernel/mmu.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
+
 #define UART0_BASE 0x01C28000
 #define UART4_BASE 0x01c29000
 #define MMC0_BASE 0x01C0F000
@@ -11,7 +13,7 @@
 extern uint32_t kernel_end;
 extern uint32_t kernel_code_end;
 
-#define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
+
 
 // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
@@ -40,7 +42,7 @@ int is_kernel_page(uint32_t paddr) {
     return paddr >= KERNEL_ENTRY && paddr < (uint32_t)&kernel_end;
 }
 
-int mmu_init_page_table(bootloader_t* bootloader_info) {
+int mmu_init_page_table(void) {
     /* Verify page table alignment */
     if (((uintptr_t)l1_page_table & 0x3FFF) != 0) {
         printk("Page table not 16KB aligned\n");
@@ -52,7 +54,7 @@ int mmu_init_page_table(bootloader_t* bootloader_info) {
         return -1;
     }
 
-    if (bootloader_info->kernel_size > 1024*1024) {
+    if (bootloader_info.kernel_size > 1024*1024) {
         printk("Kernel too large to fit in 1MB: TODO\n");
         return -1;
     }
@@ -177,45 +179,79 @@ void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // isb();
 }
 
-void kernel_mmu_init(bootloader_t* bootloader_info) {
-    mmu_init_page_table(bootloader_info); // Populate L1 table
+void kernel_mmu_init(void) {
+    mmu_init_page_table(); // Populate L1 table
     mmu_set_domains();     // Configure domains
     mmu_enable();          // Load TTBR0 and enable MMU
 }
 
+void debug_l1_entry(uint32_t *va) {
+    uint32_t va_val = (uint32_t)va;
 
-// // Example: Map a 4 KB page with the given flags (attributes).
-// // 'alloc' is used if a new L2 table needs to be allocated.
-// void map_page(struct page_allocator *alloc, uint32_t vaddr, uint32_t paddr, uint32_t flags) {
-//     // --- Step 1: Determine the L1 index for this virtual address ---
-//     uint32_t l1_index = vaddr >> 20;  // Each L1 entry covers 1 MB
-//     uint32_t *l1_entry = &l1_page_table[l1_index];
+    // Get L1 index (bits 31-20)
+    uint32_t l1_index = va_val >> 20;
+    uint32_t l1_entry = l1_page_table[l1_index];
 
-//     // --- Step 2: Check if this L1 entry already points to an L2 table ---
-//     if ((*l1_entry & 0x3) != MMU_PAGE_DESCRIPTOR) {
-//         // No L2 table exists here yet. Link to the corresponding L2 table
-//         if (!l2_tables[l1_index]) {
-//             printk("No L2 table available for vaddr %x\n", vaddr);
-//             return;
-//         }
+    printk("L1 Entry [%p] @ %p: %p\n",
+          l1_index, &l1_page_table[l1_index], l1_entry);
 
-//         // Update the L1 entry to point to our L2 table
-//         *l1_entry = ((uint32_t)l2_tables[l1_index] & ~0x3FF) | MMU_PAGE_DESCRIPTOR;
-//     }
-//     // --- Step 3: Get a pointer to the L2 table ---
-//     l2_page_table_t *l2_table = (l2_page_table_t *)(*l1_entry & ~0x3FF);
+    // Decode L1 descriptor
+    if((l1_entry & 0x3) == 0x2) {
+        printk("  Section: Phys=%p\n", l1_entry & 0xFFF00000);
+        printk("  AP=%p, Domain=%p, C=%d, B=%d\n",
+              (l1_entry >> 10) & 0x3,
+              (l1_entry >> 5) & 0xF,
+              (l1_entry >> 3) & 0x1,
+              (l1_entry >> 2) & 0x1);
+    } else if((l1_entry & 0x3) == 0x1) {
+        printk("  Page Table: L2 @ %p\n", l1_entry & 0xFFFFFC00);
+    } else {
+        printk("  INVALID ENTRY\n");
+    }
+}
 
-//     // --- Step 4: Determine the L2 index ---
-//     // Bits 19:12 of the virtual address (since each L2 entry maps 4 KB).
-//     uint32_t l2_index = (vaddr >> 12) & 0xFF;
+void debug_l2_entry(uint32_t *va) {
+    uint32_t va_val = (uint32_t)va;
 
-//     // --- Step 5: Set the L2 entry ---
-//     // The entry should contain the physical base address (aligned to 4 KB)
-//     // plus the flags and the small page descriptor.
-//     (*l2_table)[l2_index] = (paddr & ~0xFFF) | flags | L2_SMALL_PAGE;
+    // Get L1 index first
+    uint32_t l1_index = va_val >> 20;
+    uint32_t l1_entry = l1_page_table[l1_index];
 
-//     // Optionally, you might want to flush the TLB for this entry.
-// }
+    if((l1_entry & 0x3) != 0x1) {
+        printk("No L2 table for address %p\n", va);
+        return;
+    }
+
+    // Get L2 table address
+    uint32_t *l2_table = (uint32_t*)(l1_entry & 0xFFFFFC00);
+
+    // Get L2 index (bits 19-12)
+    uint32_t l2_index = (va_val >> 12) & 0xFF;
+    uint32_t l2_entry = l2_table[l2_index];
+
+    printk("L2 Entry [%p] @ %p: %p\n",
+          l2_index, &l2_table[l2_index], l2_entry);
+
+    if((l2_entry & 0x3) == 0x2) {
+        printk("  Small Page: Phys=%p\n", l2_entry & 0xFFFFF000);
+        printk("  AP=%p, C=%d, B=%d, TEX=%p, S=%d\n",
+              (l2_entry >> 4) & 0x3,
+              (l2_entry >> 3) & 0x1,
+              (l2_entry >> 2) & 0x1,
+              (l2_entry >> 6) & 0x7,
+              (l2_entry >> 10) & 0x1);
+    } else {
+        printk("  INVALID ENTRY\n");
+    }
+}
+
+void debug_l1_l2_entries(void *va) {
+    printk("\n=== MMU Debug for %p ======================\n", va);
+    debug_l1_entry(va);
+    debug_l2_entry(va);
+    printk("=============================================\n\n");
+}
+
 
 
 // Helper function to verify domain settings
@@ -223,7 +259,7 @@ void verify_domain_access(void) {
     uint32_t dacr;
     asm volatile("mrc p15, 0, %0, c3, c0, 0" : "=r"(dacr));
 
-    printk("DACR: 0x%08x\n", dacr);
+    printk("DACR: %p\n", dacr);
 
     // Check specific domain settings
     uint32_t kernel_domain = (dacr >> (MMU_DOMAIN_KERNEL * 2)) & 0x3;
@@ -259,3 +295,14 @@ void test_domain_protection(void) {
         printk("Domain protection working - write was prevented\n");
     }
 }
+
+mmu_t mmu_driver = {
+    // .init = mmu_init,
+    .enable = kernel_mmu_init,
+    // .disable = mmu_disable,
+    // .debug_l1_entry = debug_l1_entry,
+    // .debug_l2_entry = debug_l2_entry,
+    // .debug_l1_l2_entries = debug_l1_l2_entries,
+    // .verify_domain_access = verify_domain_access,
+    // .test_domain_protection = test_domain_protection,
+};

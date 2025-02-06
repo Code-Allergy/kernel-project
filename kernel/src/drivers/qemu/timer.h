@@ -2,13 +2,14 @@
 #define ALLWINNER_A10_TIMER_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct {
     // Global registers (0x00-0x0C)
     volatile uint32_t irq_enable;    // 0x00
     volatile uint32_t irq_status;    // 0x04
     volatile uint32_t reserved[2];   // 0x08-0x0C
-    
+
     // Timer blocks (6 timers, 0x10-0x7F)
     struct {
         volatile uint32_t control;   // +0x00
@@ -16,7 +17,7 @@ typedef struct {
         volatile uint32_t count;     // +0x08
         volatile uint32_t reserved;  // +0x0C
     } timer[6];                      // 0x10-0x70
-    
+
     // Padding between timers and watchdog (0x80-0x8F)
     volatile uint32_t reserved1[8];  // 0x70-0x8F
 
@@ -48,7 +49,18 @@ static inline uint32_t get_timer_irq_idx(uint32_t timer_idx) {
     return (timer_idx < 6) ? lookup_table[timer_idx] : 0;
 }
 
-void timer_init(uint64_t interval_us, int timer_idx);
+static inline uint32_t get_timer_idx_from_irq(uint32_t irq_idx) {
+    static const uint32_t lookup_table[] = {22, 23, 24, 25, 67, 68};
+    static const size_t lookup_size = sizeof(lookup_table) / sizeof(lookup_table[0]);
+
+    for (uint32_t i = 0; i < lookup_size; i++) {
+        if (lookup_table[i] == irq_idx) {
+            return i;  // Return timer index if found
+        }
+    }
+
+    return UINT32_MAX;  // Return an invalid value if not found
+}
 
 // Control register bits
 #define TIMER_ENABLE    (1 << 0)
