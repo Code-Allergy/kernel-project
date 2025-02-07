@@ -24,9 +24,10 @@ SECTIONS {
 
     .padding_after_code : {  /* padding to 4KB */
         . = ALIGN(4096);
+        . += 0;
     } > RAM
 
-    kernel_code_end = .;
+    kernel_code_end = ALIGN(4096);
 
     /* The .data section holds initialized data */
     .data : {

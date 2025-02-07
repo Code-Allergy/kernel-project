@@ -155,6 +155,43 @@ void test_process_creation(void) {
 
 // }
 
+// kernel will be in memory at DRAM_BASE, so we can map the kernel pages to the same location
+// void init_kernel_data_pages(void) {
+//     extern uint32_t kernel_code_end;
+//     extern uint32_t kernel_end;
+
+//     for (uint32_t i = (uint32_t)&kernel_code_end; i < (uint32_t)&kernel_end; i += PAGE_SIZE) {
+//         mmu_driver.map_page(l1_page_table, (void*)i,
+//             (void*)(DRAM_BASE + (i - KERNEL_ENTRY)), L2_KERNEL_DATA_PAGE);
+//         mmu_driver.flush_tlb();
+//     }
+// }
+#define PADDR(addr) ((uint32_t)((addr) - KERNEL_START) + DRAM_BASE)
+
+void init_kernel_pages(void) {
+    extern uint32_t kernel_code_end;
+    extern uint32_t kernel_end;
+
+    // map kernel code pages, 4k aligned
+    for (uint32_t vaddr = KERNEL_START; vaddr < (uint32_t)&kernel_code_end; vaddr += PAGE_SIZE) {
+        uint32_t paddr = PADDR(vaddr);
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_CODE_PAGE);
+        mmu_driver.flush_tlb();
+    }
+
+    for (uint32_t vaddr = (uint32_t)&kernel_code_end; vaddr < (uint32_t)&kernel_end; vaddr += PAGE_SIZE) {
+        uint32_t paddr = DRAM_BASE + (vaddr - KERNEL_ENTRY);
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_DATA_PAGE);
+        mmu_driver.flush_tlb();
+    }
+}
+
+static inline uint32_t read_ttbr0(void) {
+    uint32_t ttbr0;
+    asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
+    return ttbr0;
+}
+
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
@@ -171,8 +208,15 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
-    // init_page_allocator(&kpage_allocator, &bootloader_info);
-    // kernel_heap_init();
+    // we already have paging from the bootloader, but we should switch to our own
+    mmu_driver.init();
+    init_kernel_pages();
+    mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
+
+    printk("Done!\n");
+
+    init_page_allocator(&kpage_allocator);
+    kernel_heap_init();
 
     scheduler_init();
     __builtin_unreachable();

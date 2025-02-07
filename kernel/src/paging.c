@@ -5,35 +5,31 @@
 extern uint32_t kernel_end; // Defined in linker script, end of kernel memory space
 extern uint32_t kernel_code_end; // Defined in linker script, end of kernel code space, pages should be RO
 
-void init_page_allocator(struct page_allocator *alloc, bootloader_t* bootloader_info) {
+page_allocator_t kpage_allocator;
+
+
+void init_page_allocator(struct page_allocator *alloc) {
+    // start at end of kernel code space
+    uint32_t kernel_end_phys = ((uint32_t)&kernel_end - KERNEL_ENTRY) + DRAM_BASE;
+
     // Compute total pages correctly
     uint32_t dram_start = DRAM_BASE;
     uint32_t dram_size = DRAM_SIZE;
     alloc->total_pages = dram_size / PAGE_SIZE;
+    alloc->reserved_pages = (kernel_end_phys - dram_start) / PAGE_SIZE + 1;
     alloc->free_pages = alloc->total_pages - alloc->reserved_pages;
     alloc->free_list = NULL;
 
-    // start at end and loop to front, stopping at reserved pages
-    for (uint32_t i = 0; i < alloc->total_pages; i++) {
+    printk("Prrek\n");
+    // Start loop from the first FREE page (after reserved pages)
+    for (uint32_t i = alloc->reserved_pages; i < alloc->total_pages; i++) {
         // Physical address = DRAM start + page index * PAGE_SIZE
-        uint32_t paddr = DRAM_BASE + (i * PAGE_SIZE);
+        uint32_t paddr = dram_start + (i * PAGE_SIZE);
         alloc->pages[i].paddr = (void*)paddr;
+        // Add to free list (insert at head for simplicity)
         alloc->pages[i].next = alloc->free_list;
         alloc->free_list = &alloc->pages[i];
     }
-
-    // mmu_driver.map
-
-
-    // Start loop from the first FREE page (after reserved pages)
-    // for (uint32_t i = alloc->reserved_pages; i < alloc->total_pages; i++) {
-    //     // Physical address = DRAM start + page index * PAGE_SIZE
-    //     uint32_t paddr = dram_start + (i * PAGE_SIZE);
-    //     alloc->pages[i].paddr = (void*)paddr;
-    //     // Add to free list (insert at head for simplicity)
-    //     alloc->pages[i].next = alloc->free_list;
-    //     alloc->free_list = &alloc->pages[i];
-    // }
 
     // Debug prints
     printk("Total pages: %d (%dKB)\n", alloc->total_pages, alloc->total_pages * PAGE_SIZE / 1024);
