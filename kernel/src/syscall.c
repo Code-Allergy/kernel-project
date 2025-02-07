@@ -5,26 +5,18 @@
 #include <kernel/boot.h>
 #include <kernel/string.h>
 #include <kernel/heap.h>
+#include <kernel/sched.h>
+#include <kernel/paging.h>
 
+int sys_getpid(void) {
+    return current_process->pid;
+}
 
-typedef int (*syscall_fn_0)(void);
-typedef int (*syscall_fn_1)(int);
-typedef int (*syscall_fn_2)(int, int);
-typedef int (*syscall_fn_3)(int, int, int);
-typedef int (*syscall_fn_4)(int, int, int, int);
+int sys_yield(void) {
+    scheduler();
+    return -1; // should never reach here
+}
 
-typedef union {
-    syscall_fn_0 fn0;
-    syscall_fn_1 fn1;
-    syscall_fn_2 fn2;
-    syscall_fn_3 fn3;
-    syscall_fn_4 fn4;
-} syscall_fn;
-
-enum syscall_num {
-    SYS_DEBUG = 0,
-    // SYS_EXIT = 1,
-};
 
 int sys_debug(int buf, int len) {
     char* buff = kmalloc(len);
@@ -46,6 +38,24 @@ int sys_debug(int buf, int len) {
     return 0;
 }
 
+int sys_exit(int exit_status) {
+    // free allocated pages
+    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
+    mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
+    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr);
+    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
+    free_page(&kpage_allocator, (void*)current_process->code_page_paddr);
+    free_page(&kpage_allocator, (void*)current_process->data_page_paddr);
+    // TODO free pages in l1 table of process:
+    // TODO free anything else in the process
+    // TODO reassign PID or parents of children
+    free_alligned_pages(&kpage_allocator, current_process->ttbr0, 4);
+    memset(current_process, 0, sizeof(*current_process));
+
+
+    scheduler(); // reschedule after releasing the process struct;
+}
+
 
 
 
@@ -55,6 +65,9 @@ static const struct {
     int num_args;
 } syscall_table[NR_SYSCALLS] = {
     [SYS_DEBUG]  = {{.fn2 = sys_debug},  "debug",  2},
+    [SYS_EXIT]   = {{.fn1 = sys_exit},   "exit",   1},
+    [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
+    [SYS_YIELD]  = {{.fn0 = sys_yield},  "yield",  0},
 };
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4) {

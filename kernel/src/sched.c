@@ -11,6 +11,8 @@
 process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
 
+
+
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
@@ -29,9 +31,14 @@ static inline void flush_tlb(void) {
 // never return
 int scheduler_init(void) {
     printk("No scheduler implemented, halting!\n");
-    while(1) {
-        __asm__ volatile("wfi");
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_table[i].state = PROCESS_NONE;
     }
+
+
+    // make init process, make it ready to start, then we can start it in scheduler
+
+    // can call schedule here
 }
 
 uint8_t allocate_asid(void) {
@@ -78,24 +85,48 @@ void copy_kernel_mappings(uint32_t *ttbr0) {
     }
 }
 
-void schedule(void) {
+void scheduler(void) {
     // Your scheduling logic here
     // For example: Round Robin implementation
-    static int last_pid = 0;
+    // static int last_pid = 0;
+    printk("Got to scheduler\n");
+    while (1);
+    // do {
+    //     last_pid = (last_pid + 1) % MAX_PROCESSES;
+    // } while(process_table[last_pid].state != PROCESS_READY);
 
-    do {
-        last_pid = (last_pid + 1) % MAX_PROCESSES;
-    } while(process_table[last_pid].state != PROCESS_READY);
+    // current_process = &process_table[last_pid];
 
-    current_process = &process_table[last_pid];
-
-    // Perform actual context switch (you'll need assembly for this)
-    context_switch(&current_process->context);
+    // // Perform actual context switch (you'll need assembly for this)
+    // context_switch(&current_process->context);
 }
 
+process_t* get_available_process(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state == PROCESS_NONE) {
+            return &process_table[i];
+        }
+    }
+    return NULL;
+}
+
+process_t* clone_process(process_t* original_p) {
+    process_t* p = get_available_process();
+    if (p == NULL) {
+        printk("Out of available processes in clone_process! HALT\n");
+        while (1);
+    }
+
+    p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
+    if(!p->ttbr0) return NULL;
+}
 
 process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size) {
-    process_t* proc = &process_table[0];
+    process_t* proc = get_available_process();
+    if (proc == NULL) {
+        printk("Out of available processes in create_process! HALT\n");
+        while (1);
+    }
 
     // Allocate 16KB-aligned L1 table
     proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
@@ -125,8 +156,10 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     proc->priority = 0;
     proc->state = 0;
 
-    proc->code_page = MEMORY_USER_CODE_BASE;
-    proc->data_page = MEMORY_USER_DATA_BASE;
+    proc->code_page_vaddr = MEMORY_USER_CODE_BASE;
+    proc->data_page_vaddr = MEMORY_USER_DATA_BASE;
+    proc->code_page_paddr = (uint32_t) code_page;
+    proc->data_page_paddr = (uint32_t) data_page;
 
     proc->context.r0 = 1;
     proc->context.r1 = 2;

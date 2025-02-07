@@ -42,7 +42,7 @@ undef_handler:
     ldr     r1, =current_process
     ldr     r1, [r1]
     add     r1, r1, #20          /* process_t->regs offset (adjust if your struct differs) */
-    
+
     stmia   r1!, {r0-r12}        /* Save R0-R12 */
     str     sp, [r1], #4         /* Save user SP */
     str     lr, [r1], #4         /* Save user LR */
@@ -62,22 +62,22 @@ undef_handler:
 
     /* Read exception syndrome */
     mrc     p15, 0, r0, c5, c0, 0  /* Read ESR */
-    
+
     /* Call C handler with ESR and process */
     ldr     r1, =current_process
     ldr     r1, [r1]
     bl      handle_undefined
 
     /* Schedule new process */
-    b       schedule
+    b       scheduler
 
 irq_handler:
     sub lr, lr, #4        /* Adjust LR for IRQ return */
     mrs r0, spsr          /* Save SPSR */
     push {r0, r1-r12, lr} /* Save context and SPSR */
-    
+
     bl handle_irq_c       /* Call C handler */
-    
+
     pop {r0, r1-r12, lr}  /* Restore context and SPSR */
     msr spsr_cxsf, r0     /* Restore SPSR */
     subs pc, lr, #0       /* Return from exception */

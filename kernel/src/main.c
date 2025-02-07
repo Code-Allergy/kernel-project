@@ -74,6 +74,32 @@ extern void context_restore(void);
 extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
 void context_switch_1(struct cpu_regs* next_context);
 
+static inline void dump_registers(struct cpu_regs* regs) {
+    asm volatile(
+        "str r0, [%0, #0]\n"    // Save R0
+        "str r1, [%0, #4]\n"    // Save R1
+        "str r2, [%0, #8]\n"    // Save R2
+        "str r3, [%0, #12]\n"   // Save R3
+        "str r4, [%0, #16]\n"   // Save R4
+        "str r5, [%0, #20]\n"   // Save R5
+        "str r6, [%0, #24]\n"   // Save R6
+        "str r7, [%0, #28]\n"   // Save R7
+        "str r8, [%0, #32]\n"   // Save R8
+        "str r9, [%0, #36]\n"   // Save R9
+        "str r10, [%0, #40]\n"  // Save R10
+        "str r11, [%0, #44]\n"  // Save R11
+        "str r12, [%0, #48]\n"  // Save R12
+        "str sp, [%0, #52]\n"   // Save SP
+        "str lr, [%0, #56]\n"   // Save LR
+        "mrs r1, cpsr\n"        // Get CPSR
+        "str r1, [%0, #60]\n"   // Save CPSR
+        "str pc, [%0, #64]\n"   // Save PC
+        : // No outputs
+        : "r"(regs) // Input is the struct pointer
+        : "r1" // Clobber r1 since we use it for CPSR
+    );
+}
+
 void test_process_creation(void) {
     fat32_fs_t sd_card;
     fat32_file_t userspace_application;
@@ -106,12 +132,19 @@ void test_process_creation(void) {
 
 
     process_t* new_process = create_process(code_page, data_page, bytes, userspace_application.file_size);
+    current_process = new_process;
     printk("Created process\n");
 
     printk("About to restore context\n");
     mmu_driver.set_l1_table(new_process->ttbr0);
-    // struct cpu_regs regs;
+    struct cpu_regs regs;
+    dump_registers(&regs);
     context_switch_1(&new_process->context);
+
+    // we should come back here after the process is done and we syscall exit.
+
+
+
     // context_switch(&regs, &new_process->context);
 }
 
@@ -195,7 +228,11 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
 
-    test_process_creation();
     scheduler_init();
+    test_process_creation();
+
+
+    printk("Reached end of kernel_main, halting\n");
+    while (1);
     __builtin_unreachable();
 }
