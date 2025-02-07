@@ -42,7 +42,7 @@ void init_kernel_hardware(void) {
 }
 
 void switch_to_user_pages(process_t* proc) {
-    uint32_t ttbr0 = (uint32_t)proc->ttbr1 |
+    uint32_t ttbr0 = (uint32_t)proc->ttbr0 |
                      (proc->asid << 6) |    // ASID in bits 6-13
                      0x1;                   // Inner cacheable
 
@@ -87,7 +87,7 @@ void enter_user_mode(process_t* proc) {
         "mcr p15, 0, %1, c3, c0, 0     \n" // Domains: Kernel(0)=Manager, User(1)=Client
         "dsb              \n"
         "isb              \n"
-        :: "r"(proc->ttbr1), "r"(0x30000001)
+        :: "r"(proc->ttbr0), "r"(0x30000001)
     );
 
     __asm__ volatile(
@@ -130,7 +130,7 @@ void test_process_creation(void) {
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
 
-    process_t* new_process = create_process(code_page, data_page, bytes, userspace_application.file_size);
+    // process_t* new_process = create_process(code_page, data_page, bytes, userspace_application.file_size);
     printk("Created process\n");
 
     printk("About to switch to user pages\n");
@@ -143,17 +143,26 @@ void test_process_creation(void) {
     // printk("Switching to user mode\n");
     // printk("First instruction: %p\n", *(uint32_t*)new_process->regs.pc);
     //
-    enter_user_mode(new_process);
+    // enter_user_mode(new_process);
 }
+
+// map additional pages for the kernel.
+// void kernel_mmc_init(void) {
+//     for (size_t i = 0; i < 8; i++) {
+//         void* page = alloc_page(&kpage_allocator);
+//         printk("Allocated page %p\n", page);
+//     }
+
+// }
 
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
     for (size_t i = 0; i < sizeof(bootloader_t); i++)
         ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
-    mmu_driver.enable();
 
     printk("Kernel starting - version %s\n", GIT_VERSION);
+    printk("Kernel base address %p\n", kernel_main);
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) !=
         bootloader_info.kernel_checksum) panic("Checksum check failed!");
@@ -162,8 +171,8 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
-    init_page_allocator(&kpage_allocator, &bootloader_info);
-    kernel_heap_init();
+    // init_page_allocator(&kpage_allocator, &bootloader_info);
+    // kernel_heap_init();
 
     scheduler_init();
     __builtin_unreachable();

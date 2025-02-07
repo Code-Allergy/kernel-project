@@ -2,6 +2,7 @@
 #define KERNEL_SCHED_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 
 
@@ -38,7 +39,7 @@ typedef struct {
     uint32_t state;
 
     // Memory management
-    uint32_t* ttbr1;       // Physical address of translation table base
+    uint32_t* ttbr0;       // Physical address of translation table base
     uint32_t asid;        // Address Space ID (if using ASIDs) TODO
 
     uint32_t code_page;

@@ -95,11 +95,11 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     process_t* proc = &process_table[0];
 
     // Allocate 16KB-aligned L1 table
-    proc->ttbr1 = (uint32_t*) alloc_l1_table(&kpage_allocator);
-    if(!proc->ttbr1) return NULL;
+    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
+    if(!proc->ttbr0) return NULL;
 
-    map_page(proc->ttbr1, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    map_page(proc->ttbr1, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    map_page(proc->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     memcpy(code_page, bytes, size);
     // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
     // proc->ttbr1[l1_index] = (uint32_t)alloc_page(&kpage_allocator) | MMU_PAGE_DESCRIPTOR;
@@ -110,7 +110,7 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     // Copy kernel mappings (TTBR1 content)
     printk("Kernel mappings=precopied\n");
     //
-    copy_kernel_mappings(proc->ttbr1);
+    copy_kernel_mappings(proc->ttbr0);
     printk("Kernel mappings copied\n");
     // Set ASID
     proc->asid = allocate_asid();
