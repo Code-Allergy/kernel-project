@@ -28,8 +28,8 @@ struct cpu_regs {
     uint32_t r12;
     uint32_t sp;
     uint32_t lr;
-    uint32_t pc;
     uint32_t cpsr;
+    uint32_t pc;
 };
 
 
@@ -39,18 +39,18 @@ typedef struct {
     uint32_t state;
 
     // Memory management
-    uint32_t* ttbr0;       // Physical address of translation table base
+    uint32_t* ttbr0;// Physical address of translation table base
     uint32_t asid;        // Address Space ID (if using ASIDs) TODO
 
     uint32_t code_page;
     uint32_t data_page;
 
-    struct cpu_regs regs;
+    struct cpu_regs context;
     // rest of registers from user mode
 } process_t;
 
 process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size);
-
+void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
 int scheduler_init(void);

@@ -35,8 +35,10 @@ int scheduler_init(void) {
 }
 
 uint8_t allocate_asid(void) {
+    printk("Allocating ASID\n");
     for (uint8_t i = 1; i <= MAX_ASID; i++) {  // Skip ASID 0 (reserved)
         if (!asid_bitmap[i]) {
+            printk("Got asid\n");
             asid_bitmap[i] = 1;
             return i;
         }
@@ -46,34 +48,35 @@ uint8_t allocate_asid(void) {
     flush_tlb();
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
+    printk("Got asid\n");
     return 1;
 }
 
 // void copy_kernel_mappings(uint32_t *ttbr0) {
-//     // Get kernel's TTBR1 table (assumes identity mapped)
-//     uint32_t *kernel_ttbr1;
-//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 1" : "=r"(kernel_ttbr1));
+//     uint32_t *kernel_ttbr0;
+//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
 
-//     // Copy upper half (kernel space) mappings
-//     for(int i=2048; i<4096; i++) {  // Entries 2048-4096 = 0x80000000+
-//         ttbr0[i] = kernel_ttbr1[i];
+//     // start at kernel start entry, copy until end of memory space
+//     const int KERNEL_START_ENTRY = KERNEL_ENTRY / 0x400000;
+//     const int KERNEL_SIZE_ENTRIES = (0xFFFFFFFF - KERNEL_ENTRY) / 0x400000;
+
+//     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
+//         ttbr0[i] = kernel_ttbr0[i];
 //     }
 // }
 
-void copy_kernel_mappings(uint32_t *ttbr1) {
+void copy_kernel_mappings(uint32_t *ttbr0) {
     uint32_t *kernel_ttbr0;
+    // Read the current TTBR0 value (Kernel's TTBR0 mapping)
     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
 
-    // Kernel at 0x40120000
-    // 0x40120000 >> 20 = 1025 (entry number for start of kernel)
-    const int KERNEL_START_ENTRY = 1024;  // Entry for 0x40120000
-    const int KERNEL_SIZE_ENTRIES = 32;   // Adjust based on kernel size
-
-    for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
-        ttbr1[i] = kernel_ttbr0[i];
+    // Start at the kernel entry point and copy mappings up to the kernel end
+    for (uint32_t addr = 0x80000000; addr < 0xF0000000; addr += 0x100000) {
+        // Compute the index into the TTBR0 table
+        uint32_t index = addr / 0x100000;
+        ttbr0[index] = kernel_ttbr0[index];
     }
 }
-
 
 void schedule(void) {
     // Your scheduling logic here
@@ -87,7 +90,7 @@ void schedule(void) {
     current_process = &process_table[last_pid];
 
     // Perform actual context switch (you'll need assembly for this)
-    context_switch(&current_process->regs);
+    context_switch(&current_process->context);
 }
 
 
@@ -98,8 +101,11 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
     if(!proc->ttbr0) return NULL;
 
-    map_page(proc->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    printk("Here\n");
+    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    printk("Page mapped\n");
+    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    printk("About to copy code page\n");
     memcpy(code_page, bytes, size);
     // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
     // proc->ttbr1[l1_index] = (uint32_t)alloc_page(&kpage_allocator) | MMU_PAGE_DESCRIPTOR;
@@ -109,11 +115,12 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
 
     // Copy kernel mappings (TTBR1 content)
     printk("Kernel mappings=precopied\n");
-    //
     copy_kernel_mappings(proc->ttbr0);
-    printk("Kernel mappings copied\n");
+    printk("Kernel mappings copied to %p\n", proc->ttbr0);
     // Set ASID
-    proc->asid = allocate_asid();
+    // proc->asid = allocate_asid();
+    // TODO dynamic ASID allocation
+    proc->asid = 1;
     proc->pid = 0;
     proc->priority = 0;
     proc->state = 0;
@@ -121,25 +128,26 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     proc->code_page = MEMORY_USER_CODE_BASE;
     proc->data_page = MEMORY_USER_DATA_BASE;
 
-    proc->regs.r0 = 0;
-    proc->regs.r1 = 0;
-    proc->regs.r2 = 0;
-    proc->regs.r3 = 0;
-    proc->regs.r4 = 0;
-    proc->regs.r5 = 0;
-    proc->regs.r6 = 0;
-    proc->regs.r7 = 0;
-    proc->regs.r8 = 0;
-    proc->regs.r9 = 0;
-    proc->regs.r10 = 0;
-    proc->regs.r11 = 0;
-    proc->regs.r12 = 0;
-    proc->regs.sp = MEMORY_USER_STACK_BASE;
-    proc->regs.pc = MEMORY_USER_CODE_BASE;
-    proc->regs.cpsr = 0x10; // user mode
+    proc->context.r0 = 1;
+    proc->context.r1 = 2;
+    proc->context.r2 = 3;
+    proc->context.r3 = 4;
+    proc->context.r4 = 5;
+    proc->context.r5 = 6;
+    proc->context.r6 = 7;
+    proc->context.r7 = 8;
+    proc->context.r8 = 9;
+    proc->context.r9 = 10;
+    proc->context.r10 = 11;
+    proc->context.r11 = 12;
+    proc->context.r12 = 13;
+    proc->context.sp = MEMORY_USER_CODE_BASE + 0x500;
+    proc->context.pc = MEMORY_USER_CODE_BASE;
+    // proc->context.cpsr = 0x10; // user mode
+    proc->context.cpsr = 0x50;
 
     // TODO
-    proc->regs.lr = 0;
+    proc->context.lr = 0;
     printk("returning process\n");
 
     return proc;

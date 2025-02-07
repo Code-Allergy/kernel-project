@@ -1,3 +1,4 @@
+#include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/boot.h>
 #include <kernel/printk.h>
@@ -6,6 +7,9 @@ extern uint32_t kernel_end; // Defined in linker script, end of kernel memory sp
 extern uint32_t kernel_code_end; // Defined in linker script, end of kernel code space, pages should be RO
 
 page_allocator_t kpage_allocator;
+
+
+
 
 
 void init_page_allocator(struct page_allocator *alloc) {
@@ -20,13 +24,12 @@ void init_page_allocator(struct page_allocator *alloc) {
     alloc->free_pages = alloc->total_pages - alloc->reserved_pages;
     alloc->free_list = NULL;
 
-    printk("Prrek\n");
-    // Start loop from the first FREE page (after reserved pages)
-    for (uint32_t i = alloc->reserved_pages; i < alloc->total_pages; i++) {
+
+    // Start loop from the last and work to the front
+    for (uint32_t i = alloc->total_pages-1; i >= alloc->reserved_pages; i--) {
         // Physical address = DRAM start + page index * PAGE_SIZE
         uint32_t paddr = dram_start + (i * PAGE_SIZE);
         alloc->pages[i].paddr = (void*)paddr;
-        // Add to free list (insert at head for simplicity)
         alloc->pages[i].next = alloc->free_list;
         alloc->free_list = &alloc->pages[i];
     }

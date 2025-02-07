@@ -41,17 +41,6 @@ void init_kernel_hardware(void) {
 
 }
 
-void switch_to_user_pages(process_t* proc) {
-    uint32_t ttbr0 = (uint32_t)proc->ttbr0 |
-                     (proc->asid << 6) |    // ASID in bits 6-13
-                     0x1;                   // Inner cacheable
-
-    __asm__ volatile("mcr p15, 0, %0, c2, c0, 0" : : "r"(ttbr0));
-
-    // Ensure TLB is flushed for the new ASID
-    __asm__ volatile("mcr p15, 0, %0, c8, c7, 0" : : "r"(0));  // Flush TLB
-}
-
 // Helper function to write a single byte to user space
 static inline int __put_user(char *dst, char val) {
     int ret;
@@ -81,23 +70,9 @@ int copy_to_user(void *user_dest, const void *kernel_src, size_t len) {
     return 0;
 }
 
-void enter_user_mode(process_t* proc) {
-    __asm__ volatile(
-        "mcr p15, 0, %0, c2, c0, 0     \n" // Load process page table
-        "mcr p15, 0, %1, c3, c0, 0     \n" // Domains: Kernel(0)=Manager, User(1)=Client
-        "dsb              \n"
-        "isb              \n"
-        :: "r"(proc->ttbr0), "r"(0x30000001)
-    );
-
-    __asm__ volatile(
-        "mov r0, %0 \n"
-        "ldmia r0, {r1-r12, sp, lr} \n"
-        "ldr pc, [r0, #60] \n"  // Jump to proc->regs.pc
-        :: "r"(&proc->regs)
-        : "r0"
-    );
-}
+extern void context_restore(void);
+extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
+void context_switch_1(struct cpu_regs* next_context);
 
 void test_process_creation(void) {
     fat32_fs_t sd_card;
@@ -130,20 +105,14 @@ void test_process_creation(void) {
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
 
-    // process_t* new_process = create_process(code_page, data_page, bytes, userspace_application.file_size);
+    process_t* new_process = create_process(code_page, data_page, bytes, userspace_application.file_size);
     printk("Created process\n");
 
-    printk("About to switch to user pages\n");
-    // switch_to_user_pages(new_process);
-
-
-    // printk("Switched to user pages\n");
-
-
-    // printk("Switching to user mode\n");
-    // printk("First instruction: %p\n", *(uint32_t*)new_process->regs.pc);
-    //
-    // enter_user_mode(new_process);
+    printk("About to restore context\n");
+    mmu_driver.set_l1_table(new_process->ttbr0);
+    // struct cpu_regs regs;
+    context_switch_1(&new_process->context);
+    // context_switch(&regs, &new_process->context);
 }
 
 // map additional pages for the kernel.
@@ -179,9 +148,16 @@ void init_kernel_pages(void) {
         mmu_driver.flush_tlb();
     }
 
+    // map kernel code pages
     for (uint32_t vaddr = (uint32_t)&kernel_code_end; vaddr < (uint32_t)&kernel_end; vaddr += PAGE_SIZE) {
         uint32_t paddr = DRAM_BASE + (vaddr - KERNEL_ENTRY);
         mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_DATA_PAGE);
+        mmu_driver.flush_tlb();
+    }
+
+    // map all dram as identity mapped
+    for (uint32_t vaddr = DRAM_BASE; vaddr < DRAM_BASE + DRAM_SIZE; vaddr += PAGE_SIZE) {
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)vaddr, L2_KERNEL_DATA_PAGE);
         mmu_driver.flush_tlb();
     }
 }
@@ -214,10 +190,12 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
 
     printk("Done!\n");
+    ((volatile uint32_t*)0xC0000004)[0] = 0x12345678;
 
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
 
+    test_process_creation();
     scheduler_init();
     __builtin_unreachable();
 }

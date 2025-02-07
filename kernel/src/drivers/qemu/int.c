@@ -9,36 +9,25 @@
 #include "intc.h"
 #include "int.h"
 #include "../../../team-repo/src/drivers/qemu/uart.h"
+#include "kernel/boot.h"
+#include "kernel/mmc.h"
+#include "kernel/mmu.h"
 
 // handle interrupts here
 uint32_t svc_handlers[NR_SYSCALLS] = {0};
 
 void handle_svc_c(void) {
+    char buffer[100];
     // get syscall number
-    uint32_t svc_number;
+    uint32_t svc_number, arg1, arg2, arg3, arg4;
 
     asm volatile("mov %0, r7" : "=r"(svc_number));
+    asm volatile("mov %0, r0" : "=r"(arg1));
+    asm volatile("mov %0, r1" : "=r"(arg2));
+    asm volatile("mov %0, r2" : "=r"(arg3));
+    asm volatile("mov %0, r3" : "=r"(arg4));
 
-    if (svc_number == 0) {
-        char* user_char_ptr;
-        uint32_t user_char_len;
-        asm volatile("mov %0, r0" : "=r"(user_char_ptr));
-        asm volatile("mov %0, r1" : "=r"(user_char_len));
-        printk("U: %s", user_char_ptr);
-        return;
-    } else if (svc_number == 1) {
-        uint32_t sleep_time;
-        asm volatile("mov %0, r0" : "=r"(sleep_time));
-        printk("Sleeping for %d\n", sleep_time);
-        // start timer1 for sleep_time
-        return;
-    }
-
-
-    printk("SVC handler: %d\n", svc_number);
-
-
-    while(1);
+    handle_syscall(svc_number, arg1, arg2, arg3, arg4);
 }
 
 void data_abort_handler(uint32_t lr) {
@@ -52,6 +41,10 @@ void data_abort_handler(uint32_t lr) {
     // Extract status bits (bits [4:0] and bit [10])
     status = (dfsr & 0b1111) | ((dfsr >> 6) & 0b10000);
     domain = (dfsr >> 4) & 0xF;  // Fault domain
+
+    // switch page table so we can print
+    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
+    mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
 
     printk("Data Abort at address: %p\n", dfar);
     printk("Fault Status: %p (Domain: %d)\n", status, domain);
@@ -114,8 +107,8 @@ void handle_undefined(uint32_t esr, process_t* p) {
 
     // Log exception details
     printk("Undefined Instruction in PID %d at %p\n",
-           p->pid, p->regs.pc);
-    printk("Instruction: %p\n", *(uint32_t*)p->regs.pc);
+           p->pid, p->context.pc);
+    printk("Instruction: %p\n", *(uint32_t*)p->context.pc);
     printk("ESR: %p (EC=%p IL=%d ISS=%p)\n",
            esr, ec, il, iss);
 

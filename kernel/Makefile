@@ -41,8 +41,8 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-CFLAGS += -O2
-CFLAGS += -fstack-protector-strong -fno-stack-protector
+# CFLAGS += -O2
+# CFLAGS += -fstack-protector-strong -fno-stack-protector
 
 CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
 
