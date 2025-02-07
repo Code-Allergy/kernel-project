@@ -23,12 +23,12 @@
 
 bootloader_t bootloader_info;
 
-// TEMP in here: this can be kernel heartbeat timer
+// system clock
 void system_clock(void) {
 
 }
 
-int kernel_init(void) {
+void init_kernel_hardware(void) {
     clock_timer.init();
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     interrupt_controller.init();
@@ -39,13 +39,6 @@ int kernel_init(void) {
     interrupt_controller.enable_irq(1);
     interrupt_controller.enable_irq_global();
 
-
-    mmu_driver.enable();
-    init_page_allocator(&kpage_allocator, &bootloader_info);
-    kernel_heap_init();
-    debug_l1_l2_entries(0x40000000);
-
-    return 0;
 }
 
 void switch_to_user_pages(process_t* proc) {
@@ -158,6 +151,7 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     setup_stacks();
     for (size_t i = 0; i < sizeof(bootloader_t); i++)
         ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
+    mmu_driver.enable();
 
     printk("Kernel starting - version %s\n", GIT_VERSION);
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
@@ -165,7 +159,11 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
         bootloader_info.kernel_checksum) panic("Checksum check failed!");
     printk("Passed initial checks!\n");
 
-    kernel_init();
+    init_kernel_hardware();
+    printk("Finished initializing hardware\n");
+
+    init_page_allocator(&kpage_allocator, &bootloader_info);
+    kernel_heap_init();
 
     scheduler_init();
     __builtin_unreachable();

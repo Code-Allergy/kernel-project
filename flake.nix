@@ -18,6 +18,7 @@
           pkgs.util-linux
           pkgs.qemu
           pkgs.bear
+          pkgs.minicom
         ];
 
         # Optionally, you can set environment variables if needed by your build system:

@@ -3,15 +3,16 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 .SHELLFLAGS := -eu -c
 
-TOOLCHAIN   = arm-none-eabi
-MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-BUILD_DIR 	:= $(MAKEFILE_DIR)build
-BUILD_DIR   ?= $(O)
-
 # Target arch
 PLATFORM    := QEMU
 ARCH		:= arm
 CPU			:= cortex-a8
+
+TOOLCHAIN   = arm-none-eabi
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BUILD_BASE  := $(MAKEFILE_DIR)build
+BUILD_DIR 	:= $(BUILD_BASE)/$(PLATFORM)
+BUILD_DIR   ?= $(O)
 
 # Output files
 OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
@@ -31,6 +32,7 @@ SDCARD_USERSPACE_BIN = /bin
 SDCARD_USERSPACE_ELF = /elf
 
 # Directories
+TOOLS_DIR = tools
 KERNEL_DIR = kernel
 BOOTLOADER_DIR = team-repo
 USERSPACE_DIR = userspace
@@ -74,6 +76,12 @@ qemu: sdcard
 	-d guest_errors,unimp,int \
 	-kernel $(BOOTLOADER_BIN)
 
+bbb:
+	@$(MAKE) -C $(BOOTLOADER_DIR) PLATFORM=BBB BUILD_DIR=$(BUILD_BASE)/BBB ARCH=$(ARCH) CPU=$(CPU)
+
+
+flash-bbb: bbb
+	$(TOOLS_DIR)/sdimager/flash_img.sh $(BUILD_BASE)/BBB/bootloader.img $(DEV)
 
 
 CLEAN_LABEL = [\033[0;32mCLEAN\033[0m]
