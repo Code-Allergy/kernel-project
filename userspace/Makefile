@@ -12,7 +12,7 @@ LD = $(TOOLCHAIN_PREFIX)ld
 OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 
 # Compiler flags
-CFLAGS = -O2 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding
+CFLAGS = -O2 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I.
 LDFLAGS = -T linker.ld
 
 SOURCES = $(wildcard $(SRC_DIR)/*.c)

@@ -16,5 +16,5 @@
 #define MEMORY_USER_HEAP_BASE    0x01000000   // Keep user heap start
 #define MEMORY_USER_STACK_BASE   0x30000000   // Move stack below kernel
 #define KERNEL_START             0xC0000000   // TODO this should be virtual memory mapped instead of identity mapped
-
+#define MEMORY_KERNEL_DEVICE_BASE 0xF0000000  // map devices as offset from this address
 #endif // KERNEL_MMU_H

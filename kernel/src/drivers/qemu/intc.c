@@ -3,15 +3,21 @@
 #include <kernel/int.h>
 #include <kernel/panic.h>
 #include <kernel/syscall.h>
+#include <kernel/mmu.h>
+#include <kernel/boot.h>
 
 #include "intc.h"
+#include "kernel/sched.h"
 
 /* Initial vector table for ARM, memory is pointed to here in VBAR register */
 extern uint32_t _vectors[];
 
 struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 
-void handle_irq_c(void) {
+void handle_irq_c(uint32_t return_addr) {
+    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
+    mmu_driver.set_l1_table((void*)kernel_l1_phys);
+    current_process->context.lr = return_addr - 4;
     for(int reg = 0; reg < 3; reg++) {
         uint32_t pending = INTC->IRQ_PEND[reg];
         while(pending) {
@@ -22,6 +28,7 @@ void handle_irq_c(void) {
             pending &= pending - 1;
         }
     }
+    mmu_driver.set_l1_table(current_process->ttbr0);
 }
 
 static void intc_init(void) {

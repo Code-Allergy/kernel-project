@@ -69,12 +69,12 @@ void handle_callback(int irq, void* __attribute__((unused)) data) {
     if (clock_timer.callbacks[timer_idx] == NULL) {
         panic("No callback set for timer %d\n", timer_idx);
     }
-
-    // call the callback
-    clock_timer.callbacks[timer_idx]();
     // reset the timer
     AW_Timer *t = (AW_Timer*) TIMER_BASE;
     t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
+    // call the callback
+    clock_timer.callbacks[timer_idx]();
+
 }
 
 void timer_start_callback(int timer_idx, uint32_t interval_us, void (*callback)(void)) {

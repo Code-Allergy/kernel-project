@@ -125,13 +125,15 @@ void scheduler(void) {
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
     printk("Got to scheduler\n");
     process_t* next_process = get_next_process();
-    if (next_process->state == PROCESS_NONE) {
+    if (next_process == NULL || next_process->state == PROCESS_NONE) {
         printk("No more processes to run, halting!\n");
         while (1);
     }
 
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
+    printk("Jumping to code at %p\n", next_process->context.lr);
+
 
     current_process = next_process;
     mmu_driver.set_l1_table(current_process->ttbr0); // TODO if this is current process, we don't need to switch. we do for now for print
@@ -155,9 +157,10 @@ process_t* clone_process(process_t* original_p) {
     }
 
     // allocate pages for code and data
-    void* code_page = alloc_page(&kpage_allocator);
     void* data_page = alloc_page(&kpage_allocator);
-    if (!code_page || !data_page) { // NO SWAPPING
+    void* stack_page = alloc_page(&kpage_allocator);
+    void* heap_page = alloc_page(&kpage_allocator);
+    if (!data_page || !stack_page || !heap_page) { // NO SWAPPING
         printk("Out of memory in clone_process! HALT\n");
         while (1);
     }
@@ -165,9 +168,12 @@ process_t* clone_process(process_t* original_p) {
     p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
     if(!p->ttbr0) return NULL;
 
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_CODE_BASE, (void*)original_p->code_page_paddr, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    memcpy(code_page, (void*)original_p->code_page_paddr, original_p->code_size);
+    // TODO clone memory from original process
+    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+
     memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
 
     // map kernel mappings
@@ -178,21 +184,39 @@ process_t* clone_process(process_t* original_p) {
     p->priority = 0;
 
     p->code_page_vaddr = MEMORY_USER_CODE_BASE;
+    p->stack_page_vaddr = MEMORY_USER_STACK_BASE;
     p->data_page_vaddr = MEMORY_USER_DATA_BASE;
-    p->code_page_paddr = (uint32_t) code_page;
+    p->heap_page_vaddr = MEMORY_USER_HEAP_BASE;
+
+    p->code_page_paddr = (uint32_t) original_p->code_page_paddr;
     p->data_page_paddr = (uint32_t) data_page;
+    p->stack_page_paddr = (uint32_t) stack_page;
+    p->heap_page_paddr = (uint32_t) heap_page;
+
     p->code_size = original_p->code_size;
 
     memcpy(&p->context, &original_p->context, sizeof(struct cpu_regs));
+    p->context.sp = (uint32_t) p->stack_page_vaddr + PAGE_SIZE - 4;
     p->state = PROCESS_READY;
 
     return p;
 }
 
-process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size) {
+
+// create a new process with a flat binary
+process_t* create_process(uint8_t* bytes, size_t size) {
     process_t* proc = get_available_process();
     if (proc == NULL) {
         printk("Out of available processes in create_process! HALT\n");
+        while (1);
+    }
+
+    void* code_page = alloc_page(&kpage_allocator);
+    void* data_page = alloc_page(&kpage_allocator);
+    void* stack_page = alloc_page(&kpage_allocator);
+    void* heap_page =alloc_page(&kpage_allocator);
+    if (!code_page || !data_page || !stack_page || !heap_page) { // NO SWAPPING
+        printk("Out of memory in create_process! HALT\n");
         while (1);
     }
 
@@ -202,6 +226,8 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
 
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
+    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     printk("About to copy code page\n");
     memcpy(code_page, bytes, size);
     // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
@@ -218,8 +244,13 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
 
     proc->code_page_vaddr = MEMORY_USER_CODE_BASE;
     proc->data_page_vaddr = MEMORY_USER_DATA_BASE;
+    proc->stack_page_vaddr = MEMORY_USER_STACK_BASE;
+    proc->heap_page_vaddr = MEMORY_USER_HEAP_BASE;
+
     proc->code_page_paddr = (uint32_t) code_page;
     proc->data_page_paddr = (uint32_t) data_page;
+    proc->stack_page_paddr = (uint32_t) stack_page;
+    proc->heap_page_paddr = (uint32_t) heap_page;
     proc->code_size = size;
 
     proc->context.r0 = 0;
@@ -235,10 +266,9 @@ process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size
     proc->context.r10 = 0;
     proc->context.r11 = 0;
     proc->context.r12 = 0;
-    proc->context.sp = MEMORY_USER_CODE_BASE + 0x500;
+    proc->context.sp = MEMORY_USER_STACK_BASE + PAGE_SIZE;
     proc->context.pc = MEMORY_USER_CODE_BASE;
-    // proc->context.cpsr = 0x10; // user mode
-    proc->context.cpsr = 0x50;
+    proc->context.cpsr = 0x10;
     // TODO
     proc->context.lr = 0;
     proc->state = PROCESS_READY;

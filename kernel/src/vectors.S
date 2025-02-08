@@ -76,6 +76,7 @@ irq_handler:
     mrs r0, spsr          /* Save SPSR */
     push {r0, r1-r12, lr} /* Save context and SPSR */
 
+    mov r0, lr            /* Pass return address as argument */
     bl handle_irq_c       /* Call C handler */
 
     pop {r0, r1-r12, lr}  /* Restore context and SPSR */

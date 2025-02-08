@@ -93,6 +93,7 @@ static const struct {
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address) {
     dump_registers(&current_process->context);
     current_process->context.lr = return_address;
+    current_process->context.pc = current_process->context.lr;
     uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
     printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);

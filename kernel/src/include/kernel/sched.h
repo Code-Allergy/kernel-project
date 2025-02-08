@@ -43,17 +43,23 @@ typedef struct {
     uint32_t* ttbr0;// Physical address of translation table base
     uint32_t asid;        // Address Space ID (if using ASIDs) TODO
 
-    uint32_t code_page_paddr;
-    uint32_t data_page_paddr;
-    uint32_t code_page_vaddr;
-    uint32_t data_page_vaddr;
     uint32_t code_size;
+    uint32_t code_entry;
+    uint32_t code_page_paddr;
+    uint32_t code_page_vaddr;
+    uint32_t data_page_paddr;
+    uint32_t data_page_vaddr;
+    uint32_t stack_page_paddr;
+    uint32_t stack_page_vaddr;
+    uint32_t stack_top;
+    uint32_t heap_page_paddr;
+    uint32_t heap_page_vaddr;
 
     struct cpu_regs context;
     // rest of registers from user mode
 } process_t;
 
-process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size);
+process_t* create_process(uint8_t* bytes, size_t size);
 process_t* clone_process(process_t* original_p);
 void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);

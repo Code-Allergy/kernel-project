@@ -18,19 +18,21 @@
 
 #include "drivers/qemu/intc.h"
 
-#define KERNEL_HEARTBEAT_TIMER 10000000 // us
-#define TEST_FILE "bin/initial"
+#define KERNEL_HEARTBEAT_TIMER 1000000 // us
+#define TEST_FILE "bin/null"
+
 
 bootloader_t bootloader_info;
 
 // system clock
 void system_clock(void) {
-
+    // clock_timer.clear_interrupt(0);
+    scheduler();
 }
 
 void init_kernel_hardware(void) {
     clock_timer.init();
-    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
+    // clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
@@ -45,7 +47,7 @@ extern void context_restore(void);
 extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
 void context_switch_1(struct cpu_regs* next_context);
 
-void test_process_creation(void) {
+void create_init_process(const char* file_name) {
     fat32_fs_t sd_card;
     fat32_file_t userspace_application;
     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
@@ -53,25 +55,20 @@ void test_process_creation(void) {
         return;
     }
 
-    if (fat32_open(&sd_card, TEST_FILE, &userspace_application)) {
+    if (fat32_open(&sd_card, file_name, &userspace_application)) {
         printk("Failed to open file\n");
         return;
     }
 
-    void* code_page = alloc_page(&kpage_allocator);
-    void* data_page = alloc_page(&kpage_allocator);
-    if (userspace_application.file_size == 0) {
-        printk("Empty file\n");
-        while(1);
-    }
     uint32_t bytes[1024];
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
-    process_t* p = create_process(code_page, data_page, bytes, userspace_application.file_size);
-    // clone_process(p);
-    // create_process(code_page, data_page, bytes, userspace_application.file_size);
+    // process_t* p = create_process(bytes, userspace_application.file_size);
+    // p = create_process(bytes, userspace_application.file_size);
 
+    // clone_process(p);
 }
+
 
 
 #define PADDR(addr) ((uint32_t)((addr) - KERNEL_START) + DRAM_BASE)
@@ -137,8 +134,12 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     scheduler_init();
 
     // create process but don't start
-    test_process_creation();
     // test_process_creation();
+    // test_process_creation();
+
+    create_init_process(TEST_FILE);
+    // create_init_process(TEST_FILEB);
+
 
     scheduler();
     printk("Reached end of kernel_main, halting\n");
