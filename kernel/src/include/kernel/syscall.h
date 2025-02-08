@@ -4,7 +4,7 @@
 
 #define NR_SYSCALLS 4
 // Called by SVC handler in int.c
-int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4);
+int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address);
 
 typedef int (*syscall_fn_0)(void);
 typedef int (*syscall_fn_1)(int);

@@ -16,18 +16,15 @@
 // handle interrupts here
 uint32_t svc_handlers[NR_SYSCALLS] = {0};
 
-void handle_svc_c(void) {
-    char buffer[100];
-    // get syscall number
-    uint32_t svc_number, arg1, arg2, arg3, arg4;
-
-    asm volatile("mov %0, r7" : "=r"(svc_number));
-    asm volatile("mov %0, r0" : "=r"(arg1));
-    asm volatile("mov %0, r1" : "=r"(arg2));
-    asm volatile("mov %0, r2" : "=r"(arg3));
-    asm volatile("mov %0, r3" : "=r"(arg4));
-
-    handle_syscall(svc_number, arg1, arg2, arg3, arg4);
+void handle_svc_c(
+    uint32_t svc_number,  // SVC number (extracted from instruction)
+    uint32_t arg1,        // Original R0
+    uint32_t arg2,        // Original R1
+    uint32_t arg3,        // Original R2
+    uint32_t arg4,        // Original R3
+    uint32_t raddr        // Return address (from SVC call)
+) {
+    handle_syscall(svc_number, arg1, arg2, arg3, arg4, raddr);
 }
 
 void data_abort_handler(uint32_t lr) {

@@ -44,8 +44,12 @@ static inline void syscall_2(uint32_t syscall_num, uint32_t arg1, uint32_t arg2)
 }
 
 void _start(void) {
+    // while (1) {
+    //     debug("Hello, World!\n");
+    //     yield();
+    // }
     debug("Hello, World!\n");
-    yield();
+    // yield();
 
     debug("Exiting...\n");
     exit(0);

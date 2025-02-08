@@ -34,6 +34,7 @@ struct cpu_regs {
 
 
 typedef struct {
+    uint32_t used;
     uint32_t pid;
     uint32_t priority;
     uint32_t state;
@@ -46,16 +47,21 @@ typedef struct {
     uint32_t data_page_paddr;
     uint32_t code_page_vaddr;
     uint32_t data_page_vaddr;
+    uint32_t code_size;
 
     struct cpu_regs context;
     // rest of registers from user mode
 } process_t;
 
 process_t* create_process(void* code_page, void* data_page, uint8_t* bytes, size_t size);
+process_t* clone_process(process_t* original_p);
 void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
 int scheduler_init(void);
 void scheduler(void);
+
+// asm
+extern void context_switch_1(struct cpu_regs* next_context);
 
 #endif // KERNEL_SCHED_H

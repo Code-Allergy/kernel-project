@@ -83,13 +83,17 @@ irq_handler:
     subs pc, lr, #0       /* Return from exception */
 
 swi_handler:
-    STMFD   SP!, {R0-R3, LR}  @ Push R0-R3 and return address
-
-    @ Call the syscall dispatcher
-    BL      handle_svc_c
-
-    @ Restore registers and return
-    LDMFD   SP!, {R0-R3, PC}^  @ Return from SVC
+    STMFD   SP!, {R0-R3, LR}       @ Save R0-R3 and return address (LR)
+    MOV     R0, R7                 @ Get SVC number from R7
+    LDR     R1, [SP, #0]           @ Load original R0 (arg1) from stack
+    LDR     R2, [SP, #4]           @ Load original R1 (arg2) from stack
+    LDR     R3, [SP, #8]           @ Load original R2 (arg3) from stack
+    LDR     R12, [SP, #12]         @ Load original R3 (arg4) from stack
+    LDR     LR, [SP, #16]          @ Load return address (raddr) from stack
+    STMFD   SP!, {R12, LR}         @ Push arg4 and raddr to stack (for C call)
+    BL      handle_svc_c            @ Call C handler
+    ADD     SP, SP, #8             @ Cleanup stack (arg4 and raddr)
+    LDMFD   SP!, {R0-R3, PC}^      @ Restore registers and return
 
 prefetch_abort_handler:
     b prefetch_abort_c

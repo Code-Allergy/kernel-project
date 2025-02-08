@@ -76,6 +76,13 @@ qemu: sdcard
 	-d guest_errors,unimp,int \
 	-kernel $(BOOTLOADER_BIN)
 
+qemu-gdb: sdcard
+	$(QEMU_PATH)qemu-system-arm -m 512M -M cubieboard \
+	-cpu cortex-a8 -drive if=sd,format=raw,file=$(OUTPUT_IMG) \
+	-serial mon:stdio -nographic \
+	-d guest_errors,unimp,int \
+	-kernel $(BOOTLOADER_BIN) -s -S
+
 bbb:
 	@$(MAKE) -C $(BOOTLOADER_DIR) PLATFORM=BBB BUILD_DIR=$(BUILD_BASE)/BBB ARCH=$(ARCH) CPU=$(CPU)
 

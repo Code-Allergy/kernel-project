@@ -69,7 +69,7 @@ context_switch_1:
     ldr     lr, [r0, #56]       @ Restore LR
 
     /* Load arguments into r0-r3 last since they're caller saved */
-
+    /* TODO: load args */
 
     /* Load PC and switch modes atomically */
     ldr     r1, [r0, #64]       @ Load PC value
