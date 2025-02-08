@@ -14,15 +14,6 @@ BUILD_BASE  := $(MAKEFILE_DIR)build
 BUILD_DIR 	:= $(BUILD_BASE)/$(PLATFORM)
 BUILD_DIR   ?= $(O)
 
-# Output files
-OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
-OUTPUT_BIN  = $(BUILD_DIR)/kernel.bin
-OUTPUT_IMG  = $(BUILD_DIR)/sdcard.img
-
-OUTPUT_USER_ELF = $(BUILD_DIR)/userspace.elf
-
-BOOTLOADER_BIN = $(BUILD_DIR)/bootloader.bin
-
 # SD card image options
 SDCARD_IMAGE_NAME = sdcard.img
 SDCARD_BUILD_DIR = $(BUILD_DIR)
@@ -34,10 +25,20 @@ SDCARD_USERSPACE_ELF = /elf
 # Directories
 TOOLS_DIR = tools
 KERNEL_DIR = kernel
-BOOTLOADER_DIR = team-repo
+BOOTLOADER_DIR = bootloader
 USERSPACE_DIR = userspace
+BOOTLOADER_BUILD = $(BUILD_DIR)/bootloader
 USERSPACE_BUILD = $(BUILD_DIR)/userspace
 
+
+# Output files
+OUTPUT_ELF  = $(BUILD_DIR)/kernel.elf
+OUTPUT_BIN  = $(BUILD_DIR)/kernel.bin
+OUTPUT_IMG  = $(BUILD_DIR)/sdcard.img
+
+OUTPUT_USER_ELF = $(BUILD_DIR)/userspace.elf
+
+BOOTLOADER_BIN = $(BOOTLOADER_BUILD)/bootloader.bin
 
 # Commands
 RM		  = rm -rf
@@ -64,7 +65,7 @@ kernel:
 	@$(MAKE) -C $(KERNEL_DIR) BUILD_DIR=$(BUILD_DIR) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
 
 bootloader:
-	@$(MAKE) -C $(BOOTLOADER_DIR) BUILD_DIR=$(BUILD_DIR) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
+	@$(MAKE) -C $(BOOTLOADER_DIR) BUILD_DIR=$(BOOTLOADER_BUILD) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
 
 userspace:
 	@$(MAKE) -C $(USERSPACE_DIR) BUILD_DIR=$(USERSPACE_BUILD) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)

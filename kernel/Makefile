@@ -21,7 +21,7 @@ MKDIR       = mkdir -p
 RM          = rm -rf
 
 # Directories
-TEAM_REPO       = ../team-repo
+# TEAM_REPO       = ../team-repo
 SRC_DIR         = src
 BASE_INCLUDE    = $(SRC_DIR)/include
 DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
@@ -44,7 +44,7 @@ CFLAGS := -Wall -Wextra -Wpedantic \
 # CFLAGS += -O2
 # CFLAGS += -fstack-protector-strong -fno-stack-protector
 
-CFLAGS += -I$(TEAM_REPO) -I$(TEAM_REPO)/$(SRC_DIR) -I$(TEAM_REPO)/$(BASE_INCLUDE) -I$(BASE_INCLUDE)
+CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
@@ -68,18 +68,8 @@ KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
-# Other repo code to compile and link against
-TEAM_CORE_SRCS          = $(wildcard $(TEAM_REPO)/$(SRC_DIR)/*.c)
-TEAM_DRIVER_SRCS        = $(wildcard $(TEAM_REPO)/$(DRIVERS_DIR)/*.c)
-TEAM_BASE_DRIVER_SRCS   = $(wildcard $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/*.c)
-
-# Team objects
-TEAM_CORE_OBJS          = $(patsubst $(TEAM_REPO)/$(SRC_DIR)/%.c,$(BUILD_DIR)/team/core/%.o,$(TEAM_CORE_SRCS))
-TEAM_DRIVER_OBJS        = $(patsubst $(TEAM_REPO)/$(DRIVERS_DIR)/%.c,$(BUILD_DIR)/team/drivers-$(PLATFORM)/%.o,$(TEAM_DRIVER_SRCS))
-TEAM_BASE_DRIVER_OBJS   = $(patsubst $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/team/drivers/%.o,$(TEAM_BASE_DRIVER_SRCS))
-
 # ALL team repo objects
-ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(TEAM_CORE_OBJS) $(TEAM_DRIVER_OBJS) $(TEAM_BASE_DRIVER_OBJS)
+ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
 
 # Define build rules
@@ -130,25 +120,6 @@ $(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)
 
 $(BUILD_DIR)/drivers/%.o: $(SRC_DIR)/$(DRIVERS_BASE)/%.c | $(BUILD_DIR)
 	@echo "[CC] Kernel Base Drivers: $<"
-	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-
-################################################################################################
-# Team repo compilation rules
-################################################################################################
-$(BUILD_DIR)/team/core/%.o: $(TEAM_REPO)/$(SRC_DIR)/%.c | $(BUILD_DIR)
-	@echo "[CC] Team Core: $<"
-	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/team/drivers-$(PLATFORM)/%.o: $(TEAM_REPO)/$(DRIVERS_DIR)/%.c | $(BUILD_DIR)
-	@echo "[CC] Platform Drivers: $<"
-	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/team/drivers/%.o: $(TEAM_REPO)/$(SRC_DIR)/$(DRIVERS_BASE)/%.c | $(BUILD_DIR)
-	@echo "[CC] Base Drivers: $<"
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 

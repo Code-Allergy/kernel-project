@@ -104,6 +104,7 @@ static inline uint32_t read_ttbr0(void) {
     return ttbr0;
 }
 
+#ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
@@ -126,8 +127,6 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
 
     printk("Done!\n");
-    ((volatile uint32_t*)0xC0000004)[0] = 0x12345678;
-
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
 
@@ -137,7 +136,7 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     // test_process_creation();
     // test_process_creation();
 
-    create_init_process(TEST_FILE);
+    // create_init_process(TEST_FILE);
     // create_init_process(TEST_FILEB);
 
 
@@ -146,3 +145,4 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     while (1);
     __builtin_unreachable();
 }
+#endif
