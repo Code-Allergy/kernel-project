@@ -1,3 +1,4 @@
+#include "kernel/mm.h"
 #include <stdint.h>
 #include <kernel/boot.h>
 
@@ -11,8 +12,6 @@
 #define UART4_BASE 0x01c29000
 #define MMC0_BASE 0x01C0F000
 
-// this shouldn't be defined here
-#define KERNEL_START 0xC0000000
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
 
@@ -23,7 +22,7 @@ uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 void mmu_map_hw_pages(void) {
-#ifdef BOOTLOADER
+// #ifdef BOOTLOADER
     // Map 4KB for UART0-UART3
     l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
     // Map 4KB for UART4-UART7 (not used)
@@ -32,16 +31,16 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
-#else
-    // Map 4KB for UART0-UART3
-    l2_tables[SECTION_INDEX(UART0_BASE | 0xF0000000)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
-    // Map 4KB for UART4-UART7 (not used)
-    l2_tables[SECTION_INDEX(UART4_BASE | 0xF0000000)][PAGE_INDEX(UART4_BASE)] = UART4_BASE | L2_DEVICE_PAGE;
-    // Map 4KB for MMC0
-    l2_tables[SECTION_INDEX(MMC0_BASE | 0xF0000000)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
-    // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
-    l2_tables[SECTION_INDEX(0x01c20000 | 0xF0000000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
-#endif
+// #else
+//     // Map 4KB for UART0-UART3
+//     l2_tables[SECTION_INDEX(UART0_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
+//     // Map 4KB for UART4-UART7 (not used)
+//     l2_tables[SECTION_INDEX(UART4_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(UART4_BASE)] = UART4_BASE | L2_DEVICE_PAGE;
+//     // Map 4KB for MMC0
+//     l2_tables[SECTION_INDEX(MMC0_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
+//     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
+//     l2_tables[SECTION_INDEX(0x01c20000 | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
+// #endif
 }
 
 static void* get_physical_address(void *vaddr) {

@@ -1,6 +1,4 @@
 #include <stdint.h>
-#include <memory_map.h>
-#include <utils.h>
 
 #include <kernel/uart.h>
 #include <kernel/printk.h>
@@ -54,13 +52,11 @@ void uart_putc(char c) {
     UART0->RBR_THR_DLL = c;
 }
 
-
 char uart_getc(void) {
     // Wait until Data Ready (LSR[0] = 1)
     while (!(UART0->LSR & 1));
     return UART0->RBR_THR_DLL;
 }
-
 
 const uart_driver_t uart_driver = {
     .init = uart_init,

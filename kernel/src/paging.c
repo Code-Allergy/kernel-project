@@ -8,10 +8,6 @@ extern uint32_t kernel_code_end; // Defined in linker script, end of kernel code
 
 page_allocator_t kpage_allocator;
 
-
-
-
-
 void init_page_allocator(struct page_allocator *alloc) {
     // start at end of kernel code space
     uint32_t kernel_end_phys = ((uint32_t)&kernel_end - KERNEL_ENTRY) + DRAM_BASE;

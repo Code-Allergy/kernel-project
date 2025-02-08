@@ -54,7 +54,6 @@ void create_init_process(const char* file_name) {
         printk("Failed to mount SD card\n");
         return;
     }
-
     if (fat32_open(&sd_card, file_name, &userspace_application)) {
         printk("Failed to open file\n");
         return;
@@ -63,7 +62,7 @@ void create_init_process(const char* file_name) {
     uint32_t bytes[1024];
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
-    // process_t* p = create_process(bytes, userspace_application.file_size);
+    process_t* p = create_process(bytes, userspace_application.file_size);
     // p = create_process(bytes, userspace_application.file_size);
 
     // clone_process(p);
@@ -98,26 +97,17 @@ void init_kernel_pages(void) {
     }
 }
 
-static inline uint32_t read_ttbr0(void) {
-    uint32_t ttbr0;
-    asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
-    return ttbr0;
-}
-
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
-    for (size_t i = 0; i < sizeof(bootloader_t); i++)
-        ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
+    for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
 
     printk("Kernel starting - version %s\n", GIT_VERSION);
     printk("Kernel base address %p\n", kernel_main);
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) !=
         bootloader_info.kernel_checksum) panic("Checksum check failed!");
-    printk("Passed initial checks!\n");
-
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
@@ -126,7 +116,7 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_pages();
     mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
 
-    printk("Done!\n");
+    // printk("Done!\n");
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
 
@@ -135,14 +125,15 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     // create process but don't start
     // test_process_creation();
     // test_process_creation();
-
-    // create_init_process(TEST_FILE);
+    create_init_process(TEST_FILE);
     // create_init_process(TEST_FILEB);
 
 
     scheduler();
     printk("Reached end of kernel_main, halting\n");
-    while (1);
+    while (1) {
+        __asm__ volatile("wfi");
+    }
     __builtin_unreachable();
 }
 #endif
