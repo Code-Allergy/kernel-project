@@ -42,12 +42,10 @@ static void timer_init(void) {
 //     t->irq_status = 1 << get_timer_irq_idx(SLEEP_TIMER);
 // }
 
-static void system_clock(int irq, void* data) {
-    (void)data;
-    printk("Clock activated! irq %d\n", irq);
-    AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
-}
+// void system_clock(void) {
+//     AW_Timer *t = (AW_Timer*) TIMER_BASE;
+//     // t->irq_status ^= (0 << 0);
+// }
 
 void timer_start(int timer_idx, uint32_t interval_us) {
     AW_Timer *t = (AW_Timer*) TIMER_BASE;
@@ -60,8 +58,8 @@ void timer_start(int timer_idx, uint32_t interval_us) {
     t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN;
 
     /* setup interrupt handler */
-    interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), system_clock, NULL);
-    interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
+    // interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), system_clock, NULL);
+    // interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
 }
 
 void handle_callback(int irq, void* __attribute__((unused)) data) {

@@ -1,5 +1,6 @@
 #ifndef KERNEL_MMU_H
 #define KERNEL_MMU_H
+#include "kernel/mm.h"
 #include <stdint.h>
 #include <stddef.h>
 // #include <kernel/paging.h>
@@ -70,20 +71,17 @@
 #define SECTION_INDEX(addr) ((addr) >> 20)
 #define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
 
-
-// void map_page(uint32_t *ttbr0, void* vaddr, void* paddr, uint32_t flags);
-// uint32_t alloc_l1_table(struct page_allocator *alloc);
-// void kernel_mmu_init(bootloader_t* bootloader_info);
-
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+
 void test_domain_protection(void);
 void debug_l1_l2_entries(void *va);
 
 typedef struct {
     // Configuration state
+    uint32_t kernel_page_table_paddr;  // Kernel page table address
     uint32_t* ttbr0;             // Translation Table Base Register 0 value
     uint32_t* ttbr1;             // Translation Table Base Register 1 value
     uint32_t domain_access;      // Domain access control register value
@@ -119,7 +117,9 @@ typedef struct {
     void* (*get_physical_address)(void* vaddr);
 
     void (*set_l1_table)(uint32_t* l1_table);
+    void (*set_l1_with_asid)(uint32_t* table, uint8_t asid);
     void (*map_hardware_pages)(void);
+
     // // Domain access control
     // void (*set_domain_access)(uint32_t domain, uint32_t access);
     // uint32_t (*get_domain_access)(uint32_t domain);

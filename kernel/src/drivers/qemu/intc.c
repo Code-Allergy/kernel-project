@@ -15,20 +15,27 @@ extern uint32_t _vectors[];
 struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 
 void handle_irq_c(uint32_t return_addr) {
+    // switch to kernel page table
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    mmu_driver.set_l1_table((void*)kernel_l1_phys);
+    mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
+
     current_process->context.lr = return_addr - 4;
     for(int reg = 0; reg < 3; reg++) {
         uint32_t pending = INTC->IRQ_PEND[reg];
         while(pending) {
             int irq = 32 * reg + __builtin_ctz(pending);
             if(irq_handlers[irq].handler) {
+                printk("Calling handler for irq %d\n", irq);
                 irq_handlers[irq].handler(irq, irq_handlers[irq].data);
             }
             pending &= pending - 1;
         }
     }
-    mmu_driver.set_l1_table(current_process->ttbr0);
+
+    // if we were in a process, return to it
+    if (current_process) {
+        mmu_driver.set_l1_table((uint32_t*) current_process->ttbr0);
+    }
 }
 
 static void intc_init(void) {

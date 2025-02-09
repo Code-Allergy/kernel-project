@@ -10,6 +10,17 @@
 
 extern uintptr_t init;
 
+// these are unused by the bootloader, but are needed for the kernel
+uint32_t kernel_end;
+uint32_t kernel_code_end;
+
+void init_scr(void) {
+    uint32_t scr;
+    __asm__ volatile("mrc p15, 0, %0, c1, c1, 0" : "=r"(scr));
+    scr |= (1 << 5) | (1 << 4); // Set AW and FW bits
+    __asm__ volatile("mcr p15, 0, %0, c1, c1, 0" : : "r"(scr));
+}
+
 /* bootloader C entry point */
 void loader(void){
     fat32_fs_t boot_fs;
@@ -65,6 +76,7 @@ void loader(void){
         printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);
         goto bootloader_fail;
     }
+    // init_scr();
 
     /* jump to kernel memory space */
     JUMP_KERNEL(kernel);

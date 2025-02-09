@@ -111,45 +111,45 @@ int mmc_send_cmd(uint32_t cmd, uint32_t arg) {
 
 
 // TODO broken stull
-int mmc_read_sectors(uint32_t sector, uint8_t *buffer, uint32_t count) {
-    dma_desc_t desc = {
-        .status = DESC_STATUS_HOLD | DESC_STATUS_LAST,  // Active descriptor
-        .size = count * 512,                            // Total bytes to read
-        .addr = (uint32_t)buffer,                       // Physical buffer address
-        .next = 0                                        // No chaining
-    };
-    printk("Sector=%d, Buffer=%p, Count=%d\n", sector, buffer, count);
+// int mmc_read_sectors(uint32_t sector, uint8_t *buffer, uint32_t count) {
+//     dma_desc_t desc = {
+//         .status = DESC_STATUS_HOLD | DESC_STATUS_LAST,  // Active descriptor
+//         .size = count * 512,                            // Total bytes to read
+//         .addr = (uint32_t)buffer,                       // Physical buffer address
+//         .next = 0                                        // No chaining
+//     };
+//     printk("Sector=%d, Buffer=%p, Count=%d\n", sector, buffer, count);
 
-    dma_memory_write(DESC_PHYS_ADDR, &desc, sizeof(desc));
+//     dma_memory_write(DESC_PHYS_ADDR, &desc, sizeof(desc));
 
-    // configure DMA
-    mmc0->dlba = DESC_PHYS_ADDR;       // Set descriptor base address
-    mmc0->dmac = SD_GCTL_DMA_ENB;      // Enable DMA
+//     // configure DMA
+//     mmc0->dlba = DESC_PHYS_ADDR;       // Set descriptor base address
+//     mmc0->dmac = SD_GCTL_DMA_ENB;      // Enable DMA
 
-    // 4. Send CMD18 with proper flags
-    mmc0->arg = sector;                // SDSC uses byte addressing, SDHC uses block
-    mmc0->cmd = (18 & 0x3F) |          // CMD18 in command index
-               SD_CMDR_LOAD |         // Execute command
-               SD_CMDR_DATA |         // Data transfer expected
-               SD_CMDR_AUTOSTOP |     // Auto-send CMD12 after transfer
-               SD_CMDR_RESPONSE;      // Expect response
+//     // 4. Send CMD18 with proper flags
+//     mmc0->arg = sector;                // SDSC uses byte addressing, SDHC uses block
+//     mmc0->cmd = (18 & 0x3F) |          // CMD18 in command index
+//                SD_CMDR_LOAD |         // Execute command
+//                SD_CMDR_DATA |         // Data transfer expected
+//                SD_CMDR_AUTOSTOP |     // Auto-send CMD12 after transfer
+//                SD_CMDR_RESPONSE;      // Expect response
 
 
-    // 4. Wait for DMA completion
-    while (!(mmc0->idst & (SD_IDST_INT_SUMMARY | SD_IDST_RECEIVE_IRQ))) {
-        // Add timeout handling in real code
-    }
+//     // 4. Wait for DMA completion
+//     while (!(mmc0->idst & (SD_IDST_INT_SUMMARY | SD_IDST_RECEIVE_IRQ))) {
+//         // Add timeout handling in real code
+//     }
 
-    // reset
-    mmc0->idst = SD_IDST_INT_SUMMARY | SD_IDST_RECEIVE_IRQ;
-    return 0; // Success
-}
+//     // reset
+//     mmc0->idst = SD_IDST_INT_SUMMARY | SD_IDST_RECEIVE_IRQ;
+//     return 0; // Success
+// }
 
 
 
 const fat32_diskio_t mmc_fat32_diskio = {
     .read_sector = mmc_read_sector,
-    .read_sectors = mmc_read_sectors
+    // .read_sectors = mmc_read_sectors
 };
 
 mmc_driver_t mmc_driver = {

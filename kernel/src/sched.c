@@ -11,14 +11,11 @@
 static uint32_t total_processes;
 static uint32_t curr_pid;
 #define MAX_PROCESSES 16
+#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
+
+
 process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
-
-
-
-
-
-#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
 
@@ -63,26 +60,12 @@ uint8_t allocate_asid(void) {
         }
     }
     // If all ASIDs are used, flush TLB and reuse
-
     mmu_driver.flush_tlb();
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
     printk("Got asid\n");
     return 1;
 }
-
-// void copy_kernel_mappings(uint32_t *ttbr0) {
-//     uint32_t *kernel_ttbr0;
-//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
-
-//     // start at kernel start entry, copy until end of memory space
-//     const int KERNEL_START_ENTRY = KERNEL_ENTRY / 0x400000;
-//     const int KERNEL_SIZE_ENTRIES = (0xFFFFFFFF - KERNEL_ENTRY) / 0x400000;
-
-//     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
-//         ttbr0[i] = kernel_ttbr0[i];
-//     }
-// }
 
 void copy_kernel_mappings(uint32_t *ttbr0) {
     uint32_t *kernel_ttbr0;
@@ -117,27 +100,41 @@ process_t* get_next_process(void) {
     return current_process; // If no other process found, return current one
 }
 
+void debug_stack_access(process_t* proc) {
+    printk("Process %d stack info:\n", proc->pid);
+    printk("  Stack base: %p\n", proc->stack_page_vaddr);
+    printk("  Stack top: %p\n", proc->context.sp);
+    printk("  Stack physical: %p\n", proc->stack_page_paddr);
+}
+
 void scheduler(void) {
-    // Your scheduling logic here
-    // For example: Round Robin implementation
-    // static int last_pid = 0;
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
-    printk("Got to scheduler\n");
+
     process_t* next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
         printk("No more processes to run, halting!\n");
-        while (1);
+        return;
     }
 
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
-    printk("Jumping to code at %p\n", next_process->context.lr);
+    printk("Jumping to code at %p\n", next_process->context.pc);
 
 
-    current_process = next_process;
-    mmu_driver.set_l1_table(current_process->ttbr0); // TODO if this is current process, we don't need to switch. we do for now for print
-    context_switch_1(&current_process->context);
+    // If we have a current process and it's not exited
+    if (current_process && current_process->state != PROCESS_NONE) {
+        current_process->state = PROCESS_READY;
+        // Use full context switch to save current and restore next
+        context_switch(&current_process->context, &next_process->context);
+    } else {
+        // First time or after process exit, just restore the new process
+        printk("First time or after process exit\n");
+        current_process = next_process;
+        next_process->state = PROCESS_RUNNING;
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+        context_switch_1(&current_process->context);
+    }
 }
 
 process_t* get_available_process(void) {
@@ -173,7 +170,6 @@ process_t* clone_process(process_t* original_p) {
     // TODO clone memory from original process
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-
     memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
 
     // map kernel mappings
@@ -196,12 +192,10 @@ process_t* clone_process(process_t* original_p) {
     p->code_size = original_p->code_size;
 
     memcpy(&p->context, &original_p->context, sizeof(struct cpu_regs));
-    p->context.sp = (uint32_t) p->stack_page_vaddr + PAGE_SIZE - 4;
     p->state = PROCESS_READY;
 
     return p;
 }
-
 
 // create a new process with a flat binary
 process_t* create_process(uint8_t* bytes, size_t size) {
@@ -214,7 +208,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     void* code_page = alloc_page(&kpage_allocator);
     void* data_page = alloc_page(&kpage_allocator);
     void* stack_page = alloc_page(&kpage_allocator);
-    void* heap_page =alloc_page(&kpage_allocator);
+    void* heap_page = alloc_page(&kpage_allocator);
     if (!code_page || !data_page || !stack_page || !heap_page) { // NO SWAPPING
         printk("Out of memory in create_process! HALT\n");
         while (1);
@@ -228,19 +222,13 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    printk("About to copy code page\n");
     memcpy(code_page, bytes, size);
-    // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
-    // proc->ttbr1[l1_index] = (uint32_t)alloc_page(&kpage_allocator) | MMU_PAGE_DESCRIPTOR;
-    // proc->ttbr1[l1_index] |= 1 << 5;
 
-    // Copy kernel mappings (TTBR1 content)
+    // Copy kernel mappings (TTBR0 content)
     copy_kernel_mappings(proc->ttbr0);
-    // Set ASID
     proc->asid = allocate_asid();
     proc->pid = get_next_pid();
     proc->priority = 0;
-    proc->used = 1;
 
     proc->code_page_vaddr = MEMORY_USER_CODE_BASE;
     proc->data_page_vaddr = MEMORY_USER_DATA_BASE;
@@ -253,10 +241,6 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->heap_page_paddr = (uint32_t) heap_page;
     proc->code_size = size;
 
-    proc->context.r0 = 0;
-    proc->context.r1 = 0;
-    proc->context.r2 = 0;
-    proc->context.r3 = 0;
     proc->context.r4 = 0;
     proc->context.r5 = 0;
     proc->context.r6 = 0;
@@ -266,22 +250,16 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->context.r10 = 0;
     proc->context.r11 = 0;
     proc->context.r12 = 0;
-    proc->context.sp = MEMORY_USER_STACK_BASE + PAGE_SIZE;
+    proc->context.sp = MEMORY_USER_STACK_BASE + 2000;
     proc->context.pc = MEMORY_USER_CODE_BASE;
     proc->context.cpsr = 0x10;
-    // TODO
     proc->context.lr = 0;
     proc->state = PROCESS_READY;
-    printk("Process %d created\n", proc->pid);
     return proc;
 }
 
 void get_kernel_regs(struct cpu_regs* regs) {
     __asm__ volatile("mrs %0, cpsr" : "=r"(regs->cpsr));
-    __asm__ volatile("mov %0, r0" : "=r"(regs->r0));
-    __asm__ volatile("mov %0, r1" : "=r"(regs->r1));
-    __asm__ volatile("mov %0, r2" : "=r"(regs->r2));
-    __asm__ volatile("mov %0, r3" : "=r"(regs->r3));
     __asm__ volatile("mov %0, r4" : "=r"(regs->r4));
     __asm__ volatile("mov %0, r5" : "=r"(regs->r5));
     __asm__ volatile("mov %0, r6" : "=r"(regs->r6));

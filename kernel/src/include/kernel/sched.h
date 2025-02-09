@@ -7,41 +7,37 @@
 
 
 /* Process state definitions */
-#define PROCESS_RUNNING  0
-#define PROCESS_KILLED   1
-#define PROCESS_READY    2
-#define PROCESS_NONE     3
+#define PROCESS_RUNNING  1
+#define PROCESS_KILLED   2
+#define PROCESS_READY    3
+#define PROCESS_NONE     0
 
 struct cpu_regs {
-    uint32_t r0;
-    uint32_t r1;
-    uint32_t r2;
-    uint32_t r3;
-    uint32_t r4;
-    uint32_t r5;
-    uint32_t r6;
-    uint32_t r7;
-    uint32_t r8;
-    uint32_t r9;
-    uint32_t r10;
-    uint32_t r11;
-    uint32_t r12;
-    uint32_t sp;
-    uint32_t lr;
-    uint32_t cpsr;
-    uint32_t pc;
+    uint32_t r4; // 0
+    uint32_t r5; // 4
+    uint32_t r6; // 8
+    uint32_t r7; // 12
+    uint32_t r8; // 16
+    uint32_t r9; // 20
+    uint32_t r10; // 24
+    uint32_t r11; // 28
+    uint32_t r12; // 32
+    uint32_t sp; // 36
+    uint32_t lr; // 40
+    uint32_t cpsr; // 44
+    uint32_t pc; // 48
 };
 
 
 typedef struct {
-    uint32_t used;
     uint32_t pid;
     uint32_t priority;
     uint32_t state;
 
     // Memory management
-    uint32_t* ttbr0;// Physical address of translation table base
-    uint32_t asid;        // Address Space ID (if using ASIDs) TODO
+    uint32_t* ttbr0;      // Physical address of translation table base
+    uint32_t asid;        // Address Space ID
+    uint32_t kernel_cpsr;
 
     uint32_t code_size;
     uint32_t code_entry;
@@ -68,6 +64,7 @@ int scheduler_init(void);
 void scheduler(void);
 
 // asm
+extern void context_switch(struct cpu_regs* old_context, struct cpu_regs* new_context);
 extern void context_switch_1(struct cpu_regs* next_context);
 
 #endif // KERNEL_SCHED_H

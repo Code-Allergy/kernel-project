@@ -1,16 +1,13 @@
 #include <kernel/boot.h>
-
 #include <kernel/printk.h>
 #include <kernel/sched.h>
 #include <kernel/uart.h>
 #include <kernel/paging.h>
 #include <kernel/panic.h>
-
 #include <kernel/heap.h>
 #include <kernel/mmu.h>
 #include <kernel/mm.h>
 #include <kernel/fat32.h>
-
 #include <kernel/intc.h>
 #include <kernel/timer.h>
 
@@ -19,24 +16,27 @@
 #include "drivers/qemu/intc.h"
 
 #define KERNEL_HEARTBEAT_TIMER 1000000 // us
-#define TEST_FILE "bin/null"
+#define TEST_FILE "bin/while"
 
 
 bootloader_t bootloader_info;
 
 // system clock
 void system_clock(void) {
-    // clock_timer.clear_interrupt(0);
+    printk("Hello\n");
     scheduler();
 }
 
+extern void system_clock(void);
+
 void init_kernel_hardware(void) {
     clock_timer.init();
-    // clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
+    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
     uart_driver.enable_interrupts();
+
     interrupt_controller.register_irq(1, uart_handler, NULL);
     interrupt_controller.enable_irq(1);
     interrupt_controller.enable_irq_global();
@@ -59,11 +59,11 @@ void create_init_process(const char* file_name) {
         return;
     }
 
-    uint32_t bytes[1024];
+    uint8_t bytes[1024];
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
     process_t* p = create_process(bytes, userspace_application.file_size);
-    // p = create_process(bytes, userspace_application.file_size);
+    // clone_process(p);
 
     // clone_process(p);
 }
@@ -83,7 +83,7 @@ void init_kernel_pages(void) {
         mmu_driver.flush_tlb();
     }
 
-    // map kernel code pages
+    // map kernel data pages
     for (uint32_t vaddr = (uint32_t)&kernel_code_end; vaddr < (uint32_t)&kernel_end; vaddr += PAGE_SIZE) {
         uint32_t paddr = DRAM_BASE + (vaddr - KERNEL_ENTRY);
         mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_DATA_PAGE);
@@ -102,12 +102,12 @@ __attribute__((section(".text.kernel_main")))
 int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
-
-    printk("Kernel starting - version %s\n", GIT_VERSION);
-    printk("Kernel base address %p\n", kernel_main);
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) !=
         bootloader_info.kernel_checksum) panic("Checksum check failed!");
+
+    printk("Kernel starting - version %s\n", GIT_VERSION);
+    printk("Kernel base address %p\n", kernel_main);
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
@@ -126,14 +126,19 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     // test_process_creation();
     // test_process_creation();
     create_init_process(TEST_FILE);
+    // create_init_process(TEST_FILE);
+
+    // waste some pages
+
+
+    // create_init_process(TEST_FILE);
+
     // create_init_process(TEST_FILEB);
 
 
-    scheduler();
+    // scheduler();
     printk("Reached end of kernel_main, halting\n");
-    while (1) {
-        __asm__ volatile("wfi");
-    }
+    while (1)  __asm__ volatile("wfi");
     __builtin_unreachable();
 }
 #endif

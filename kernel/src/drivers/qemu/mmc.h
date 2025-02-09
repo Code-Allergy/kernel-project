@@ -67,8 +67,6 @@ typedef volatile struct {
 #define DESC_STATUS_ERROR (1 << 30)
 #define DESC_STATUS_LAST (1 << 2)
 
-#define DESC_PHYS_ADDR  0x53000000  // TEMP TODO
-
 int mmc_send_cmd(uint32_t cmd, uint32_t arg);
 int mmc_read_sector(uint32_t sector, uint8_t *buffer);
 

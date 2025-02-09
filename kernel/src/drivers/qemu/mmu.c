@@ -178,11 +178,6 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
     void *addr = alloc_aligned_pages(alloc, 4);
     if(!addr) return 0;
 
-    // // initialize the 4 pages from the allocation
-    // for (int i = 0; i < 4; i++) {
-    //     l2_tables[SECTION_INDEX((uint32_t)addr + i*4096)][PAGE_INDEX((uint32_t)addr + i*4096)] = ((uint32_t)addr + i*4096) | L2_KERNEL_DATA_PAGE;
-    // }
-
     // Initialize L1 table
     memset(addr, 0, 16*1024);
     return (uint32_t)addr;
@@ -190,7 +185,14 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
 
 // Map a 4KB page into virtual memory using process-specific page tables
 static void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
-    if (ttbr0 == NULL) ttbr0 = l1_page_table;
+    if (ttbr0 == NULL) {
+#ifdef BOOTLOADER
+        ttbr0 = l1_page_table;
+#else
+        uint32_t kernel_table = (uint32_t)l1_page_table - KERNEL_START + DRAM_BASE;
+        ttbr0 = (uint32_t*)kernel_table;
+#endif
+    }
     // --- Sanity Checks ---
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
@@ -206,17 +208,18 @@ static void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
         while (1);
 #endif
         void* l2_table = alloc_page(&kpage_allocator);
-        *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
-    }
-    // identity map the table so we can write to it
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-    // void* l2_table_page = (void*) (*l1_entry & ~0xFFF);
-    // mmu_driver.map_page(NULL, l2_table_page, l2_table_page, L2_KERNEL_DATA_PAGE);
-    // mmu_driver.flush_tlb();
-    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
+        if (!l2_table) {
+            printk("Failed to allocate L2 table\n");
+            while (1);
+        }
 
-    // unmap the table, we don't need it anymore
-    // mmu_driver.unmap_page(NULL, l2_table);
+        memset(l2_table, 0, PAGE_SIZE);
+        *l1_entry = (uint32_t)l2_table | 0x1;
+    }
+
+
+    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 }
 
 void unmap_page(void* tbbr0, void* vaddr) {
@@ -248,7 +251,7 @@ void mmu_init(void) {
 void mmu_enable(void) {
     // Load TTBR1 with the physical address of the L1 table
     mmu_driver.ttbr0 = l1_page_table;
-    asm volatile(
+    __asm__ volatile(
         "mcr p15, 0, %0, c2, c0, 0 \n" // TTBR0
         "dsb \n"
         "isb \n"
@@ -299,6 +302,20 @@ static inline void invalidate_all_tlb(void) {
     );
 }
 
+void set_ttbr0_with_asid(uint32_t* table, uint8_t asid) {
+    uint32_t ttbr0 = (uint32_t)table;
+    ttbr0 |= asid;  // ASID goes in bits [7:0] for ARMv7
+
+    __asm__ volatile(
+        "mcr p15, 0, %0, c2, c0, 0"  // Write TTBR0
+        : : "r" (ttbr0) : "memory"
+    );
+
+    // Ensure the write is complete
+    __asm__ volatile("isb" ::: "memory");
+}
+
+
 
 
 mmu_t mmu_driver = {
@@ -310,6 +327,7 @@ mmu_t mmu_driver = {
     .set_l1_table = set_l1_page_table,
     .get_physical_address = get_physical_address,
     .map_hardware_pages = mmu_map_hw_pages,
+    .set_l1_with_asid = set_ttbr0_with_asid,
     // .disable = mmu_disable,
     // .debug_l1_entry = debug_l1_entry,
     // .debug_l2_entry = debug_l2_entry,

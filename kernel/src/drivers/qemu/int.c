@@ -69,7 +69,7 @@ void data_abort_handler(uint32_t lr) {
     printk("Returning to LR: %p\n", lr);
 
     // Kernel panic or recovery logic
-    while (1);
+    while (1) __asm__ volatile("wfi");
 }
 
 void prefetch_abort_c() {
@@ -102,6 +102,9 @@ void handle_undefined(uint32_t esr, process_t* p) {
     const uint32_t il = (esr >> 25) & 1;
     const uint32_t iss = esr & 0x1FFFFFF;
 
+    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
+    mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
+
     // Log exception details
     printk("Undefined Instruction in PID %d at %p\n",
            p->pid, p->context.pc);
@@ -113,7 +116,7 @@ void handle_undefined(uint32_t esr, process_t* p) {
     p->state = PROCESS_KILLED;
 
     // Optional: Dump register state
-    #ifdef DEBUG
-    dump_registers(&p->regs);
-    #endif
+    // #ifdef DEBUG
+    // dump_registers(&p->regs);
+    // #endif
 }
