@@ -42,7 +42,7 @@ CFLAGS := -Wall -Wextra -Wpedantic \
 
 # Optimization flags
 # CFLAGS += -O2
-CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0
+CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0 -fstack-usage
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 

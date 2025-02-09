@@ -1,5 +1,6 @@
-#include "kernel/boot.h"
+#include <kernel/boot.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <kernel/mm.h>
 #include <kernel/mmu.h>
 #include <kernel/sched.h>
@@ -13,6 +14,8 @@ static uint32_t curr_pid;
 #define MAX_PROCESSES 16
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 
+// use a bitmap and struct later for this and other flags
+volatile bool schedule_needed = false;
 
 process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
@@ -70,7 +73,7 @@ int scheduler_init(void) {
 
 
     spawn_flat_init_process("/bin/null");
-    spawn_flat_init_process("/bin/null");
+    // spawn_flat_init_process("/bin/null");
 
     scheduler();
     __builtin_unreachable();
