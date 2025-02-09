@@ -8,9 +8,11 @@
 .global context_switch
 context_switch:
     /* First save the current context to old_context (r0) */
-    push    {r4-r12, lr}         @ Save SVC mode registers temporarily
+    @push    {r4-r12, lr}         @ Save SVC mode registers temporarily
 
     /* Save callee-saved registers to old context */
+    add     r0, r0, #16          @ Adjust base address to start at r4
+    add     r1, r1, #16          @ Adjust base address to start at r4
     stm     r0, {r4-r12}         @ Store r4-r12 to old context
 
     /* Switch to System mode to access user sp/lr */
@@ -40,33 +42,61 @@ context_switch:
 
 .global context_switch_1
 context_switch_1:
-    push    {r4-r12, lr}         @ Save SVC mode registers
+    @push    {r4-r12, lr}          Save SVC mode registers
 
     /* Load CPSR for final switch */
-    ldr     r1, [r0, #44]        @ Load saved cpsr
+    ldr     r1, [r0, #60]        @ Load saved cpsr
     msr     spsr_cxsf, r1        @ Set up spsr
 
     /* Switch to System mode */
     cps     #0x1F                @ Switch to System mode directly
 
     /* Set up User mode registers */
-    ldr     r1, [r0, #36]        @ Get stored SP
+    ldr     r1, [r0, #52]        @ Get stored SP
     mov     sp, r1               @ Set up User SP
-    ldr     r1, [r0, #40]        @ Get stored LR
+    ldr     r1, [r0, #56]        @ Get stored LR
     mov     lr, r1               @ Set up User LR
 
     /* Return to SVC mode */
     cps     #0x13                @ Switch back to SVC mode
 
     /* Restore registers and switch */
+    add     r0, r0, #16          @ Adjust base address to start at r4
     ldm     r0, {r4-r12}         @ Restore r4-r12
     ldr     r1, [r0, #48]        @ Load PC value
     movs    pc, r1               @ Switch to user mode and start execution
 
-.global context_restore
-.global context_restore
-context_restore:
-    ldmia sp!, {r0-r12}        // Restore registers from stack
-    ldr lr, [sp, #4]            // Restore link register
-    ldr sp, [sp]                // Restore stack pointer
-    movs pc, lr                 // Return to caller
+.global syscall_return
+syscall_return:
+    /* r0 contains struct pointer */
+    /* r1 contains return value to set */
+
+    /* Store return value in r0 position */
+    str     r1, [r0, #0]         @ Store return value in r0 slot
+
+    /* Restore r1-r3 */
+    ldr     r1, [r0, #4]         @ Restore r1
+    ldr     r2, [r0, #8]         @ Restore r2
+    ldr     r3, [r0, #12]        @ Restore r3
+
+    /* Restore r4-r12 */
+    add     r0, r0, #16          @ Point to r4
+    ldm     r0, {r4-r12}         @ Restore r4-r12
+
+    /* Switch to System mode to restore sp and lr */
+    cps     #0x1F                @ Switch to System mode
+
+    /* Restore user sp and lr */
+    ldr     r0, [r0, #36]        @ Load SP (offset from r4 base)
+    mov     sp, r0               @ Restore SP
+    ldr     r0, [r0, #40]        @ Load LR (offset from r4 base)
+    mov     lr, r0               @ Restore LR
+
+    /* Switch back to SVC mode */
+    cps     #0x13
+
+    /* Restore r0 (return value) */
+    ldr     r0, [r0, #-16]       @ Load return value from r0 slot
+
+    /* Return to user mode */
+    movs    pc, lr               @ Return and switch to user mode

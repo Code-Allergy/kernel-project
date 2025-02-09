@@ -96,36 +96,57 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
 }
 
 void free_page(struct page_allocator *alloc, void *ptr) {
-    if (!ptr) {
-        printk("NULL passed to free_page.\n");
-        while (1) {}
+    if (!ptr) return;
+
+    uint32_t page_index = (((uint32_t)ptr) - DRAM_BASE) / PAGE_SIZE;
+
+    // Validate the page index
+    if (page_index < alloc->reserved_pages || page_index >= alloc->total_pages) {
+        printk("Invalid page free attempt: %p\n", ptr);
+        return;
     }
-    // find the page struct for the address
-    printk("%d %p\n", (((uint32_t)ptr) - DRAM_BASE) / PAGE_SIZE, ptr);
-    struct page *page = &alloc->pages[(((uint32_t)ptr) - DRAM_BASE) / PAGE_SIZE];
-    printk("one\n");
+
+    struct page *page = &alloc->pages[page_index];
+
+    // Verify this is a valid allocated page
+    if (page->paddr != ptr) {
+        printk("Corrupted page free attempt: %p\n", ptr);
+        return;
+    }
+
     page->next = alloc->free_list;
-    printk("two\n");
     alloc->free_list = page;
     alloc->free_pages++;
 }
 
-void free_alligned_pages(struct page_allocator *alloc, void *ptr, size_t count) {
-    struct page *start = (struct page*)ptr;
-    struct page *end = start;
-    for(size_t i=0; i<count-1; i++) {
-        end = end->next;
+void free_aligned_pages(struct page_allocator *alloc, void *ptr, size_t count) {
+    if (!ptr) return;
+
+    uint32_t page_index = (((uint32_t)ptr) - DRAM_BASE) / PAGE_SIZE;
+
+    // Validate the page index
+    if (page_index < alloc->reserved_pages || page_index >= alloc->total_pages) {
+        printk("Invalid aligned page free attempt: %p\n", ptr);
+        return;
     }
 
-    // Mark pages as free
-    struct page *p = start;
-    for(size_t i=0; i < count; i++) {
-        p->used = 0;
-        p = p->next;
+    struct page *start = &alloc->pages[page_index];
+
+    // Verify these are valid allocated pages
+    for (size_t i = 0; i < count; i++) {
+        if (alloc->pages[page_index + i].paddr != ptr + (i * PAGE_SIZE)) {
+            printk("Corrupted aligned page free attempt: %p\n", ptr);
+            return;
+        }
     }
 
-    // Add block to free list
-    end->next = alloc->free_list;
+    // Link the pages together
+    for (size_t i = 0; i < count - 1; i++) {
+        alloc->pages[page_index + i].next = &alloc->pages[page_index + i + 1];
+    }
+
+    // Add to free list
+    alloc->pages[page_index + count - 1].next = alloc->free_list;
     alloc->free_list = start;
     alloc->free_pages += count;
 }

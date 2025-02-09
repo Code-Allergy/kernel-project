@@ -9,6 +9,8 @@
 #include <kernel/paging.h>
 
 
+extern void syscall_return(struct cpu_regs*, int return_value);
+
 int sys_fork(void) {
     process_t* child = clone_process(current_process);
     // child->context.r0 = 0; // return 0 for child
@@ -31,7 +33,6 @@ int sys_debug(int buf, int len) {
     if (buff == NULL) {
         return -1;
     }
-    memcpy(buff, (uint8_t*)buf, len);
 
     uint32_t process_table = (uint32_t)mmu_driver.ttbr0;
     // switch page taable so we can print, we won't want this later
@@ -41,10 +42,11 @@ int sys_debug(int buf, int len) {
     void* paddr = mmu_driver.get_physical_address(current_process->ttbr0, (void*)buf);
 
     printk("buffer addr: %p\n", paddr);
-    printk("buffer: %s\n", paddr);
+    printk("buffer: %s\n", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
 
     mmu_driver.set_l1_table((uint32_t*) process_table);
     return 0;
+    // syscall_return(&current_process->context, 0);
 }
 
 int sys_exit(int exit_status) {
@@ -63,7 +65,7 @@ int sys_exit(int exit_status) {
     // TODO free pages in l1 table of process:
     // TODO free anything else in the process
     // TODO reassign PID or parents of children
-    free_alligned_pages(&kpage_allocator, current_process->ttbr0, 4);
+    free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
     memset(current_process, 0, sizeof(*current_process));
     current_process->state = PROCESS_NONE;
     current_process = NULL;
@@ -133,7 +135,7 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_a
     uint32_t process_table = (uint32_t)current_process->ttbr0;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
 
-    printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
+    // printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
 
     int ret = -1;
     if (num >= 0 && num < NR_SYSCALLS) {

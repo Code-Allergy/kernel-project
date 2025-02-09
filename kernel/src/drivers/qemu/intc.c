@@ -20,6 +20,8 @@ void handle_irq_c(uint32_t return_addr) {
     mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
 
     current_process->context.lr = return_addr - 4;
+    // the pc should also be the return address
+    current_process->context.pc = current_process->context.lr;
     for(int reg = 0; reg < 3; reg++) {
         uint32_t pending = INTC->IRQ_PEND[reg];
         while(pending) {

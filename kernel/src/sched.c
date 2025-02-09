@@ -6,7 +6,7 @@
 #include <kernel/paging.h>
 #include <kernel/printk.h>
 #include <kernel/string.h>
-
+#include <kernel/fat32.h>
 
 static uint32_t total_processes;
 static uint32_t curr_pid;
@@ -18,6 +18,28 @@ process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
+
+int spawn_flat_init_process(const char* file_path) {
+    fat32_fs_t sd_card;
+    fat32_file_t userspace_application;
+    if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
+        printk("Failed to mount SD card\n");
+        return -1;
+    }
+    if (fat32_open(&sd_card, file_path, &userspace_application)) {
+        printk("Failed to open file\n");
+        return -1;
+    }
+
+    static uint8_t bytes[1024];
+    if ((uint32_t)fat32_read(&userspace_application, bytes, 1024) != userspace_application.file_size) {
+        printk("Init process not read fully off disk\n");
+        return -1;
+    };
+
+    create_process(bytes, userspace_application.file_size);
+    return 0;
+}
 
 static int32_t get_next_pid(void) {
     printk("Allocating PID: %d\n", total_processes);
@@ -47,9 +69,11 @@ int scheduler_init(void) {
     }
 
 
-    // make init process, make it ready to start, then we can start it in scheduler
+    spawn_flat_init_process("/bin/null");
+    spawn_flat_init_process("/bin/null");
 
-    // can call schedule here
+    scheduler();
+    __builtin_unreachable();
 }
 
 uint8_t allocate_asid(void) {
@@ -94,7 +118,7 @@ process_t* get_next_process(void) {
         if (process_table[current].state == PROCESS_READY) {
             return &process_table[current];
         }
-        current = current + 1 % MAX_PROCESSES;
+        current = (current + 1) % MAX_PROCESSES;
     } while (current != start);
 
     return current_process; // If no other process found, return current one
@@ -107,7 +131,7 @@ void debug_stack_access(process_t* proc) {
     printk("  Stack physical: %p\n", proc->stack_page_paddr);
 }
 
-void scheduler(void) {
+__attribute__((noreturn)) void scheduler(void) {
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
 
@@ -120,14 +144,18 @@ void scheduler(void) {
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
     printk("Jumping to code at %p\n", next_process->context.pc);
+    debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
+    printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
 
     if (current_process == next_process) {
+        printk("Starting current process\n");
         mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
         context_switch_1(&current_process->context);
     }
 
     // If we have a current process and it's not exited
     if (current_process && current_process->state != PROCESS_NONE) {
+        printk("Starting next process\n");
         process_t* prev_process = current_process;
         current_process->state = PROCESS_READY;
         next_process->state = PROCESS_RUNNING;
@@ -207,6 +235,7 @@ process_t* clone_process(process_t* original_p) {
 
 // create a new process with a flat binary
 process_t* create_process(uint8_t* bytes, size_t size) {
+    printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
     process_t* proc = get_available_process();
     if (proc == NULL) {
         printk("Out of available processes in create_process! HALT\n");
@@ -258,10 +287,11 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->context.r10 = 0;
     proc->context.r11 = 0;
     proc->context.r12 = 0;
-    proc->context.sp = MEMORY_USER_STACK_BASE + 2000;
+    proc->context.sp = MEMORY_USER_STACK_BASE + PAGE_SIZE;
     proc->context.pc = MEMORY_USER_CODE_BASE;
     proc->context.cpsr = 0x10;
     proc->context.lr = 0;
+
     proc->state = PROCESS_READY;
     return proc;
 }

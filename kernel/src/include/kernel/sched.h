@@ -13,19 +13,23 @@
 #define PROCESS_NONE     0
 
 struct cpu_regs {
-    uint32_t r4; // 0
-    uint32_t r5; // 4
-    uint32_t r6; // 8
-    uint32_t r7; // 12
-    uint32_t r8; // 16
-    uint32_t r9; // 20
-    uint32_t r10; // 24
-    uint32_t r11; // 28
-    uint32_t r12; // 32
-    uint32_t sp; // 36
-    uint32_t lr; // 40
-    uint32_t cpsr; // 44
-    uint32_t pc; // 48
+    uint32_t r0;  // 0
+    uint32_t r1;  // 4
+    uint32_t r2;  // 8
+    uint32_t r3;  // 12
+    uint32_t r4;  // 16
+    uint32_t r5;  // 20
+    uint32_t r6;  // 24
+    uint32_t r7;  // 28
+    uint32_t r8;  // 32
+    uint32_t r9;  // 36
+    uint32_t r10; // 40
+    uint32_t r11; // 44
+    uint32_t r12; // 48
+    uint32_t sp;  // 52
+    uint32_t lr;  // 56
+    uint32_t cpsr;// 60
+    uint32_t pc;  // 64
 };
 
 
@@ -61,8 +65,8 @@ void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
 int scheduler_init(void);
-void scheduler(void);
-
+__attribute__((noreturn)) void scheduler(void);
+int spawn_flat_init_process(const char* file_path);
 // asm
 extern void context_switch(struct cpu_regs* old_context, struct cpu_regs* new_context);
 extern void context_switch_1(struct cpu_regs* next_context);

@@ -42,7 +42,7 @@ CFLAGS := -Wall -Wextra -Wpedantic \
 
 # Optimization flags
 # CFLAGS += -O2
-# CFLAGS += -fstack-protector-strong -fno-stack-protector
+CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
@@ -50,8 +50,8 @@ CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
 ASFLAGS = -mcpu=cortex-a8 -g
 
-
-LDFLAGS = -T linker.ld
+LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
+LDFLAGS = -T linker.ld -lgcc -L$(LGCC)
 LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 
@@ -86,7 +86,7 @@ $(OUTPUT_BIN): $(OUTPUT_ELF)
 	@echo "[OBJCOPY] Creating binary $@"
 	$(OBJCOPY) -O binary $< $@
 
-$(OUTPUT_IMG): $(OUTPUT_BIN) #userspace
+$(OUTPUT_IMG): $(OUTPUT_BIN)
 	@echo "[IMG] Creating disk image"
 	@$(MKDIR) $(@D)
 	qemu-img create -f raw $@ 64M
@@ -95,9 +95,6 @@ $(OUTPUT_IMG): $(OUTPUT_BIN) #userspace
 	mmd -i $@ ::/bin
 	mmd -i $@ ::/elf
 	mcopy -i $@ $< ::/boot/kernel.bin
-
-# mcopy -i $@ $(USERSPACE_BIN)/* ::/bin
-# mcopy -i $@ $(USERSPACE_ELF)/* ::/elf
 
 ################################################################################################
 # kernel Compilation rules

@@ -77,7 +77,7 @@ extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 void test_domain_protection(void);
-void debug_l1_l2_entries(void *va);
+void debug_l1_l2_entries(void *va, uint32_t* ttbr0);
 
 typedef struct {
     // Configuration state

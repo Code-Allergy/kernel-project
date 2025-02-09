@@ -1,16 +1,14 @@
-#include "kernel/mm.h"
 #include <stdint.h>
-#include <kernel/boot.h>
 
+#include <kernel/boot.h>
+#include <kernel/mm.h>
 #include <kernel/printk.h>
 #include <kernel/mmu.h>
 #include <kernel/string.h>
-// #include <kernel/panic.h>
 #include <kernel/paging.h>
 
-#define UART0_BASE 0x01C28000
-#define UART4_BASE 0x01c29000
-#define MMC0_BASE 0x01C0F000
+#include "uart.h"
+#include "mmc.h"
 
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
@@ -127,46 +125,44 @@ int mmu_init_l1_page_table(void) {
                     DRAM_BASE + ((uint32_t)&l2_tables[section] - KERNEL_START) :
                             (uint32_t)&l2_tables[section];
 
-        l1_page_table[section] = l2_table | MMU_PAGE_DESCRIPTOR | (MMU_DOMAIN_KERNEL << 5);
+        l1_page_table[section] = (l2_table & ~0x3FF) | MMU_PAGE_DESCRIPTOR | (MMU_DOMAIN_KERNEL << 5);
     }
 
-    printk("Done\n");
     return 0;
 }
 
 
 
-void debug_l1_entry(uint32_t *va) {
+void debug_l1_entry(uint32_t *va, uint32_t* ttbr0) {
     uint32_t va_val = (uint32_t)va;
 
     // Get L1 index (bits 31-20)
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = l1_page_table[l1_index];
+    uint32_t l1_entry = ttbr0[l1_index];
 
-    printk("L1 Entry [%p] @ %p: %p\n",
-          l1_index, &l1_page_table[l1_index], l1_entry);
+    printk("L1 Entry [%p] @ %p: %p\n", l1_index, &l1_page_table[l1_index], l1_entry);
 
     // Decode L1 descriptor
     if((l1_entry & 0x3) == 0x2) {
-        printk("  Section: Phys=%p\n", l1_entry & 0xFFF00000);
+        printk("  Section: Phys=%p\n", l1_entry & 0xFFFFF000);
         printk("  AP=%p, Domain=%p, C=%d, B=%d\n",
               (l1_entry >> 10) & 0x3,
               (l1_entry >> 5) & 0xF,
               (l1_entry >> 3) & 0x1,
               (l1_entry >> 2) & 0x1);
     } else if((l1_entry & 0x3) == 0x1) {
-        printk("  Page Table: L2 @ %p\n", l1_entry & 0xFFFFFC00);
+        printk("  Page Table: L2 @ %p, Domain: %d\n", l1_entry & 0xFFFFFC00, (l1_entry >> 5) & 0xF);
     } else {
         printk("  INVALID ENTRY\n");
     }
 }
 
-void debug_l2_entry(uint32_t *va) {
+void debug_l2_entry(uint32_t *va, uint32_t* ttbr0) {
     uint32_t va_val = (uint32_t)va;
 
     // Get L1 index first
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = l1_page_table[l1_index];
+    uint32_t l1_entry = ttbr0[l1_index];
 
     if((l1_entry & 0x3) != 0x1) {
         printk("No L2 table for address %p\n", va);
@@ -196,10 +192,10 @@ void debug_l2_entry(uint32_t *va) {
     }
 }
 
-void debug_l1_l2_entries(void *va) {
-    printk("\n=== MMU Debug for %p ======================\n", va);
-    debug_l1_entry(va);
-    debug_l2_entry(va);
+void debug_l1_l2_entries(void *va, uint32_t* ttbr0) {
+    printk("\n=== MMU Debug for %p, TTBR0: %p ======================\n", va);
+    debug_l1_entry(va, ttbr0);
+    debug_l2_entry(va, ttbr0);
     printk("=============================================\n\n");
 }
 
@@ -252,7 +248,7 @@ static void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
 
     uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
+    l2_table[PAGE_INDEX((uint32_t)vaddr)] = ((uint32_t)paddr & ~0xFFF) | L2_SMALL_PAGE | flags;
 }
 
 void unmap_page(void* tbbr0, void* vaddr) {
