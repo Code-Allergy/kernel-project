@@ -55,28 +55,30 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
     struct page *current = alloc->free_list;
     struct page *start_block = NULL;
 
-    // Find contiguous 16KB-aligned block (4 pages)
     while(current) {
         uint32_t paddr = (uint32_t)current->paddr;
 
-        // Check alignment and continuity
         if((paddr & 0x3FFF) == 0) {  // 16KB aligned
-            printk("Checking page: %p\n", current->paddr);
             struct page *check = current;
             uint32_t valid = 1;
+            struct page *last_checked = current;
 
-            // Verify next 3 pages are contiguous
             for(size_t i=0; i<count-1; i++) {
                 if(!check->next ||
                    (uint32_t)check->next->paddr != (uint32_t)check->paddr + PAGE_SIZE) {
                     valid = 0;
                     break;
                 }
+                last_checked = check->next;
                 check = check->next;
             }
 
             if(valid) {
                 start_block = current;
+                // Update the free list to skip all pages we're allocating
+                if(prev) prev->next = last_checked->next;
+                else     alloc->free_list = last_checked->next;
+                last_checked->next = NULL; // Mark end of allocated block
                 break;
             }
         }
@@ -86,23 +88,10 @@ void* alloc_aligned_pages(struct page_allocator *alloc, size_t count) {
     }
 
     if(!start_block) {
-        printk("Failed to find %d contiguous aligned pages\n", count);
         return NULL;
     }
 
-    // Remove block from free list
-    if(prev) prev->next = start_block->next;
-    else     alloc->free_list = start_block->next;
-
-    // Mark pages as used
-    struct page *p = start_block;
-    for(size_t i=0; i < count; i++) {
-        p->used = 1;
-        p = p->next;
-    }
-
     alloc->free_pages -= count;
-    printk("Returning end: %p\n", start_block->paddr);
     return start_block->paddr;
 }
 
