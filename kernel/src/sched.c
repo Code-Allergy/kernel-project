@@ -91,10 +91,10 @@ process_t* get_next_process(void) {
     }
     uint32_t current = start;
     do {
-        current = current % MAX_PROCESSES;
         if (process_table[current].state == PROCESS_READY) {
             return &process_table[current];
         }
+        current = current + 1 % MAX_PROCESSES;
     } while (current != start);
 
     return current_process; // If no other process found, return current one
@@ -121,12 +121,20 @@ void scheduler(void) {
     printk("Next process: %p\n", next_process);
     printk("Jumping to code at %p\n", next_process->context.pc);
 
+    if (current_process == next_process) {
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+        context_switch_1(&current_process->context);
+    }
 
     // If we have a current process and it's not exited
     if (current_process && current_process->state != PROCESS_NONE) {
+        process_t* prev_process = current_process;
         current_process->state = PROCESS_READY;
+        next_process->state = PROCESS_RUNNING;
+        current_process = next_process;
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
         // Use full context switch to save current and restore next
-        context_switch(&current_process->context, &next_process->context);
+        context_switch(&prev_process->context, &next_process->context);
     } else {
         // First time or after process exit, just restore the new process
         printk("First time or after process exit\n");

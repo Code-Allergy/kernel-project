@@ -31,7 +31,6 @@ int sys_debug(int buf, int len) {
     if (buff == NULL) {
         return -1;
     }
-
     memcpy(buff, (uint8_t*)buf, len);
 
     uint32_t process_table = (uint32_t)mmu_driver.ttbr0;
@@ -39,8 +38,10 @@ int sys_debug(int buf, int len) {
 
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
+    void* paddr = mmu_driver.get_physical_address(current_process->ttbr0, (void*)buf);
 
-    printk("%s\n", buff);
+    printk("buffer addr: %p\n", paddr);
+    printk("buffer: %s\n", paddr);
 
     mmu_driver.set_l1_table((uint32_t*) process_table);
     return 0;
@@ -108,7 +109,6 @@ static inline void save_kernel_context(void) {
 }
 
 static inline void restore_user_context(void) {
-    // Set up return to user mode
     uint32_t cpsr = current_process->context.cpsr;
     // Ensure we're returning to user mode
     cpsr &= ~0x1F;  // Clear mode bits
@@ -125,8 +125,7 @@ static inline void restore_user_context(void) {
 }
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address) {
-    save_kernel_context();
-    dump_registers(&current_process->context);
+    // save_kernel_context();
     current_process->context.lr = return_address;
 
     // Switch to kernel page table
@@ -148,8 +147,6 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_a
 
     // Return to process page table
     mmu_driver.set_l1_table((uint32_t*)process_table);
-
-    // return 0
 
     restore_user_context();
     return ret;

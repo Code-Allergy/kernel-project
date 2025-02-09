@@ -114,7 +114,7 @@ typedef struct {
     void (*unmap_page)(void* l1_table, void* vaddr);
 
     // get the physical address of a virtual address for the ttbr0 table.
-    void* (*get_physical_address)(void* vaddr);
+    void* (*get_physical_address)(uint32_t* ttbr0, void* vaddr);
 
     void (*set_l1_table)(uint32_t* l1_table);
     void (*set_l1_with_asid)(uint32_t* table, uint8_t asid);

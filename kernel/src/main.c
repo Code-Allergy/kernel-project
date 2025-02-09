@@ -63,9 +63,6 @@ void create_init_process(const char* file_name) {
     fat32_read(&userspace_application, bytes, userspace_application.file_size);
 
     process_t* p = create_process(bytes, userspace_application.file_size);
-    // clone_process(p);
-
-    // clone_process(p);
 }
 
 
@@ -114,7 +111,7 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     // we already have paging from the bootloader, but we should switch to our own
     mmu_driver.init();
     init_kernel_pages();
-    mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
+    mmu_driver.set_l1_table((uint32_t*)((uint32_t)l1_page_table - KERNEL_START + DRAM_BASE));
 
     // printk("Done!\n");
     init_page_allocator(&kpage_allocator);

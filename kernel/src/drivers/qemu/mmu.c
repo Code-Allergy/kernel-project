@@ -43,20 +43,53 @@ void mmu_map_hw_pages(void) {
 // #endif
 }
 
-static void* get_physical_address(void *vaddr) {
-    // DRAM is mapped 1:1 with physical addresses
-    if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
-        return vaddr;
-    };
-
-
-    uint32_t *l1_entry = &((uint32_t*)l1_page_table)[SECTION_INDEX((uint32_t)vaddr)];
-    if ((*l1_entry & 0x3) != 0x1) {
-        return (void*)(((uint32_t)vaddr - KERNEL_START) + DRAM_BASE);
+static void* get_physical_address(void *vaddr, uint32_t *ttbr0) {
+    // If no ttbr0 provided, use kernel page table
+    if (ttbr0 == NULL) {
+        ttbr0 = (uint32_t*)((uint32_t)l1_page_table - KERNEL_START + DRAM_BASE);
     }
 
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-    return (void*)((l2_table[PAGE_INDEX((uint32_t)vaddr)] & ~0xFFF) | ((uint32_t)vaddr & 0xFFF));
+    // DRAM is mapped 1:1 with physical addresses for kernel space
+    if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
+        return vaddr;
+    }
+
+    // Get L1 entry from the provided ttbr0
+    uint32_t *l1_entry = &ttbr0[SECTION_INDEX((uint32_t)vaddr)];
+
+    // Check L1 entry type
+    switch (*l1_entry & 0x3) {
+        case 0:  // Invalid
+            return NULL;
+
+        case 1:  // Page Table (points to L2)
+            {
+                // Get L2 table physical address (clear the control bits)
+                uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+
+                // If L2 table is in kernel virtual space, convert to physical
+                if ((uint32_t)l2_table >= KERNEL_START) {
+                    l2_table = (uint32_t*)(((uint32_t)l2_table - KERNEL_START) + DRAM_BASE);
+                }
+
+                // Get L2 entry
+                uint32_t l2_entry = l2_table[PAGE_INDEX((uint32_t)vaddr)];
+
+                // Check if L2 entry is valid (small page)
+                if ((l2_entry & 0x2) == 0x2) {
+                    // Combine physical page address with page offset
+                    return (void*)((l2_entry & ~0xFFF) | ((uint32_t)vaddr & 0xFFF));
+                }
+                return NULL;
+            }
+
+        case 2:  // Section (1MB)
+            // Return section base address + offset
+            return (void*)((*l1_entry & ~0xFFFFF) | ((uint32_t)vaddr & 0xFFFFF));
+
+        default:  // Reserved
+            return NULL;
+    }
 }
 
 uint32_t read_dacr(void) {
