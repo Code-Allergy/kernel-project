@@ -331,6 +331,11 @@
 #define     I2C_INT_RECV_DRAIN           I2C_IRQSTATUS_RDR
 #define     I2C_INT_TRANSMIT_DRAIN       I2C_IRQSTATUS_XDR
 
+/* SYSS */
+#define I2C_SYSS_RDONE   (0x00000001u)
+#define I2C_SYSS_RDONE_SHIFT   (0x00000000u)
+#define I2C_SYSS_RDONE_RSTCOMP   (0x1u)
+#define I2C_SYSS_RDONE_RSTONGOING   (0x0u)
 
 void i2c_init_clocks(void);
 void i2c_soft_reset(uint32_t base_addr);
@@ -350,3 +355,6 @@ uint8_t i2c_master_data_get(uint32_t base_addr);
 uint32_t i2c_master_int_raw_status_ex(uint32_t base_addr, uint32_t int_flag);
 uint32_t i2c_master_int_raw_status(uint32_t base_addr);
 void i2c_master_stop(uint32_t base_addr);
+void i2c_pin_mux_setup(uint32_t instance);
+void i2c_auto_idle_disable(uint32_t base_addr);
+uint32_t i2c_system_status_get(uint32_t base_addr);

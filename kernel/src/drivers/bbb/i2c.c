@@ -2,6 +2,7 @@
 
 #include "i2c.h"
 #include "ccm.h"
+#include "mmc.h"
 
 
 #define REG32(x) (*((volatile uint32_t *)(x)))
@@ -90,6 +91,47 @@ uint32_t i2c_master_int_raw_status(uint32_t base_addr) {
 
 void i2c_master_stop(uint32_t base_addr) {
     REG32(base_addr + I2C_CON) |= I2C_CON_STP;
+}
+
+void i2c_auto_idle_disable(uint32_t base_addr) {
+    REG32(base_addr + I2C_SYSC) &= ~I2C_SYSC_AUTOIDLE;
+}
+
+uint32_t i2c_system_status_get(uint32_t base_addr) {
+    return (REG32(base_addr + I2C_SYSS) & I2C_SYSS_RDONE);
+}
+
+void i2c_pin_mux_setup(uint32_t instance)
+{
+    if(instance == 0)
+    {
+         REG32(CONTROL_MODULE_BASE + CONTROL_CONF_I2C0_SDA)  =
+                (CONTROL_CONF_I2C0_SDA_CONF_I2C0_SDA_RXACTIVE  |
+                 CONTROL_CONF_I2C0_SDA_CONF_I2C0_SDA_SLEWCTRL  |
+                 CONTROL_CONF_I2C0_SDA_CONF_I2C0_SDA_PUTYPESEL   );
+
+         REG32(CONTROL_MODULE_BASE + CONTROL_CONF_I2C0_SCL)  =
+                (CONTROL_CONF_I2C0_SCL_CONF_I2C0_SCL_RXACTIVE  |
+                 CONTROL_CONF_I2C0_SCL_CONF_I2C0_SCL_SLEWCTRL  |
+                 CONTROL_CONF_I2C0_SCL_CONF_I2C0_SCL_PUTYPESEL );
+
+    }
+    else if(instance == 1)
+    {
+                               /* I2C_SCLK */
+         REG32(CONTROL_MODULE_BASE + CONTROL_CONF_SPI0_D1)  =
+              (CONTROL_CONF_SPI0_D1_CONF_SPI0_D1_PUTYPESEL |
+               CONTROL_CONF_SPI0_D1_CONF_SPI0_D1_RXACTIVE  |
+               CONTROL_CONF_SPI0_D1_CONF_SPI0_D1_SLEWCTRL  |
+               CONTROL_CONF_MUXMODE(2));
+                              /* I2C_SDA */
+         REG32(CONTROL_MODULE_BASE + CONTROL_CONF_SPI0_CS0) =
+              (CONTROL_CONF_SPI0_CS0_CONF_SPI0_CS0_PUTYPESEL |
+               CONTROL_CONF_SPI0_CS0_CONF_SPI0_CS0_RXACTIVE  |
+               CONTROL_CONF_SPI0_D1_CONF_SPI0_D1_SLEWCTRL    |
+               CONTROL_CONF_MUXMODE(2));
+    }
+
 }
 
 void i2c_init_clocks(void) {
