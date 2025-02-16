@@ -132,7 +132,7 @@ void scheduler(void) {
 
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
-    printk("Jumping to code at %p\n", next_process->context.lr);
+    printk("Jumping to code at %p\n", next_process->context.pc);
 
 
     current_process = next_process;
@@ -240,7 +240,6 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->asid = allocate_asid();
     proc->pid = get_next_pid();
     proc->priority = 0;
-    proc->used = 1;
 
     proc->code_page_vaddr = MEMORY_USER_CODE_BASE;
     proc->data_page_vaddr = MEMORY_USER_DATA_BASE;

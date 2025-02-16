@@ -19,15 +19,18 @@
 #include "drivers/qemu/intc.h"
 
 #define KERNEL_HEARTBEAT_TIMER 1000000 // us
-#define TEST_FILE "bin/null"
+#define TEST_FILE "bin/testa"
 
+/* swtch.S - move to kernel/asm.h */
+extern void context_restore(void);
+extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
+extern void context_switch_1(struct cpu_regs* next_context);
 
 bootloader_t bootloader_info;
 
 // system clock
 void system_clock(void) {
-    // clock_timer.clear_interrupt(0);
-    scheduler();
+    scheduler(); // don't schedule here, but instead set a flag to schedule when we return so we don't have to unfuck the stack
 }
 
 void init_kernel_hardware(void) {
@@ -42,10 +45,6 @@ void init_kernel_hardware(void) {
     interrupt_controller.enable_irq_global();
 
 }
-
-extern void context_restore(void);
-extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
-void context_switch_1(struct cpu_regs* next_context);
 
 void create_init_process(const char* file_name) {
     fat32_fs_t sd_card;
@@ -111,22 +110,17 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
-    // we already have paging from the bootloader, but we should switch to our own
+    // we already have vm from the bootloader, but we should switch to our own tables
     mmu_driver.init();
     init_kernel_pages();
     mmu_driver.set_l1_table(mmu_driver.get_physical_address(l1_page_table));
-
-    // printk("Done!\n");
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
 
     scheduler_init();
 
-    // create process but don't start
-    // test_process_creation();
-    // test_process_creation();
     create_init_process(TEST_FILE);
-    // create_init_process(TEST_FILEB);
+    // create_init_process(TEST_FILE);
 
 
     scheduler();

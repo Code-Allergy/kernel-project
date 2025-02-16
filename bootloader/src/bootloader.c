@@ -49,17 +49,13 @@ void loader(void){
     }
 
     // identity map DRAM, so we can access the bootloader (unneeded on BBB, we are on other memory)
-#ifndef PLATFORM_BBB
     for (uintptr_t i = 0; i < DRAM_SIZE; i += PAGE_SIZE) {
         mmu_driver.map_page(NULL, (void*)(i + DRAM_BASE), (void*)(i + DRAM_BASE), L2_KERNEL_DATA_PAGE);
     }
-#endif
 
     mmu_driver.enable();
 
-
     /* Read kernel into DRAM */
-    ;
     if ((res = fat32_read(&kernel, (void*)KERNEL_ENTRY, kernel.file_size)) < 0
         || res != (int)kernel.file_size) {
         printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);

@@ -26,10 +26,8 @@ SRC_DIR         = src
 BASE_INCLUDE    = $(SRC_DIR)/include
 DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
 DRIVERS_BASE    = drivers
-# USERSPACE_DIR   = userspace
-# USERSPACE_BUILD = $(BUILD_DIR)/userspace
-# USERSPACE_ELF   = $(USERSPACE_BUILD)/elf
-# USERSPACE_BIN   = $(USERSPACE_BUILD)/bin
+
+LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 # Set flags
 CFLAGS := -Wall -Wextra -Wpedantic \
@@ -52,10 +50,8 @@ ASFLAGS = -mcpu=cortex-a8 -g
 
 
 LDFLAGS = -T linker.ld
-LDFLAGS += --gc-sections --print-memory-usage
-# Discover all source files
-
-
+LDFLAGS += --gc-sections --print-memory-usage -L$(LIBGCC_PATH)
+LDLIBS  = -lgcc
 
 # My kernel code
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
@@ -80,13 +76,13 @@ all: $(OUTPUT_BIN) $(OUTPUT_IMG) disassemble
 # Main build targets
 $(OUTPUT_ELF): $(ALL_OBJS) | $(BUILD_DIR)
 	@echo "[LD] Linking $@"
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(OUTPUT_BIN): $(OUTPUT_ELF)
 	@echo "[OBJCOPY] Creating binary $@"
 	$(OBJCOPY) -O binary $< $@
 
-$(OUTPUT_IMG): $(OUTPUT_BIN) #userspace
+$(OUTPUT_IMG): $(OUTPUT_BIN)
 	@echo "[IMG] Creating disk image"
 	@$(MKDIR) $(@D)
 	qemu-img create -f raw $@ 64M

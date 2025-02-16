@@ -7,10 +7,10 @@
 
 
 /* Process state definitions */
-#define PROCESS_RUNNING  0
-#define PROCESS_KILLED   1
-#define PROCESS_READY    2
-#define PROCESS_NONE     3
+#define PROCESS_RUNNING  1
+#define PROCESS_KILLED   2
+#define PROCESS_READY    3
+#define PROCESS_NONE     0
 
 struct cpu_regs {
     uint32_t r0;
@@ -34,7 +34,6 @@ struct cpu_regs {
 
 
 typedef struct {
-    uint32_t used;
     uint32_t pid;
     uint32_t priority;
     uint32_t state;

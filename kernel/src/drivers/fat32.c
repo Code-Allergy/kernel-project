@@ -265,6 +265,7 @@ int fat32_mount(fat32_fs_t *fs, const fat32_diskio_t *io) {
     return 0;
 }
 
+// TODO: look into why this gets optimized out
 int __attribute__((optimize("O0"))) fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const char* name) {
     if (!fs || !name) return FAT32_ERROR_BAD_PARAMETER;
 
@@ -348,7 +349,7 @@ int __attribute__((optimize("O0"))) fat32_read_dir_entry(fat32_fs_t* fs, fat32_d
     return FAT32_ERROR_NO_FILE;  // Entry not found
 }
 
-fat32_open(fat32_fs_t* fs, const char* path, fat32_file_t* file) {
+int fat32_open(fat32_fs_t* fs, const char* path, fat32_file_t* file) {
     int ret = 0;
     fat32_dir_entry_t current_dir = { .is_initialized = 0 };
     int current_component = 0;
@@ -376,7 +377,7 @@ fat32_open(fat32_fs_t* fs, const char* path, fat32_file_t* file) {
     return FAT32_SUCCESS;
 }
 
-fat32_read(fat32_file_t *file, void *buffer, int size) {
+int fat32_read(fat32_file_t *file, void *buffer, int size) {
     if (!file || !buffer) {
         return FAT32_ERROR_BAD_PARAMETER;
     }

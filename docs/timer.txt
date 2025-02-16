@@ -1,2 +1,1 @@
-timer 0 is used for scheduling and kernel ticking.
-timer 1 is used for sleep and other delay syscalls.
+timer 0 is used for scheduling and kernel ticking, experiment with the quantum.
