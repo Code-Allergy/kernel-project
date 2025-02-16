@@ -99,20 +99,43 @@ static void print_unsigned_decimal(unsigned int num) {
 
 
 void vprintk(const char *fmt, va_list args) {
-    int pad_zero = 0;
-
     for (; *fmt; fmt++) {
         if (*fmt != '%') {
             print_char(*fmt);
             continue;
         }
 
+        const char *spec_start = fmt;
         fmt++;
-        pad_zero = 0;
+
+        int pad_zero = 0;
+        int width = 0;
+        int precision = -1;
 
         if (*fmt == '0') {
             pad_zero = 1;
             fmt++;
+        }
+
+        // Parse width
+        while (*fmt >= '0' && *fmt <= '9') {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        // Parse precision
+        if (*fmt == '.') {
+            fmt++;
+            precision = 0;
+            while (*fmt >= '0' && *fmt <= '9') {
+                precision = precision * 10 + (*fmt - '0');
+                fmt++;
+            }
+        }
+
+        if (*fmt == '\0') {
+            print_char('%');
+            break;
         }
 
         switch (*fmt) {
@@ -140,7 +163,14 @@ void vprintk(const char *fmt, va_list args) {
                 print_binary(va_arg(args, unsigned int));
                 break;
             case 's': {
-                print_string(va_arg(args, char*));
+                const char *s = va_arg(args, char*);
+                if (precision >= 0) {
+                    for (int i = 0; i < precision && *s; i++, s++) {
+                        print_char(*s);
+                    }
+                } else {
+                    print_string(s);
+                }
                 break;
             }
             case 'c': {
@@ -152,7 +182,9 @@ void vprintk(const char *fmt, va_list args) {
                 break;
             default:
                 print_char('%');
-                print_char(*fmt);
+                for (const char *p = spec_start + 1; p <= fmt; p++) {
+                    print_char(*p);
+                }
                 break;
         }
     }

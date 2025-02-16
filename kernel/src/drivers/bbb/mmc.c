@@ -2,9 +2,45 @@
 #include <kernel/printk.h>
 #include <stdint.h>
 #include "mmc.h"
+#include "kernel/sd.h"
 
 static void mmc_init(void) {
     printk("Skipping setting clocks on BBB for now!\n");
+}
+
+void set_init_clock(void) {
+    uint32_t target_freq_khz = 40;  // 80 kHz ensures 80 clocks = 1ms
+
+    uint32_t sysctl = MMC0_BASE + MMC_SYSCTL;
+    uint32_t val = REG32(sysctl);
+
+    // Disable clock
+    val &= ~(1 << 2);
+    REG32(sysctl) = val;
+
+    // Set divider (96MHz / 80kHz / 2) - 1 = 599
+    uint32_t div = (48000 / (2 * target_freq_khz)) - 1;
+
+    // Set divider and enable internal clock
+    val &= ~(0x3FF << 6);  // Clear existing divider bits
+    val |= (div << 6);     // Set new divider
+    val |= (1 << 0);       // Enable internal clock (ICE)
+    REG32(sysctl) = val;
+
+    // Wait for clock to stabilize
+    uint32_t timeout = 100000;
+    while (!(REG32(sysctl) & (1 << 1))) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for clock stabilization\n");
+            return;
+        }
+    }
+
+    // Enable clock to card
+    val |= (1 << 2);
+    REG32(sysctl) = val;
+
+    printk("Init clock set to %d kHz (div=%d)\n", target_freq_khz, div);
 }
 
 // Function to configure pin muxing
@@ -16,7 +52,7 @@ void configure_mmc_pins(void) {
     REG32(CONF_MMC0_DAT2) = pin_config;
     REG32(CONF_MMC0_DAT1) = pin_config;
     REG32(CONF_MMC0_DAT0) = pin_config;
-    REG32(CONF_MMC0_CLK)  = pin_config;
+    REG32(CONF_MMC0_CLK) = (0 << 0) | (1 << 4) | (1 << 5) | (1 << 6);
     REG32(CONF_MMC0_CMD)  = pin_config;
 }
 
@@ -69,42 +105,136 @@ uint32_t mmc_send_cmd(uint32_t cmd, uint32_t arg) {
 // Initialize SD card
 void sd_card_init(void) {
     uint32_t response;
+    uint32_t timeout;
     // 1. Configure pins
     configure_mmc_pins();
 
     // 2. Enable MMC module clock
     REG32(CM_PER_MMC0_CLKCTRL) = 0x2;
+    timeout = 100000;
+    while ((REG32(CM_PER_MMC0_CLKCTRL) & 0x3) != 0x2) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for MMC module clock\n");
+            return;
+        }
+    }
+
 
     // 3. Reset MMC controller
     REG32(MMC0_BASE + MMC_SYSCONFIG) = 0x2;
-    while (!(REG32(MMC0_BASE + MMC_SYSSTATUS) & 0x1));
-    printk("Card initialized\n");
+    timeout = 100000;
+    while ((REG32(MMC0_BASE + MMC_SYSSTATUS) & 0x1) == 0) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for MMC controller reset\n");
+            return;
+        }
+    }
+
+    // reset all
+    REG32(MMC0_BASE + MMC_SYSCTL) |= (24 << 1);
+    timeout = 100000;
+    while (((REG32(MMC0_BASE + MMC_SYSCTL) & (24 << 1)) != 0)) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for MMC controller reset all\n");
+            return;
+        }
+    }
+
+
+    printk("MMC controller reset complete\n");
+
+    // disable mmc interrupts
+    // REG32(MMC0_BASE + MMC_IE) = 0;
+    // REG32(MMC0_BASE + MMC_ISE) = 0;
+
+    // REG32(MMC0_BASE + MMC_STAT) = 0xFFFFFFFF;
+
+    // set capabilities
+    // REG32(MMC0_BASE + MMC_CAPA) |= VS30_3V0SUP;
+
+    REG32(MMC0_BASE + MMC_HCTL) = DTW_1_BITMODE | SDBP_PWROFF | SDVS_3V0;
+    REG32(MMC0_BASE + MMC_CAPA) |= VS30_3V0SUP | VS18_1V8SUP;
+
+
+    REG32(MMC0_BASE + MMC_CON) |= CTPL_MMC_SD | WPP_ACTIVEHIGH | CDP_ACTIVEHIGH |
+		MIT_CTO | DW8_1_4BITMODE | MODE_FUNC | STR_BLOCK |
+		HR_NOHOSTRESP | INIT_NOINIT | NOOPENDRAIN;
+
+    uint32_t dsor = 240;
+   	mmc_reg_out(MMC0_BASE + MMC_SYSCTL, (ICE_MASK | DTO_MASK | CEN_MASK),
+		(ICE_STOP | DTO_15THDTO));
+	mmc_reg_out(MMC0_BASE + MMC_SYSCTL, ICE_MASK | CLKD_MASK,
+		(dsor << CLKD_OFFSET) | ICE_OSCILLATE);
+
+    timeout = 100000;
+    while (((REG32(MMC0_BASE + MMC_SYSCTL) & ICS_MASK) == ICS_NOTREADY)) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for MMC controller reset all\n");
+            return;
+        }
+    }
+
+    REG32(MMC0_BASE + MMC_SYSCTL) |= CEN_ENABLE;
+    REG32(MMC0_BASE + MMC_HCTL) |= SDBP_PWRON;
+
+    // set init freq
+
 
     // 4. Set initial clock to 400KHz (SD card identification mode)
 
     // 5. Power on the controller
     // printk("SD capabilities %p\n", REG32(MMC0_BASE + MMC_CAPA));
 
-    REG32(MMC0_BASE + MMC_HCTL) = (0x6 << 9);
-    REG32(MMC0_BASE + MMC_HCTL) |= (1 << 8);  // Set SD bus power on
-    if ((REG32(MMC0_BASE + MMC_HCTL) & (1 << 8)) == 0) {
-        printk("Failed to power on MMC/SD controller\n");
-        while (1);
-    }
+    // set_init_clock();
+    // printk("Clock set for initialization\n");
 
+    // uint32_t hctl = REG32(MMC0_BASE + MMC_HCTL);
+    // hctl &= ~(0x7 << 9);      // Clear existing voltage bits
+    // hctl |= (0x6 << 9);       // Set to 3.0V (0x6)
+    // REG32(MMC0_BASE + MMC_HCTL) = hctl;
+    // REG32(MMC0_BASE + MMC_HCTL) |= (1 << 8);  // Set SD bus power on
+
+    // Verify power settings took effect
+    // if ((REG32(MMC0_BASE + MMC_HCTL) & (1 << 8)) == 0) {
+    //     printk("Failed to power on MMC/SD controller\n");
+    //     return;
+    // }
+    // printk("MMC controller powered on\n");
+
+    REG32(MMC0_BASE + MMC_CON) |= INIT_INITSTREAM;
+
+    // Wait for command complete
+    // timeout = 1000000;
+    // while (!(REG32(MMC0_BASE + MMC_STAT) & 0x1)) {
+    //     if (--timeout == 0) {
+    //         printk("Timeout waiting for initialization sequence\n");
+    //         return;
+    //     }
+    // }
+    printk("Initialization sequence complete\n");
+
+    // // Clear the CC bit in STAT
+    // REG32(MMC0_BASE + MMC_STAT) = 0x1;
+
+    // // Clear INIT bit after initialization sequence
+    // REG32(MMC0_BASE + MMC_CON) &= ~(1 << 1);  // Clear INIT bit
+
+    // Now switch to 400 kHz for card identification
     set_mmc_clock(400);
-    printk("Clock set\n");
-
-    REG32(MMC0_BASE + MMC_CON) = 0x2;      // Enable controller
-    while (!(REG32(MMC0_BASE + MMC_STAT) & 0x1)) { // stuck here, need to debug
-        printk("Waiting for controller to be ready %p\n", REG32(MMC0_BASE + MMC_STAT));
-    }
-    printk("Controller enabled\n");
+    printk("Clock set to 400 kHz for card identification\n");
 
     // 6. SD Card Initialization sequence
     // Send CMD0 (GO_IDLE_STATE)
-    mmc_send_cmd(CMD0, 0);
-
+    // mmc_send_cmd(CMD0, 0);
+    REG32(MMC0_BASE + MMC_CMD) = CMD0;
+    timeout = 100000;
+    while (!(REG32(MMC0_BASE + MMC_STAT) & CC_MASK)) {
+        if (--timeout == 0) {
+            printk("Timeout waiting for MMC CMD 0\n");
+            return;
+        }
+    }
+    printk("Done!\n");
     // Send CMD8 (SEND_IF_COND) - Required for SD 2.0
     response = mmc_send_cmd(CMD8, 0x000001AA);
     if ((response & 0xFF) != 0xAA) {

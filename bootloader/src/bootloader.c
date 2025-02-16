@@ -8,7 +8,11 @@
 #include <kernel/mmu.h>
 #include <stdint.h>
 
+#include "drivers/bbb/eeprom.h"
+
 extern uintptr_t init;
+BOARDINFO board_info;
+#define I2C_SLAVE_ADDR                      (0x50)
 
 /* bootloader C entry point */
 void loader(void){
@@ -17,18 +21,23 @@ void loader(void){
     int res = 0;
 
     uart_driver.init();
-    ccm_driver.init();
-
     printk("UART Active\n");
     printk("Loader loaded at %p\n", (void*)init);
     printk("Build time (UTC): %s\n", BUILD_DATE);
 
+    eeprom_init(I2C_SLAVE_ADDR);
+    eeprom_read((void*)&board_info, MAX_DATA, 0);
+    printk("EEPROM header: %.4s\n", board_info.header);
+    printk("Board name: %.8s\n", board_info.boardName);
+    printk("Version: %.5s\n", board_info.version);
+    printk("Serial Number %.12s\n", board_info.serialNumber);
+
+    ccm_driver.init();
 
     dram_driver.init();
     printk("DRAM Active\n");
 
-
-    mmc_driver.init();
+    // mmc_driver.init();
     printk("Done on BBB\n");
 
 #ifndef PLATFORM_BBB
