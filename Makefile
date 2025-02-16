@@ -43,7 +43,7 @@ BOOTLOADER_BIN = $(BOOTLOADER_BUILD)/bootloader.bin
 # Commands
 RM		  = rm -rf
 
-.PHONY: kernel clean sdcard bootloader qemu userspace
+.PHONY: kernel clean sdcard bootloader qemu userspace boot-bbb
 
 all: sdcard
 
@@ -91,6 +91,8 @@ bbb:
 flash-bbb: bbb
 	$(TOOLS_DIR)/sdimager/flash_img.sh $(BUILD_BASE)/BBB/bootloader.img $(DEV)
 
+boot-bbb: bbb
+	$(TOOLS_DIR)/boot_uart.sh $(BUILD_BASE)/BBB/bootloader.img
 
 CLEAN_LABEL = [\033[0;32mCLEAN\033[0m]
 clean:

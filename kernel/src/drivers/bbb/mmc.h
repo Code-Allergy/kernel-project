@@ -1,5 +1,6 @@
 #ifndef MMC_H
 #define MMC_H
+#include <stdint.h>
 
 // Control Module Registers for Pin Muxing
 #define CONTROL_MODULE_BASE    0x44E10000
@@ -161,6 +162,70 @@
 #define CMD8    0x00000008  // SEND_IF_COND
 #define CMD55   0x00000037  // APP_CMD
 #define ACMD41  0x00000029  // SD_SEND_OP_COND
+
+/* Structure for SD Card information */
+typedef struct _mmcsdCardInfo {
+    struct _mmcsdCtrlInfo *ctrl;
+	uint32_t cardType;
+	uint32_t rca;
+	uint32_t raw_scr[2];
+	uint32_t raw_csd[4];
+	uint32_t raw_cid[4];
+	uint32_t ocr;
+	uint8_t sd_ver;
+	uint8_t busWidth;
+	uint8_t tranSpeed;
+	uint8_t highCap;
+	uint32_t blkLen;
+	uint32_t nBlks;
+	uint32_t size;
+
+}mmcsdCardInfo;
+
+/* Structure for command */
+typedef struct _mmcsdCmd {
+	uint32_t idx;
+	uint32_t flags;
+	uint32_t arg;
+	signed char *data;
+	uint32_t nblks;
+	uint32_t rsp[4];
+}mmcsdCmd;
+
+/* Structure for controller information */
+typedef struct _mmcsdCtrlInfo {
+	uint32_t memBase;
+	uint32_t ipClk;
+	uint32_t opClk;
+	uint32_t (*ctrlInit) (struct _mmcsdCtrlInfo *ctrl);
+	uint32_t (*cmdSend) (struct _mmcsdCtrlInfo *ctrl, mmcsdCmd *c);
+    void (*busWidthConfig) (struct _mmcsdCtrlInfo *ctrl, uint32_t busWidth);
+    int (*busFreqConfig) (struct _mmcsdCtrlInfo *ctrl, uint32_t busFreq);
+	uint32_t (*cmdStatusGet) (struct _mmcsdCtrlInfo *ctrl);
+	uint32_t (*xferStatusGet) (struct _mmcsdCtrlInfo *ctrl);
+	void (*xferSetup) (struct _mmcsdCtrlInfo *ctrl, uint8_t rwFlag,
+					       void *ptr, uint32_t blkSize, uint32_t nBlks);
+    uint32_t (*cardPresent) (struct _mmcsdCtrlInfo *ctrl);
+    void (*intrEnable) (struct _mmcsdCtrlInfo *ctrl);
+    uint32_t intrMask;
+	uint32_t dmaEnable;
+	uint32_t busWidth;
+	uint32_t highspeed;
+	uint32_t ocr;
+        uint32_t cdPinNum;
+        uint32_t wpPinNum;
+	mmcsdCardInfo *card;
+}mmcsdCtrlInfo;
+
+#define MMCSD_IN_FREQ                  96000000 /* 96MHz */
+#define MMCSD_INIT_FREQ                400000   /* 400kHz */
+
+#define MMCSD_DMA_CHA_TX               24
+#define MMCSD_DMA_CHA_RX               25
+#define MMCSD_DMA_QUE_NUM              0
+#define MMCSD_DMA_REGION_NUM           0
+#define MMCSD_BLK_SIZE                 512
+#define MMCSD_OCR                      (SD_OCR_VDD_3P0_3P1 | SD_OCR_VDD_3P1_3P2)
 
 
 #endif // MMC_H

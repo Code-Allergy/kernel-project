@@ -19,6 +19,7 @@
           pkgs.qemu
           pkgs.bear
           pkgs.minicom
+          pkgs.lrzsz
         ];
 
         # Optionally, you can set environment variables if needed by your build system:
