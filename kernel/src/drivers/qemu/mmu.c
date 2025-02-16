@@ -21,8 +21,8 @@
 uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
+// for now all hw is identity mapped inside the kernel page table
 void mmu_map_hw_pages(void) {
-// #ifdef BOOTLOADER
     // Map 4KB for UART0-UART3
     l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
     // Map 4KB for UART4-UART7 (not used)
@@ -31,24 +31,14 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
-// #else
-//     // Map 4KB for UART0-UART3
-//     l2_tables[SECTION_INDEX(UART0_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
-//     // Map 4KB for UART4-UART7 (not used)
-//     l2_tables[SECTION_INDEX(UART4_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(UART4_BASE)] = UART4_BASE | L2_DEVICE_PAGE;
-//     // Map 4KB for MMC0
-//     l2_tables[SECTION_INDEX(MMC0_BASE | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
-//     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
-//     l2_tables[SECTION_INDEX(0x01c20000 | MEMORY_KERNEL_DEVICE_BASE)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
-// #endif
 }
 
+// this should be done much more dynamically
 static void* get_physical_address(void *vaddr) {
     // DRAM is mapped 1:1 with physical addresses
     if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
         return vaddr;
     };
-
 
     uint32_t *l1_entry = &((uint32_t*)l1_page_table)[SECTION_INDEX((uint32_t)vaddr)];
     if ((*l1_entry & 0x3) != 0x1) {

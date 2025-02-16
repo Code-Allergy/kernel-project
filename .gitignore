@@ -5,3 +5,4 @@ output.txt
 compile_commands.json
 .direnv/
 /target
+/team-repo

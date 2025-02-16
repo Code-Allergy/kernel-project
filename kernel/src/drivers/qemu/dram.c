@@ -10,15 +10,13 @@ void dram_init(void) {
     // check if the qemu version is even emulating dramc
     if (DRAM_CTRL->SDR_CCR != 0x80020000) {
         printk("Skipping initializing dram controller, qemu verison unsupported.\n");
-        return -1;
+        return;
     }
 
     DRAM_CTRL->SDR_CCR = (1 << 31);
     while ((DRAM_CTRL->SDR_CCR & (1 << 31)));
     DRAM_CTRL->SDR_ZQCR0 = 0x1;
     while ((DRAM_CTRL->SDR_ZQCR0 & (1 << 31)));
-
-    return 0;
 }
 
 

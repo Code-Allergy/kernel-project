@@ -8,7 +8,7 @@
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 
-
+// doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = clone_process(current_process);
     child->context.r0 = 0; // return 0 for child

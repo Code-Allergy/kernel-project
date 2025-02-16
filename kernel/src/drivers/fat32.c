@@ -3,6 +3,7 @@
 #include <kernel/string.h>
 #include <stdint.h>
 
+// used before i found out about libgcc __aeabi_uidiv
 unsigned int soft_div(uint32_t dividend, uint32_t divisor, uint32_t *rem) {
     // Handle divide by zero
     if (divisor == 0) {

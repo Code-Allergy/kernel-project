@@ -32,17 +32,17 @@ void pll1_configure(uint8_t N, uint8_t M, uint8_t P) {
     CCM->CPU_AHB_APB0_CFG_REG &= ~(0x3F); // Clear dividers (AXI=1, AHB=1, APB0=2)
 }
 
-int clock_init() {
+void clock_init(void) {
     /* check if the ccm is emulated in the qemu version
      * CCM->PLL1_CFG_REG == 0x21005000 default value
      * check if ccm is emulated by running `info mtree`
      * and find allwinner-a10-ccm
      */
-    if (CCM->PLL1_CFG_REG != 0x21005000) return 0; // weird state or not emulated
+    if (CCM->PLL1_CFG_REG != 0x21005000) return; // weird state or not emulated
 
+    // as far as I can tell this does nothing on qemu anyways lol
     CCM->OSC24M_CFG_REG |= (1 << 0);
     pll1_configure(31, 0, 1);
-    return 0;
 }
 
 

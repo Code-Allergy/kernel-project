@@ -6,6 +6,7 @@
 
 const dma_desc_t dma_descriptors[32] __attribute__((aligned(32))); // Cache-aligned
 
+// TODO - load kernel with dma instead of by sector, can enable interrupts in bootloader to make things easier
 void dma_memory_write(uintptr_t desc_addr,
                       const dma_desc_t *desc, size_t len)
 {

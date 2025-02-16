@@ -7,10 +7,8 @@
 #include <kernel/intc.h>
 
 #include "intc.h"
-#include "int.h"
-#include "../../../team-repo/src/drivers/qemu/uart.h"
+#include "uart.h"
 #include "kernel/boot.h"
-#include "kernel/mmc.h"
 #include "kernel/mmu.h"
 
 // handle interrupts here

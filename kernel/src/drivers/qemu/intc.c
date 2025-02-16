@@ -5,9 +5,9 @@
 #include <kernel/syscall.h>
 #include <kernel/mmu.h>
 #include <kernel/boot.h>
+#include <kernel/sched.h>
 
 #include "intc.h"
-#include "kernel/sched.h"
 
 /* Initial vector table for ARM, memory is pointed to here in VBAR register */
 extern uint32_t _vectors[];

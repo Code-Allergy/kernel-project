@@ -27,7 +27,7 @@ static int32_t get_next_pid(void) {
     return total_processes++;
 }
 
-
+// this shouldn't flush EL2, and shouldn't be here either. not sure why it's here
 static inline void flush_tlb(void) {
     __asm__ volatile (
         "dsb ish\n"        // Ensure all previous memory accesses complete
@@ -71,19 +71,6 @@ uint8_t allocate_asid(void) {
     return 1;
 }
 
-// void copy_kernel_mappings(uint32_t *ttbr0) {
-//     uint32_t *kernel_ttbr0;
-//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
-
-//     // start at kernel start entry, copy until end of memory space
-//     const int KERNEL_START_ENTRY = KERNEL_ENTRY / 0x400000;
-//     const int KERNEL_SIZE_ENTRIES = (0xFFFFFFFF - KERNEL_ENTRY) / 0x400000;
-
-//     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
-//         ttbr0[i] = kernel_ttbr0[i];
-//     }
-// }
-
 void copy_kernel_mappings(uint32_t *ttbr0) {
     uint32_t *kernel_ttbr0;
     // Read the current TTBR0 value (Kernel's TTBR0 mapping)
@@ -118,9 +105,6 @@ process_t* get_next_process(void) {
 }
 
 void scheduler(void) {
-    // Your scheduling logic here
-    // For example: Round Robin implementation
-    // static int last_pid = 0;
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
     printk("Got to scheduler\n");
@@ -252,6 +236,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->heap_page_paddr = (uint32_t) heap_page;
     proc->code_size = size;
 
+    // i want to load these into the program stack, or come up with a better way to do this.
     proc->context.r0 = 0;
     proc->context.r1 = 0;
     proc->context.r2 = 0;

@@ -14,33 +14,10 @@
 volatile uint64_t sleep_until = 0;
 
 
-
 static void timer_init(void) {
     clock_timer.initialized = 1;
     // whatever else at runtime
 }
-
-// void set_timer_usec(uint32_t usec, uint32_t timer_idx, uint32_t flags) {
-//     AW_Timer *t = (AW_Timer*) TIMER_BASE;
-
-//     t->timer[timer_idx].control = 0; // Disable first
-//     t->timer[timer_idx].interval = 24 * usec; // 24MHz
-
-//     // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
-//     t->timer[timer_idx].control = flags;
-// }
-
-
-// void sleep_us(uint32_t usec) {
-//     AW_Timer *t = (AW_Timer*) TIMER_BASE;
-//     set_timer_usec(usec, SLEEP_TIMER, TIMER_ENABLE | TIMER_RELOAD | (1 << 2) | TIMER_IRQ_EN | TIMER_ONESHOT);
-
-//     // Wait for timer to finish
-//     while(!(t->irq_status & (1 << get_timer_irq_idx(SLEEP_TIMER))));
-
-//     // Clear timer interrupt
-//     t->irq_status = 1 << get_timer_irq_idx(SLEEP_TIMER);
-// }
 
 static void system_clock(int irq, void* data) {
     (void)data;
@@ -106,6 +83,6 @@ timer_t clock_timer = {
     .available = 6,
     .total = 6,
     .init = timer_init,
-    .start_idx = timer_start,
-    .start_idx_callback = timer_start_callback,
+    .start_idx = timer_start, // todo fix
+    .start_idx_callback = timer_start_callback, // todo fix
 };
