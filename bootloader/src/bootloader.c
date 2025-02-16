@@ -6,41 +6,41 @@
 #include <kernel/fat32.h>
 #include <kernel/boot.h>
 #include <kernel/mmu.h>
+#include <kernel/board.h>
 #include <stdint.h>
 
 #include "drivers/bbb/eeprom.h"
 
 extern uintptr_t init;
-BOARDINFO board_info;
-#define I2C_SLAVE_ADDR                      (0x50)
+// BOARDINFO board_info;
 
 /* bootloader C entry point */
 void loader(void){
     fat32_fs_t boot_fs;
     fat32_file_t kernel;
     int res = 0;
-
     uart_driver.init();
+    printk("Board init: %p\n", board_info.init);
+    board_info.init();
+
     printk("UART Active\n");
     printk("Loader loaded at %p\n", (void*)init);
     printk("Build time (UTC): %s\n", BUILD_DATE);
 
-    eeprom_init(I2C_SLAVE_ADDR);
-    eeprom_read((void*)&board_info, MAX_DATA, 0);
-    printk("EEPROM header: %.4s\n", board_info.header);
-    printk("Board name: %.8s\n", board_info.boardName);
-    printk("Version: %.5s\n", board_info.version);
-    printk("Serial Number %.12s\n", board_info.serialNumber);
+    printk("Board name: %s\n", board_info.name);
+    printk("Version: %s\n", board_info.version);
+    printk("Serial Number %s\n", board_info.serial_number);
 
     ccm_driver.init();
 
     dram_driver.init();
     printk("DRAM Active\n");
 
-    // mmc_driver.init();
     printk("Done on BBB\n");
 
 #ifndef PLATFORM_BBB
+    mmc_driver.init();
+
     CHECK_FAIL(fat32_mount(&boot_fs, &mmc_fat32_diskio), "Failed to mount FAT32 filesystem");
     CHECK_FAIL(fat32_open(&boot_fs, KERNEL_PATH, &kernel), "Failed to open kernel image");
     CHECK_FAIL(kernel.file_size == 0, "Kernel image is empty");
