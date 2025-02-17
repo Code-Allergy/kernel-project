@@ -3,7 +3,7 @@
 #include <kernel/boot.h>
 #include <kernel/printk.h>
 
-#ifndef BOOTLOADER
+// #ifndef BOOTLOADER
 extern uint32_t kernel_end; // Defined in linker script, end of kernel memory space
 extern uint32_t kernel_code_end; // Defined in linker script, end of kernel code space, pages should be RO
 
@@ -36,7 +36,7 @@ void init_page_allocator(struct page_allocator *alloc) {
     printk("Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
     printk("Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE / 1024);
 }
-#endif
+// #endif
 void* alloc_page(struct page_allocator *alloc) {
     if (!alloc->free_list)  {
         printk("Allocator was null!\n");

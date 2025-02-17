@@ -84,7 +84,7 @@ qemu-gdb: sdcard
 	-d guest_errors,unimp,int \
 	-kernel $(BOOTLOADER_BIN) -s -S
 
-bbb:
+bbb: #kernel
 	@$(MAKE) -C $(BOOTLOADER_DIR) PLATFORM=BBB BUILD_DIR=$(BUILD_BASE)/BBB ARCH=$(ARCH) CPU=$(CPU)
 
 

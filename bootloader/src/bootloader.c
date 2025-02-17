@@ -7,6 +7,7 @@
 #include <kernel/boot.h>
 #include <kernel/mmu.h>
 #include <kernel/board.h>
+#include <kernel/i2c.h>
 #include <stdint.h>
 
 // TEMP -- should NOT be included here!!
@@ -26,21 +27,16 @@ uint32_t device_version;
 uint32_t freqMultDDR;
 uint32_t oppMaxIdx;
 
+#define SOC_WDT_0_REGS                       (0x44E33000)
+#define SOC_WDT_1_REGS                       (0x44E35000)
+
+#ifdef BOOTLOADER
+uint32_t kernel_end;
+#endif
+
 /* MACROS to Configure MPU divider */
 #define MPUPLL_N                             (23u)
 #define MPUPLL_M2                            (1u)
-
-// i2c 0
-/*	System clock fed to I2C module - 48Mhz	*/
-#define  I2C_SYSTEM_CLOCK		   (48000000u)
-/*	Internal clock used by I2C module - 12Mhz	*/
-#define  I2C_INTERNAL_CLOCK		   (12000000u)
-/*	I2C bus speed or frequency - 100Khz	*/
-#define	 I2C_OUTPUT_CLOCK		   (100000u)
-#define  I2C_INTERRUPT_FLAG_TO_CLR         (0x7FF)
-
-#define SOC_WDT_0_REGS                       (0x44E33000)
-#define SOC_WDT_1_REGS                       (0x44E35000)
 
 #define REG32(addr) (*(volatile uint32_t*)(addr))
 
@@ -261,21 +257,21 @@ uint32_t boot_max_opp_get(void) {
 
 void SetupReception(unsigned int dcount)
 {
-    i2c_set_data_count(I2C_BASE_ADDR, 1);
+    // i2c_set_data_count(I2C_BASE_ADDR, 1);
 
-    CleanupInterrupts();
+    // CleanupInterrupts();
 
-    i2c_master_control(I2C_BASE_ADDR, I2C_CFG_MST_TX);
+    // i2c_master_control(I2C_BASE_ADDR, I2C_CFG_MST_TX);
 
-    i2c_master_start(I2C_BASE_ADDR);
+    // i2c_master_start(I2C_BASE_ADDR);
 
-    while(i2c_master_bus_busy(I2C_BASE_ADDR) == 0);
+    // while(i2c_master_bus_busy(I2C_BASE_ADDR) == 0);
 
-    i2c_master_data_put(I2C_BASE_ADDR, dataToSlave[tCount]);
+    // i2c_master_data_put(I2C_BASE_ADDR, dataToSlave[tCount]);
 
-    i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_TRANSMIT_READY);
+    // i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_TRANSMIT_READY);
 
-    while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_ADRR_READY_ACESS));
+    // while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_ADRR_READY_ACESS));
 
     i2c_set_data_count(I2C_BASE_ADDR, dcount);
 
@@ -284,24 +280,19 @@ void SetupReception(unsigned int dcount)
     i2c_master_control(I2C_BASE_ADDR, I2C_CFG_MST_RX);
 
     i2c_master_start(I2C_BASE_ADDR);
-    printk("here1\n");
     /* Wait till the bus if free */
     while(i2c_master_bus_busy(I2C_BASE_ADDR) == 0);
-    printk("here2 dcount: %d\n", dcount);
 
     /* Read the data from slave of dcount */
     while((dcount--))
     {
         while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_RECV_READY));
-        printk("here loop dcount: %d\n", dcount);
-        printk("here loop rcount: %d\n", rCount);
         dataFromSlave[rCount++] = i2c_master_data_get(I2C_BASE_ADDR);
 
         i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_RECV_READY);
     }
 
     i2c_master_stop(I2C_BASE_ADDR);
-    printk("here3\n");
 
     while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_STOP_CONDITION));
 
@@ -312,6 +303,8 @@ void TPS65217RegRead(uint32_t regOffset, uint32_t* dest)
 {
     dataToSlave[0] = regOffset;
     tCount = 0;
+    // i2c_driver.write(PMIC_TPS65217_I2C_SLAVE_ADDR, dataToSlave, 1);
+
     SetupReception(1);
 
     *dest = dataFromSlave[0];
@@ -361,14 +354,17 @@ void TPS65217RegWrite(uint32_t port_level, uint32_t regOffset,
          dataToSlave[1] = xor_reg;
          tCount = 0;
 
-         SetupI2CTransmit(2);
+         // SetupI2CTransmit(2);
+
+        i2c_driver.write(PMIC_TPS65217_I2C_SLAVE_ADDR, dataToSlave, 2);
     }
 
     dataToSlave[0] = regOffset;
     dataToSlave[1] = dest_val;
     tCount = 0;
 
-    SetupI2CTransmit(2);
+    // SetupI2CTransmit(2);
+    i2c_driver.write(PMIC_TPS65217_I2C_SLAVE_ADDR, dataToSlave, 2);
 
     if(port_level == PROT_LEVEL_2)
     {
@@ -376,29 +372,17 @@ void TPS65217RegWrite(uint32_t port_level, uint32_t regOffset,
          dataToSlave[1] = xor_reg;
          tCount = 0;
 
-         SetupI2CTransmit(2);
+         // SetupI2CTransmit(2);
+         i2c_driver.write(PMIC_TPS65217_I2C_SLAVE_ADDR, dataToSlave, 2);
+
 
          dataToSlave[0] = regOffset;
          dataToSlave[1] = dest_val;
          tCount = 0;
 
-         SetupI2CTransmit(2);
+         // SetupI2CTransmit(2);
+         i2c_driver.write(PMIC_TPS65217_I2C_SLAVE_ADDR, dataToSlave, 2);
     }
-}
-
-void setup_i2c(void) {
-    i2c_init_clocks();
-    i2c_pin_mux_setup(0);
-
-    i2c_master_disable(I2C_BASE_ADDR);
-    i2c_soft_reset(I2C_BASE_ADDR);
-
-    i2c_auto_idle_disable(I2C_BASE_ADDR);
-    i2c_master_init_clock(I2C_BASE_ADDR, I2C_SYSTEM_CLOCK, I2C_INTERNAL_CLOCK,
-							   I2C_OUTPUT_CLOCK);
-    i2c_master_enable(I2C_BASE_ADDR);
-
-    while(!i2c_system_status_get(I2C_BASE_ADDR));
 }
 
 void TPS65217VoltageUpdate(unsigned char dc_cntrl_reg, unsigned char volt_sel)
@@ -412,7 +396,8 @@ void TPS65217VoltageUpdate(unsigned char dc_cntrl_reg, unsigned char volt_sel)
 
 void config_vdd_op_voltage(void) {
     uint32_t pmic_status = 0;
-    setup_i2c();
+    // setup_i2c();
+    i2c_driver.init();
     printk("I2C setup done\n");
 
     i2c_master_slave_addr_set(I2C_BASE_ADDR, PMIC_TPS65217_I2C_SLAVE_ADDR);
@@ -433,7 +418,7 @@ void config_vdd_op_voltage(void) {
 
 
     TPS65217RegWrite(PROT_LEVEL_2, DEFLS2, LDO_VOLTAGE_OUT_3_3, LDO_MASK);
-
+    printk("Done write\n");
 }
 
 void SetVdd1OpVoltage(uint32_t vol_selector) {
@@ -1986,28 +1971,27 @@ void loader(void){
 
     // mmc_fat32_diskio.read_sector(0, buffer);
 
-    UARTBootCopy();
-    volatile uint32_t* test = (uint32_t*)0x80000000;
-    printk("First 4 instructions %p %p %p %p\n", test[0], test[1], test[2], test[3]);
+    // UARTBootCopy();
+    // volatile uint32_t* test = (uint32_t*)0x80000000;
+    // printk("First 4 instructions %p %p %p %p\n", test[0], test[1], test[2], test[3]);
 
-    printk("Done!\n");
-    mmu_driver.init();
+    // printk("Done!\n");
+    // mmu_driver.init();
     // map the rest of the memory into kernel space for the jump to kernel.
-    for (uintptr_t i = DRAM_BASE; i < DRAM_BASE + DRAM_SIZE; i += PAGE_SIZE) {
-        mmu_driver.map_page(NULL, (void*)(KERNEL_ENTRY + (i - DRAM_BASE)), (void*)i, L2_KERNEL_DATA_PAGE);
-    }
+    // for (uintptr_t i = DRAM_BASE; i < DRAM_BASE + DRAM_SIZE; i += PAGE_SIZE) {
+    //     mmu_driver.map_page(NULL, (void*)(KERNEL_ENTRY + (i - DRAM_BASE)), (void*)i, L2_KERNEL_DATA_PAGE);
+    // }
 
     // identity map DRAM, so we can access the bootloader (unneeded on BBB, we are on other memory)
     // for (uintptr_t i = 0; i < DRAM_SIZE; i += PAGE_SIZE) {
     //     mmu_driver.map_page(NULL, (void*)(i + DRAM_BASE), (void*)(i + DRAM_BASE), L2_KERNEL_DATA_PAGE);
     // }
 
-    printk("About to enable MMU\n");
-    mmu_driver.enable();
+    // printk("About to enable MMU\n");
+    // mmu_driver.enable();
     // printk("MMU enabled\n");
-
-    while(1);
     // JUMP_KERNEL(kernel);
+    while(1);
 
     // CHECK_FAIL(fat32_mount(&boot_fs, &mmc_fat32_diskio), "Failed to mount FAT32 filesystem");
 #ifndef PLATFORM_BBB

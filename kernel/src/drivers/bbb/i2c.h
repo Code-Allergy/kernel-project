@@ -289,6 +289,15 @@
 #define I2C_CON_XSA_B07   (0x0u)
 #define I2C_CON_XSA_B10   (0x1u)
 
+// i2c 0
+/*	System clock fed to I2C module - 48Mhz	*/
+#define  I2C_SYSTEM_CLOCK		   (48000000u)
+/*	Internal clock used by I2C module - 12Mhz	*/
+#define  I2C_INTERNAL_CLOCK		   (12000000u)
+/*	I2C bus speed or frequency - 100Khz	*/
+#define	 I2C_OUTPUT_CLOCK		   (100000u)
+#define  I2C_INTERRUPT_FLAG_TO_CLR         (0x7FF)
+
 /*
 ** Values that can be passed to  I2CMasterControl API as cmd to configure mode
 ** of operation of I2C

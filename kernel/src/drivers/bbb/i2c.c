@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <kernel/i2c.h>
 
 #include "i2c.h"
 #include "ccm.h"
@@ -278,3 +279,83 @@ void i2c_init_clocks(void) {
           (REG32(CM_WKUP_BASE + CM_WKUP_I2C0_CLKCTRL) &
            CM_WKUP_I2C0_CLKCTRL_IDLEST));
 }
+
+int setup_i2c(void) {
+    i2c_init_clocks();
+    i2c_pin_mux_setup(0);
+
+    i2c_master_disable(I2C_BASE_ADDR);
+    i2c_soft_reset(I2C_BASE_ADDR);
+
+    i2c_auto_idle_disable(I2C_BASE_ADDR);
+    i2c_master_init_clock(I2C_BASE_ADDR, I2C_SYSTEM_CLOCK, I2C_INTERNAL_CLOCK,
+							   I2C_OUTPUT_CLOCK);
+    i2c_master_enable(I2C_BASE_ADDR);
+
+    while(!i2c_system_status_get(I2C_BASE_ADDR));
+    return 0;
+}
+
+int i2c_write(uint8_t device_addr, const uint8_t* data, size_t length) {
+    size_t i = 0;
+    if (i2c_driver.slave_addr != device_addr) {
+        i2c_master_slave_addr_set(I2C_BASE_ADDR, device_addr);
+        i2c_driver.slave_addr = device_addr;
+    }
+
+    i2c_set_data_count(I2C_BASE_ADDR, length);
+    i2c_master_int_clear_ex(I2C_BASE_ADDR,  I2C_INTERRUPT_FLAG_TO_CLR);
+    i2c_master_control(I2C_BASE_ADDR, I2C_CFG_MST_TX);
+    i2c_master_start(I2C_BASE_ADDR);
+
+    while(i2c_master_bus_busy(I2C_BASE_ADDR) == 0);
+
+    while((I2C_INT_TRANSMIT_READY == (i2c_master_int_raw_status(I2C_BASE_ADDR)
+                                     & I2C_INT_TRANSMIT_READY)) && length--)
+    {
+        i2c_master_data_put(I2C_BASE_ADDR, data[i++]);
+
+        i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_TRANSMIT_READY);
+    }
+
+    i2c_master_stop(I2C_BASE_ADDR);
+
+    while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_STOP_CONDITION));
+
+    i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_STOP_CONDITION);
+}
+
+int i2c_read(uint8_t device_addr, uint8_t *data, size_t length) {
+    if (i2c_driver.slave_addr != device_addr) {
+        i2c_master_slave_addr_set(I2C_BASE_ADDR, device_addr);
+        i2c_driver.slave_addr = device_addr;
+    }
+
+    i2c_set_data_count(I2C_BASE_ADDR, length);
+    i2c_master_int_clear_ex(I2C_BASE_ADDR,  I2C_INTERRUPT_FLAG_TO_CLR);
+    i2c_master_control(I2C_BASE_ADDR, I2C_CFG_MST_RX);
+    i2c_master_start(I2C_BASE_ADDR);
+    while(i2c_master_bus_busy(I2C_BASE_ADDR) == 0);
+
+    while (length--) {
+        while((0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_RECV_READY)));
+
+        *data++ = i2c_master_data_get(I2C_BASE_ADDR);
+        i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_RECV_READY);
+    }
+
+    i2c_master_stop(I2C_BASE_ADDR);
+    while(0 == (i2c_master_int_raw_status(I2C_BASE_ADDR) & I2C_INT_STOP_CONDITION));
+    i2c_master_int_clear_ex(I2C_BASE_ADDR, I2C_INT_STOP_CONDITION);
+
+    return 0;
+}
+
+
+
+i2c_driver_t i2c_driver = {
+    .init = setup_i2c,
+    .write = i2c_write,
+    .read = i2c_read,
+    // .deinit = i2c_deinit
+};

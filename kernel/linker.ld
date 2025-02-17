@@ -3,7 +3,7 @@ ENTRY(kernel_main)  /* Entry point */
 
 MEMORY
 {
-    RAM (rwx) : ORIGIN = 0xC0000000, LENGTH = 0x4000000
+    RAM (rwx) : ORIGIN = 0x80000000, LENGTH = 0x4000000
 }
 
 SECTIONS {
