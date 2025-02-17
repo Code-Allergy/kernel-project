@@ -1,26 +1,48 @@
-#include "kernel/boot.h"
+#include <kernel/boot.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <kernel/mm.h>
 #include <kernel/mmu.h>
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/printk.h>
 #include <kernel/string.h>
-
+#include <kernel/fat32.h>
 
 static uint32_t total_processes;
 static uint32_t curr_pid;
 #define MAX_PROCESSES 16
+#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
+
+// use a bitmap and struct later for this and other flags
+volatile bool schedule_needed = false;
+
 process_t* current_process = NULL;
 process_t process_table[MAX_PROCESSES];
-
-
-
-
-
-#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
+
+int spawn_flat_init_process(const char* file_path) {
+    fat32_fs_t sd_card;
+    fat32_file_t userspace_application;
+    if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
+        printk("Failed to mount SD card\n");
+        return -1;
+    }
+    if (fat32_open(&sd_card, file_path, &userspace_application)) {
+        printk("Failed to open file\n");
+        return -1;
+    }
+
+    static uint8_t bytes[1024];
+    if ((uint32_t)fat32_read(&userspace_application, bytes, 1024) != userspace_application.file_size) {
+        printk("Init process not read fully off disk\n");
+        return -1;
+    };
+
+    create_process(bytes, userspace_application.file_size);
+    return 0;
+}
 
 static int32_t get_next_pid(void) {
     printk("Allocating PID: %d\n", total_processes);
@@ -50,9 +72,11 @@ int scheduler_init(void) {
     }
 
 
-    // make init process, make it ready to start, then we can start it in scheduler
+    spawn_flat_init_process("/bin/null");
+    // spawn_flat_init_process("/bin/null");
 
-    // can call schedule here
+    scheduler();
+    __builtin_unreachable();
 }
 
 uint8_t allocate_asid(void) {
@@ -63,13 +87,25 @@ uint8_t allocate_asid(void) {
         }
     }
     // If all ASIDs are used, flush TLB and reuse
-
     mmu_driver.flush_tlb();
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
     printk("Got asid\n");
     return 1;
 }
+
+// void copy_kernel_mappings(uint32_t *ttbr0) {
+//     uint32_t *kernel_ttbr0;
+//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
+
+//     // start at kernel start entry, copy until end of memory space
+//     const int KERNEL_START_ENTRY = KERNEL_ENTRY / 0x400000;
+//     const int KERNEL_SIZE_ENTRIES = (0xFFFFFFFF - KERNEL_ENTRY) / 0x400000;
+
+//     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
+//         ttbr0[i] = kernel_ttbr0[i];
+//     }
+// }
 
 void copy_kernel_mappings(uint32_t *ttbr0) {
     uint32_t *kernel_ttbr0;
@@ -95,33 +131,62 @@ process_t* get_next_process(void) {
     }
     uint32_t current = start;
     do {
-        current = current % MAX_PROCESSES;
         if (process_table[current].state == PROCESS_READY) {
             return &process_table[current];
         }
+        current = (current + 1) % MAX_PROCESSES;
     } while (current != start);
 
     return current_process; // If no other process found, return current one
 }
 
-void scheduler(void) {
+void debug_stack_access(process_t* proc) {
+    printk("Process %d stack info:\n", proc->pid);
+    printk("  Stack base: %p\n", proc->stack_page_vaddr);
+    printk("  Stack top: %p\n", proc->context.sp);
+    printk("  Stack physical: %p\n", proc->stack_page_paddr);
+}
+
+__attribute__((noreturn)) void scheduler(void) {
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
-    printk("Got to scheduler\n");
+
     process_t* next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
         printk("No more processes to run, halting!\n");
-        while (1);
+        return;
     }
 
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
     printk("Jumping to code at %p\n", next_process->context.pc);
+    debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
+    printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
 
+    if (current_process == next_process) {
+        printk("Starting current process\n");
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+        context_switch_1(&current_process->context);
+    }
 
-    current_process = next_process;
-    mmu_driver.set_l1_table(current_process->ttbr0); // TODO if this is current process, we don't need to switch. we do for now for print
-    context_switch_1(&current_process->context);
+    // If we have a current process and it's not exited
+    if (current_process && current_process->state != PROCESS_NONE) {
+        printk("Starting next process\n");
+        process_t* prev_process = current_process;
+        current_process->state = PROCESS_READY;
+        next_process->state = PROCESS_RUNNING;
+        current_process = next_process;
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+        // Use full context switch to save current and restore next
+        context_switch(&prev_process->context, &next_process->context);
+    } else {
+        // First time or after process exit, just restore the new process
+        printk("First time or after process exit\n");
+        current_process = next_process;
+        next_process->state = PROCESS_RUNNING;
+        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+        context_switch_1(&current_process->context);
+    }
 }
 
 process_t* get_available_process(void) {
@@ -157,7 +222,6 @@ process_t* clone_process(process_t* original_p) {
     // TODO clone memory from original process
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-
     memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
 
     // map kernel mappings
@@ -180,15 +244,14 @@ process_t* clone_process(process_t* original_p) {
     p->code_size = original_p->code_size;
 
     memcpy(&p->context, &original_p->context, sizeof(struct cpu_regs));
-    p->context.sp = (uint32_t) p->stack_page_vaddr + PAGE_SIZE - 4;
     p->state = PROCESS_READY;
 
     return p;
 }
 
-
 // create a new process with a flat binary
 process_t* create_process(uint8_t* bytes, size_t size) {
+    printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
     process_t* proc = get_available_process();
     if (proc == NULL) {
         printk("Out of available processes in create_process! HALT\n");
@@ -198,7 +261,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     void* code_page = alloc_page(&kpage_allocator);
     void* data_page = alloc_page(&kpage_allocator);
     void* stack_page = alloc_page(&kpage_allocator);
-    void* heap_page =alloc_page(&kpage_allocator);
+    void* heap_page = alloc_page(&kpage_allocator);
     if (!code_page || !data_page || !stack_page || !heap_page) { // NO SWAPPING
         printk("Out of memory in create_process! HALT\n");
         while (1);
@@ -212,15 +275,10 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    printk("About to copy code page\n");
     memcpy(code_page, bytes, size);
-    // uint32_t l1_index = MEMORY_USER_CODE_BASE >> 20;
-    // proc->ttbr1[l1_index] = (uint32_t)alloc_page(&kpage_allocator) | MMU_PAGE_DESCRIPTOR;
-    // proc->ttbr1[l1_index] |= 1 << 5;
 
-    // Copy kernel mappings (TTBR1 content)
+    // Copy kernel mappings (TTBR0 content)
     copy_kernel_mappings(proc->ttbr0);
-    // Set ASID
     proc->asid = allocate_asid();
     proc->pid = get_next_pid();
     proc->priority = 0;
@@ -253,10 +311,9 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->context.sp = MEMORY_USER_STACK_BASE + PAGE_SIZE;
     proc->context.pc = MEMORY_USER_CODE_BASE;
     proc->context.cpsr = 0x10;
-    // TODO
     proc->context.lr = 0;
+
     proc->state = PROCESS_READY;
-    printk("Process %d created\n", proc->pid);
     return proc;
 }
 

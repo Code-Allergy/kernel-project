@@ -38,7 +38,10 @@ void clock_init(void) {
      * check if ccm is emulated by running `info mtree`
      * and find allwinner-a10-ccm
      */
-    if (CCM->PLL1_CFG_REG != 0x21005000) return; // weird state or not emulated
+    if (CCM->PLL1_CFG_REG != 0x21005000) {
+        printk("CCM is not emulated\n");
+        return;
+    }
 
     // as far as I can tell this does nothing on qemu anyways lol
     CCM->OSC24M_CFG_REG |= (1 << 0);

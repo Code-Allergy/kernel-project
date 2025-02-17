@@ -74,14 +74,14 @@ undef_handler:
 irq_handler:
     sub lr, lr, #4        /* Adjust LR for IRQ return */
     mrs r0, spsr          /* Save SPSR */
-    push {r0, r1-r12, lr} /* Save context and SPSR */
+    /* push {r0, r1-r12, lr} Save context and SPSR */
 
     mov r0, lr            /* Pass return address as argument */
-    bl handle_irq_c       /* Call C handler */
+    b handle_irq_c       /* Call C handler */
 
-    pop {r0, r1-r12, lr}  /* Restore context and SPSR */
-    msr spsr_cxsf, r0     /* Restore SPSR */
-    subs pc, lr, #0       /* Return from exception */
+    /* pop {r0, r1-r12, lr}   Restore context and SPSR */
+    /* msr spsr_cxsf, r0     Restore SPSR */
+    /* subs pc, lr, #0        Return from exception */
 
 swi_handler:
     STMFD   SP!, {R0-R3, LR}       @ Save R0-R3 and return address (LR)

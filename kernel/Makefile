@@ -39,8 +39,8 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-CFLAGS += -O2
-# CFLAGS += -fstack-protector-strong -fno-stack-protector
+# CFLAGS += -O2
+CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0 -fstack-usage
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
@@ -48,10 +48,12 @@ CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
 ASFLAGS = -mcpu=cortex-a8 -g
 
+LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
+LDFLAGS = -T linker.ld -lgcc -L$(LGCC)
+LDFLAGS += --gc-sections --print-memory-usage
+# Discover all source files
 
-LDFLAGS = -T linker.ld
-LDFLAGS += --gc-sections --print-memory-usage -L$(LIBGCC_PATH)
-LDLIBS  = -lgcc
+
 
 # My kernel code
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
@@ -91,9 +93,6 @@ $(OUTPUT_IMG): $(OUTPUT_BIN)
 	mmd -i $@ ::/bin
 	mmd -i $@ ::/elf
 	mcopy -i $@ $< ::/boot/kernel.bin
-
-# mcopy -i $@ $(USERSPACE_BIN)/* ::/bin
-# mcopy -i $@ $(USERSPACE_ELF)/* ::/elf
 
 ################################################################################################
 # kernel Compilation rules

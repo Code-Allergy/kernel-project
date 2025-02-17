@@ -13,23 +13,23 @@
 #define PROCESS_NONE     0
 
 struct cpu_regs {
-    uint32_t r0;
-    uint32_t r1;
-    uint32_t r2;
-    uint32_t r3;
-    uint32_t r4;
-    uint32_t r5;
-    uint32_t r6;
-    uint32_t r7;
-    uint32_t r8;
-    uint32_t r9;
-    uint32_t r10;
-    uint32_t r11;
-    uint32_t r12;
-    uint32_t sp;
-    uint32_t lr;
-    uint32_t cpsr;
-    uint32_t pc;
+    uint32_t r0;  // 0
+    uint32_t r1;  // 4
+    uint32_t r2;  // 8
+    uint32_t r3;  // 12
+    uint32_t r4;  // 16
+    uint32_t r5;  // 20
+    uint32_t r6;  // 24
+    uint32_t r7;  // 28
+    uint32_t r8;  // 32
+    uint32_t r9;  // 36
+    uint32_t r10; // 40
+    uint32_t r11; // 44
+    uint32_t r12; // 48
+    uint32_t sp;  // 52
+    uint32_t lr;  // 56
+    uint32_t cpsr;// 60
+    uint32_t pc;  // 64
 };
 
 
@@ -39,8 +39,9 @@ typedef struct {
     uint32_t state;
 
     // Memory management
-    uint32_t* ttbr0;// Physical address of translation table base
-    uint32_t asid;        // Address Space ID (if using ASIDs) TODO
+    uint32_t* ttbr0;      // Physical address of translation table base
+    uint32_t asid;        // Address Space ID
+    uint32_t kernel_cpsr;
 
     uint32_t code_size;
     uint32_t code_entry;
@@ -64,9 +65,10 @@ void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
 int scheduler_init(void);
-void scheduler(void);
-
+__attribute__((noreturn)) void scheduler(void);
+int spawn_flat_init_process(const char* file_path);
 // asm
+extern void context_switch(struct cpu_regs* old_context, struct cpu_regs* new_context);
 extern void context_switch_1(struct cpu_regs* next_context);
 
 #endif // KERNEL_SCHED_H

@@ -34,5 +34,5 @@ void init_page_allocator(struct page_allocator *alloc);
 #define ALIGN_16KB(addr) ((addr) & ~0x3FFF)  // 16KB alignment
 
 void* alloc_aligned_pages(struct page_allocator *alloc, size_t count);
-void free_alligned_pages(struct page_allocator *alloc, void *ptr, size_t count);
+void free_aligned_pages(struct page_allocator *alloc, void *ptr, size_t count);
 #endif

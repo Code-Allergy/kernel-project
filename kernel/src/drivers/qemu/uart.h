@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #define UART0_BASE 0x01C28000
+#define UART4_BASE 0x01c29000
 
 typedef struct {
     volatile uint32_t RBR_THR_DLL; // 0x00: Receive/Transmit Buffer

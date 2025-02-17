@@ -1,13 +1,14 @@
-#include "kernel/mm.h"
 #include <stdint.h>
-#include <kernel/boot.h>
 
+#include <kernel/boot.h>
+#include <kernel/mm.h>
 #include <kernel/printk.h>
 #include <kernel/mmu.h>
 #include <kernel/string.h>
-// #include <kernel/panic.h>
 #include <kernel/paging.h>
 
+#include "uart.h"
+#include "mmc.h"
 
 // drivers/mmu.c
 extern int mmu_init_l1_page_table(void);
@@ -18,10 +19,6 @@ extern void unmap_page(void* tbbr0, void* vaddr);
 extern void invalidate_all_tlb(void);
 extern void set_l1_page_table(uint32_t *l1_page_table);
 extern void* get_physical_address(void *vaddr);
-
-#define UART0_BASE 0x01C28000
-#define UART4_BASE 0x01c29000
-#define MMC0_BASE 0x01C0F000
 
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
@@ -43,65 +40,55 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
 }
 
-void mmu_init(void) {
-    mmu_init_l1_page_table(); // Populate L1 table
-    mmu_map_hw_pages();
-    mmu_set_domains();     // Configure domains
-}
+// static void* get_physical_address(void *vaddr) {
+//     // DRAM is mapped 1:1 with physical addresses
+//     if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
+//         return vaddr;
+//     };
+
+
+//     uint32_t *l1_entry = &((uint32_t*)l1_page_table)[SECTION_INDEX((uint32_t)vaddr)];
+//     if ((*l1_entry & 0x3) != 0x1) {
+//         return (void*)(((uint32_t)vaddr - KERNEL_START) + DRAM_BASE);
+//     }
+
+//     uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+//     return (void*)((l2_table[PAGE_INDEX((uint32_t)vaddr)] & ~0xFFF) | ((uint32_t)vaddr & 0xFFF));
+// }
 
 
 
-mmu_t mmu_driver = {
-    .init = mmu_init,
-    .enable = mmu_enable,
-    .map_page = map_page,
-    .unmap_page = unmap_page,
-    .flush_tlb = invalidate_all_tlb,
-    .set_l1_table = set_l1_page_table,
-    .get_physical_address = get_physical_address,
-    .map_hardware_pages = mmu_map_hw_pages,
-    // .disable = mmu_disable,
-    // .debug_l1_entry = debug_l1_entry,
-    // .debug_l2_entry = debug_l2_entry,
-    // .debug_l1_l2_entries = debug_l1_l2_entries,
-    // .verify_domain_access = verify_domain_access,
-    // .test_domain_protection = test_domain_protection,
 
-    // device info for qemu - cubieboard
-    .page_size = 4096,
-};
-
-void debug_l1_entry(uint32_t *va) {
+void debug_l1_entry(uint32_t *va, uint32_t* ttbr0) {
     uint32_t va_val = (uint32_t)va;
 
     // Get L1 index (bits 31-20)
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = l1_page_table[l1_index];
+    uint32_t l1_entry = ttbr0[l1_index];
 
-    printk("L1 Entry [%p] @ %p: %p\n",
-          l1_index, &l1_page_table[l1_index], l1_entry);
+    printk("L1 Entry [%p] @ %p: %p\n", l1_index, &l1_page_table[l1_index], l1_entry);
 
     // Decode L1 descriptor
     if((l1_entry & 0x3) == 0x2) {
-        printk("  Section: Phys=%p\n", l1_entry & 0xFFF00000);
+        printk("  Section: Phys=%p\n", l1_entry & 0xFFFFF000);
         printk("  AP=%p, Domain=%p, C=%d, B=%d\n",
               (l1_entry >> 10) & 0x3,
               (l1_entry >> 5) & 0xF,
               (l1_entry >> 3) & 0x1,
               (l1_entry >> 2) & 0x1);
     } else if((l1_entry & 0x3) == 0x1) {
-        printk("  Page Table: L2 @ %p\n", l1_entry & 0xFFFFFC00);
+        printk("  Page Table: L2 @ %p, Domain: %d\n", l1_entry & 0xFFFFFC00, (l1_entry >> 5) & 0xF);
     } else {
         printk("  INVALID ENTRY\n");
     }
 }
 
-void debug_l2_entry(uint32_t *va) {
+void debug_l2_entry(uint32_t *va, uint32_t* ttbr0) {
     uint32_t va_val = (uint32_t)va;
 
     // Get L1 index first
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = l1_page_table[l1_index];
+    uint32_t l1_entry = ttbr0[l1_index];
 
     if((l1_entry & 0x3) != 0x1) {
         printk("No L2 table for address %p\n", va);
@@ -131,9 +118,42 @@ void debug_l2_entry(uint32_t *va) {
     }
 }
 
-void debug_l1_l2_entries(void *va) {
-    printk("\n=== MMU Debug for %p ======================\n", va);
-    debug_l1_entry(va);
-    debug_l2_entry(va);
+void debug_l1_l2_entries(void *va, uint32_t* ttbr0) {
+    printk("\n=== MMU Debug for %p, TTBR0: %p ======================\n", va);
+    debug_l1_entry(va, ttbr0);
+    debug_l2_entry(va, ttbr0);
     printk("=============================================\n\n");
 }
+
+void mmu_init(void) {
+    mmu_init_l1_page_table();
+    mmu_set_domains();
+    mmu_map_hw_pages();
+}
+
+void set_ttbr0_with_asid(uint32_t* table, uint8_t asid) {
+    uint32_t ttbr0 = (uint32_t)table | (asid & 0xFF);
+    __asm__ volatile("mcr p15, 0, %0, c2, c0, 0" : : "r"(ttbr0));
+}
+
+
+mmu_t mmu_driver = {
+    .init = mmu_init,
+    .enable = mmu_enable,
+    .map_page = map_page,
+    .unmap_page = unmap_page,
+    .flush_tlb = invalidate_all_tlb,
+    .set_l1_table = set_l1_page_table,
+    .get_physical_address = get_physical_address,
+    .map_hardware_pages = mmu_map_hw_pages,
+    .set_l1_with_asid = set_ttbr0_with_asid,
+    // .disable = mmu_disable,
+    // .debug_l1_entry = debug_l1_entry,
+    // .debug_l2_entry = debug_l2_entry,
+    // .debug_l1_l2_entries = debug_l1_l2_entries,
+    // .verify_domain_access = verify_domain_access,
+    // .test_domain_protection = test_domain_protection,
+
+    // device info for qemu - cubieboard
+    .page_size = 4096,
+};
