@@ -1,6 +1,10 @@
 #ifndef BBB_BOARD_H
 #define BBB_BOARD_H
 
+// watchdog timers
+#define SOC_WDT_0_REGS                       (0x44E33000)
+#define SOC_WDT_1_REGS                       (0x44E35000)
+
 // BOARDINFO board_info;
 #define EFUSE_OPP_MASK                       (0x00001FFFu)
 #define DEVICE_VERSION_1_0                   (0u)

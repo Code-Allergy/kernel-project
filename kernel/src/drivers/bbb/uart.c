@@ -4,6 +4,9 @@
 #include "ccm.h"
 
 #include <kernel/uart.h>
+#include <stdint.h>
+#include <kernel/printk.h>
+#include <kernel/boot.h>
 #include "uart.h"
 
 #define CONTROL_MODULE_BASE 0x44E10000
@@ -191,6 +194,32 @@ void uart_init_default(void) {
         0,         // Parity type (0 = even, 1 = odd; ignored if parity is disabled)
         8          // Character length
     );
+}
+
+// TODO: an interface for this, and it probably shouldn't be a driver.. it can be generic.
+extern int xmodemReceive(unsigned char *dest, int destsz);
+#define BL_UART_MAX_IMAGE_SIZE    (128*1024*1024)
+static unsigned int UARTBootCopy(void)
+{
+    unsigned int retVal = 1;
+    int32_t read = 0;
+    printk("<<<UART_READY>>>\n"); // special character maybe
+
+    if( 0 > xmodemReceive((unsigned char *)DRAM_BASE,
+                          BL_UART_MAX_IMAGE_SIZE))
+    {
+        printk("\nXmodem receive error\n", -1);
+        retVal = 0;
+    }
+
+    printk("\nCopying application image from UART to RAM is  done\n");
+
+    // entryPoint  = 0x80000000; // DDR_START_ADDR;
+
+    /*
+    ** Dummy return.
+    */
+    return retVal;
 }
 
 char uart_getc(void) {

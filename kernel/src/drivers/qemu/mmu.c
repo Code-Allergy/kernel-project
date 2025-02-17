@@ -26,9 +26,8 @@ extern void* get_physical_address(void *vaddr);
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
 // L1 Page Table (4096 entries, 4KB each for 4GB address space)
-// TODO
-// uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
-// l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 

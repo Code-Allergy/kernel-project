@@ -2,7 +2,6 @@
 #include <kernel/dram.h>
 #include <stdint.h>
 
-#include "ccm.h"
 #include "mmc.h"
 #include "dram.h"
 #include "cm_per.h"
