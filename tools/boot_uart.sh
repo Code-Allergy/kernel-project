@@ -13,8 +13,8 @@ fi
 command -v sx >/dev/null 2>&1 || { echo "Error: sx command not found. Please install lrzsz package."; exit 1; }
 
 # Set up the serial port with proper settings
-#stty -F $PORT 115200 cs8 -parenb -cstopb raw -echo
-#dd if=$PORT iflag=nonblock count=0 2>/dev/null
+stty -F $PORT 115200 cs8 -parenb -cstopb raw -echo
+dd if=$PORT iflag=nonblock count=0 2>/dev/null
 
 # Start monitoring the port for the ready signal
 exec 3<>$PORT
