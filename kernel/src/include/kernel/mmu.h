@@ -77,8 +77,8 @@
 
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
-extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
-extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+extern volatile uint32_t * const l1_page_table;
+extern l2_page_table_t * const l2_tables;
 void test_domain_protection(void);
 void debug_l1_l2_entries(void *va);
 

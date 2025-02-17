@@ -10,7 +10,6 @@
 #include <stdint.h>
 
 // TEMP -- should NOT be included here!!
-#include "drivers/bbb/eeprom.h"
 #include "drivers/bbb/ccm.h"
 #include "drivers/bbb/mmc.h"
 #include "drivers/bbb/i2c.h"
@@ -1890,10 +1889,10 @@ extern int xmodemReceive(unsigned char *dest, int destsz);
 static unsigned int UARTBootCopy(void)
 {
     unsigned int retVal = 1;
-
+    int32_t read = 0;
     printk("<<<UART_READY>>>\n"); // special character maybe
 
-    if( 0 > xmodemReceive((unsigned char *)0x80000000,
+    if( 0 > xmodemReceive((unsigned char *)DRAM_BASE,
                           BL_UART_MAX_IMAGE_SIZE))
     {
         printk("\nXmodem receive error\n", -1);
@@ -1943,7 +1942,8 @@ void loader(void){
     device_version = device_version_get();
 
     printk("UART Active\n");
-    printk("Loader loaded at %p\n", (void*)init);
+    printk("Loader init loaded at %p\n", (void*)init);
+    printk("Loader loaded at %p\n", (void*)loader);
     printk("Build time (UTC): %s\n", BUILD_DATE);
 
     printk("Board name: %s\n", board_info.name);
@@ -1979,7 +1979,6 @@ void loader(void){
     // mmc_driver.init();
 
     // // try and write to memory 0x80000000
-    volatile char* test = (uint32_t*)0x80000000;
     // *test = 0xdeadbeef;
 
 
@@ -1988,42 +1987,47 @@ void loader(void){
     // mmc_fat32_diskio.read_sector(0, buffer);
 
     UARTBootCopy();
-    printk("Value of test %s\n", test);
+    volatile uint32_t* test = (uint32_t*)0x80000000;
+    printk("First 4 instructions %p %p %p %p\n", test[0], test[1], test[2], test[3]);
 
     printk("Done!\n");
-    // CHECK_FAIL(fat32_mount(&boot_fs, &mmc_fat32_diskio), "Failed to mount FAT32 filesystem");
-#ifndef PLATFORM_BBB
-    CHECK_FAIL(fat32_open(&boot_fs, KERNEL_PATH, &kernel), "Failed to open kernel image");
-    CHECK_FAIL(kernel.file_size == 0, "Kernel image is empty");
-
-
-
-    // enable mmu, enable ram
     mmu_driver.init();
-    // identity map all of dram, so we can access the kernel
-
-
     // map the rest of the memory into kernel space for the jump to kernel.
     for (uintptr_t i = DRAM_BASE; i < DRAM_BASE + DRAM_SIZE; i += PAGE_SIZE) {
         mmu_driver.map_page(NULL, (void*)(KERNEL_ENTRY + (i - DRAM_BASE)), (void*)i, L2_KERNEL_DATA_PAGE);
     }
 
     // identity map DRAM, so we can access the bootloader (unneeded on BBB, we are on other memory)
-    for (uintptr_t i = 0; i < DRAM_SIZE; i += PAGE_SIZE) {
-        mmu_driver.map_page(NULL, (void*)(i + DRAM_BASE), (void*)(i + DRAM_BASE), L2_KERNEL_DATA_PAGE);
-    }
+    // for (uintptr_t i = 0; i < DRAM_SIZE; i += PAGE_SIZE) {
+    //     mmu_driver.map_page(NULL, (void*)(i + DRAM_BASE), (void*)(i + DRAM_BASE), L2_KERNEL_DATA_PAGE);
+    // }
 
+    printk("About to enable MMU\n");
     mmu_driver.enable();
+    // printk("MMU enabled\n");
+
+    while(1);
+    // JUMP_KERNEL(kernel);
+
+    // CHECK_FAIL(fat32_mount(&boot_fs, &mmc_fat32_diskio), "Failed to mount FAT32 filesystem");
+#ifndef PLATFORM_BBB
+    // CHECK_FAIL(fat32_open(&boot_fs, KERNEL_PATH, &kernel), "Failed to open kernel image");
+    // CHECK_FAIL(kernel.file_size == 0, "Kernel image is empty");
+
+
+
+    // enable mmu, enable ram
+
+    // identity map all of dram, so we can access the kernel
 
     /* Read kernel into DRAM */
-    if ((res = fat32_read(&kernel, (void*)KERNEL_ENTRY, kernel.file_size)) < 0
-        || res != (int)kernel.file_size) {
-        printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);
-        goto bootloader_fail;
-    }
+    // if ((res = fat32_read(&kernel, (void*)KERNEL_ENTRY, kernel.file_size)) < 0
+    //     || res != (int)kernel.file_size) {
+    //     printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);
+    //     goto bootloader_fail;
+    // }
 
     /* jump to kernel memory space */
-    JUMP_KERNEL(kernel);
 #endif
     // If we get here, the kernel failed to load, or bailed out
     printk("Failed to load kernel with error code %d! Halting!\n", res);

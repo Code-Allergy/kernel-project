@@ -49,5 +49,4 @@ SECTIONS
 	.noinit (NOLOAD) : { *( .noinit .noinit.* ) } >INTERNAL_RAM :NONE
 
     /* Catch any unknown sections and yell loudly about them */
-
 }
