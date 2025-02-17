@@ -34,8 +34,9 @@
 
  */
 
-#include "drivers/bbb/mmc.h"
-#include "drivers/bbb/uart.h"
+ // TODO bad
+#include "bbb/mmc.h"
+#include "bbb/uart.h"
 #include <kernel/uart.h>
 
 int _inbyte(unsigned int timeout); // msec timeout

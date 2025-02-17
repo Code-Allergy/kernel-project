@@ -21,11 +21,13 @@ MKDIR       = mkdir -p
 RM          = rm -rf
 
 # Directories
-# TEAM_REPO       = ../team-repo
 SRC_DIR         = src
-BASE_INCLUDE    = $(SRC_DIR)/include
-DRIVERS_DIR     = $(SRC_DIR)/drivers/qemu
-DRIVERS_BASE    = drivers
+BASE_INCLUDE    = ../include
+DRIVERS_BASE    = ../drivers
+
+# TODO BBB support
+DRIVERS_DIR     = $(DRIVERS_BASE)/qemu
+
 
 LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
@@ -59,12 +61,12 @@ LDFLAGS += --gc-sections --print-memory-usage
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
 KERNEL_ASM_SRCS    = $(wildcard $(SRC_DIR)/*.S)
 DRIVER_SRCS        = $(wildcard $(DRIVERS_DIR)/*.c)
-BASE_DRIVER_SRCS   = $(wildcard $(SRC_DIR)/$(DRIVERS_BASE)/*.c)
+BASE_DRIVER_SRCS   = $(wildcard $(DRIVERS_BASE)/*.c)
 
 KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS))
 KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_ASM_SRCS))
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
-BASE_DRIVER_OBJS   = $(patsubst $(SRC_DIR)/$(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
+BASE_DRIVER_OBJS   = $(patsubst $(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
 # ALL team repo objects
 ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS)
@@ -113,7 +115,7 @@ $(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/drivers/%.o: $(SRC_DIR)/$(DRIVERS_BASE)/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE)/%.c | $(BUILD_DIR)
 	@echo "[CC] Kernel Base Drivers: $<"
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -13,8 +13,6 @@
 
 #include <stdint.h>
 
-#include "drivers/qemu/intc.h"
-
 #define KERNEL_HEARTBEAT_TIMER 400000 // us
 #define TEST_FILE "bin/while"
 #define TEST_FILE2 "bin/testa"
@@ -47,7 +45,7 @@ void init_kernel_hardware(void) {
     // these 2 can be combined when we rewrite drivers
     uart_driver.enable_interrupts();
 
-    interrupt_controller.register_irq(1, uart_handler, NULL);
+    // interrupt_controller.register_irq(1, uart_handler, NULL);
     interrupt_controller.enable_irq(1);
 }
 

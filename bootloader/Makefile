@@ -1,6 +1,6 @@
 # Default platform is QEMU
 PLATFORM ?=QEMU
-DRIVERS_BASE = drivers
+DRIVERS_BASE = ../drivers
 
 # Set platform-specific configurations
 ifeq ($(PLATFORM), BBB)
@@ -24,7 +24,7 @@ CC = arm-none-eabi-gcc
 # ======================================================================
 # Build Configuration
 # ======================================================================
-IFLAGS = -I. -I../kernel/src -I../kernel/src/include
+IFLAGS = -I. -I../kernel/src -I../include
 CCDEFINES = -DPLATFORM=$(PLATFORM) -DPLATFORM_$(PLATFORM) -DBOOTLOADER
 CFLAGS = -Wall -Wextra -g -mcpu=cortex-a8 -mfloat-abi=soft -pedantic $(CCDEFINES)
 CFLAGS += -static -ffreestanding -fbuiltin -marm -MMD -MP
@@ -47,22 +47,20 @@ SD_IMAGER_DIR = ../tools/sdimager
 
 # Full paths
 KERNEL_SRC_DIR = $(KERNEL_DIR)/$(SRC_DIR)
-DRIVERS_FULL_DIR = $(KERNEL_SRC_DIR)/$(DRIVERS_DIR)
-DRIVERS_BASE_DIR = $(KERNEL_SRC_DIR)/$(DRIVERS_BASE)
 
 # Collect source files
 BOOT_SRCS = $(SRC_DIR)/start.S $(SRC_DIR)/init.S
 BOOT_CSRCS = $(SRC_DIR)/bootloader.c
 CORE_SRCS = $(wildcard $(KERNEL_SRC_DIR)/*.c)
-DRIVER_SRCS = $(wildcard $(DRIVERS_FULL_DIR)/*.c)
-BASE_DRIVER_SRCS = $(wildcard $(DRIVERS_BASE_DIR)/*.c)
+DRIVER_SRCS = $(wildcard $(DRIVERS_DIR)/*.c)
+BASE_DRIVER_SRCS = $(wildcard $(DRIVERS_BASE)/*.c)
 
 # # Generate object file paths
 BOOT_OBJS = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/%.o,$(BOOT_SRCS))
 BOOT_CSRCS_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(BOOT_CSRCS))
 CORE_OBJS = $(patsubst $(KERNEL_SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(CORE_SRCS))
-DRIVER_OBJS = $(patsubst $(DRIVERS_FULL_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
-BASE_DRIVER_OBJS = $(patsubst $(DRIVERS_BASE_DIR)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
+DRIVER_OBJS = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
+BASE_DRIVER_OBJS = $(patsubst $(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
 ALL_OBJS = $(BOOT_OBJS) $(CORE_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(BOOT_CSRCS_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
@@ -114,12 +112,12 @@ $(BUILD_DIR)/kernel/%.o: $(KERNEL_SRC_DIR)/%.c | $(BUILD_DIR)/kernel
 	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
 # Platform-specific drivers
-$(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_FULL_DIR)/%.c | $(BUILD_DIR)/drivers-$(PLATFORM)
+$(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)/drivers-$(PLATFORM)
 	@mkdir -p $(@D)
 	@echo "Compiling driver: $<"
 	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE_DIR)/%.c | $(BUILD_DIR)/drivers
+$(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE)/%.c | $(BUILD_DIR)/drivers
 	@mkdir -p $(@D)
 	@echo "Compiling general driver: $<"
 	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@

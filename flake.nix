@@ -26,8 +26,6 @@
         shellHook = ''
           echo "Welcome to the OS development shell."
           echo "ARM toolchain and QEMU are available."
-          # For example, add arm-none-eabi tools to PATH:
-          # export PATH=/bin:$PATH
         '';
       };
     };

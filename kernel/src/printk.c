@@ -1,4 +1,3 @@
-// kernel/lib/printk.c
 #include <kernel/stdarg.h>
 #include <kernel/uart.h>
 

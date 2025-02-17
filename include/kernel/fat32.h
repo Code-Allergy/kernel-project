@@ -12,7 +12,6 @@
 #define FAT32_SUCCESS                    0
 #define FAT32_EOC                        1
 
-
 #define FAT32_SECTOR_SIZE 512
 #define FAT32_BOOT_SECTOR 0
 #define FAT32_BOOT_SECTOR_SIGNATURE 0xAA55
@@ -22,7 +21,6 @@
 
 #define FAT32_EOC_MARKER 0x0FFFFFFF
 #define FAT32_LAST_MARKER 0x0FFFFFF8
-
 
 // static only in bootloader
 typedef struct {
@@ -97,7 +95,7 @@ typedef struct {
 
 /*===========================================================================
   API Functions
-  These functions comprise the public interface to your FAT32 driver.
+  These functions comprise the public interface to the FAT32 driver.
   ===========================================================================*/
 
 /**
