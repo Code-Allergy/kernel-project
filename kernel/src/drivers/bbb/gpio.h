@@ -1,8 +1,6 @@
 #ifndef GPIO_H
 #define GPIO_H
 
-#include <memory_map.h>
-
 // GPIO Base addresses
 #define GPIO0_BASE                      0x44e07000
 #define GPIO1_BASE                      0x4804c000

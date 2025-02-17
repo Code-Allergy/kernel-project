@@ -1,13 +1,11 @@
-#include <memory_map.h>
-#include "gpio.h"
-#include <utils.h>
-#include "ccm.h"
+#include <stdint.h>
 
 #include <kernel/uart.h>
-#include <stdint.h>
 #include <kernel/printk.h>
 #include <kernel/boot.h>
+#include <utils.h>
 #include "uart.h"
+#include "ccm.h"
 
 #define CONTROL_MODULE_BASE 0x44E10000
 #define CONTROL_MODULE_UART0_RXD_OFF 0x970

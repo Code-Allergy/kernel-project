@@ -4,10 +4,10 @@ DRIVERS_BASE = drivers
 
 # Set platform-specific configurations
 ifeq ($(PLATFORM), BBB)
-	LDSCRIPT = bbb_memory.ld
+	LDSCRIPT = ldscripts/bbb.ld
 	DRIVERS_DIR = $(DRIVERS_BASE)/bbb
 else
-	LDSCRIPT = qemu_memory.ld
+	LDSCRIPT = ldscripts/qemu-cubieboard.ld
 	DRIVERS_DIR = $(DRIVERS_BASE)/qemu
 endif
 
@@ -51,8 +51,8 @@ DRIVERS_FULL_DIR = $(KERNEL_SRC_DIR)/$(DRIVERS_DIR)
 DRIVERS_BASE_DIR = $(KERNEL_SRC_DIR)/$(DRIVERS_BASE)
 
 # Collect source files
-BOOT_SRCS = $(SRC_DIR)/init.S $(SRC_DIR)/main.S $(SRC_DIR)/start.S
-BOOT_CSRCS = $(wildcard $(SRC_DIR)/*.c)
+BOOT_SRCS = $(SRC_DIR)/start.S $(SRC_DIR)/init.S
+BOOT_CSRCS = $(SRC_DIR)/bootloader.c
 CORE_SRCS = $(wildcard $(KERNEL_SRC_DIR)/*.c)
 DRIVER_SRCS = $(wildcard $(DRIVERS_FULL_DIR)/*.c)
 BASE_DRIVER_SRCS = $(wildcard $(DRIVERS_BASE_DIR)/*.c)
@@ -63,7 +63,6 @@ BOOT_CSRCS_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(BOOT_CSRCS))
 CORE_OBJS = $(patsubst $(KERNEL_SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(CORE_SRCS))
 DRIVER_OBJS = $(patsubst $(DRIVERS_FULL_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS = $(patsubst $(DRIVERS_BASE_DIR)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
-
 
 ALL_OBJS = $(BOOT_OBJS) $(CORE_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS) $(BOOT_CSRCS_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
@@ -92,10 +91,10 @@ $(OUTPUT_ELF): $(ALL_OBJS)
 $(OUTPUT_BIN): $(OUTPUT_ELF)
 	$(OBJCOPY) -O binary $< $@
 
-# # ======================================================================
-# # Compilation Rules
-# # ======================================================================
-# # Bootloader assembly files
+# ======================================================================
+# Compilation Rules
+# ======================================================================
+# Bootloader assembly files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
 	@mkdir -p $(@D)
 	@echo "Compiling bootloader: $<"
@@ -148,4 +147,4 @@ clean:
 	@rm -rf $(BUILD_DIR) $(OUTPUT_ELF) $(OUTPUT_BIN) disassembly.txt
 
 
-.PHONY: all clean qemu-run
+.PHONY: all clean

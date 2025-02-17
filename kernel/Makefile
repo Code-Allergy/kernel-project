@@ -49,7 +49,7 @@ CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 ASFLAGS = -mcpu=cortex-a8 -g
 
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
-LDFLAGS = -T linker.ld -lgcc -L$(LGCC)
+LDFLAGS = -T kernel.ld -lgcc -L$(LGCC)
 LDFLAGS += --gc-sections --print-memory-usage
 # Discover all source files
 

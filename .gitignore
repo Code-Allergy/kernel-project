@@ -1,8 +1,10 @@
 build/
 .out
 output.txt
+output
 .cache
 compile_commands.json
 .direnv/
 /target
 /team-repo
+qemu.log

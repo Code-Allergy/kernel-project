@@ -113,14 +113,11 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     printk("Finished initializing hardware\n");
 
     // we already have vm from the bootloader, but we should switch to our own tables
-    mmu_driver.init();
     init_kernel_pages();
-    // mmu_driver.set_l1_table(mmu_driver.get_physical_address(NULL, l1_page_table));
-    // mmu_driver.enable();
-    // init_page_allocator(&kpage_allocator);
-    // kernel_heap_init();
-    // interrupt_controller.enable_irq_global();
-    // scheduler_init();
+    init_page_allocator(&kpage_allocator);
+    kernel_heap_init();
+    interrupt_controller.enable_irq_global();
+    scheduler_init();
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");
     while (1)  __asm__ volatile("wfi");
