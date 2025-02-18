@@ -10,6 +10,7 @@
 #include <kernel/fat32.h>
 #include <kernel/intc.h>
 #include <kernel/timer.h>
+#include <kernel/vfs.h>
 
 #include <stdint.h>
 
@@ -104,7 +105,12 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     interrupt_controller.enable_irq_global();
     timer_start(0, KERNEL_HEARTBEAT_TIMER);
     printk("Kernel initialized\n");
-    scheduler();
+    // scheduler();
+    //
+    vfs_init();
+
+
+    while (1) __asm__ volatile("wfi");
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");
     while (1)  __asm__ volatile("wfi");
