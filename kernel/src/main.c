@@ -101,8 +101,8 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     kernel_heap_init();
 
     scheduler_init();
-    interrupt_controller.enable_irq_global();
-    timer_start(0, KERNEL_HEARTBEAT_TIMER);
+    // interrupt_controller.enable_irq_global();
+    // timer_start(0, KERNEL_HEARTBEAT_TIMER);
     printk("Kernel initialized\n");
     scheduler();
 

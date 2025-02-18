@@ -3,9 +3,7 @@
 #include <stdint.h>
 
 int main(void) {
-    uint32_t pid = getpid();
-
-
-    printf("Hello world! %d\n", pid);
+    // uint32_t pid = getpid();
+    printf("Hello world!\n");
     return 0;
 }

@@ -3,12 +3,10 @@
 
 void syscall_debug(const char *str, uint32_t len) {
     asm volatile (
-        "push {lr}                \n"
         "mov r7, %[syscall_num]   \n"  // Set syscall number (r7)
         "mov r0, %[arg1]          \n"  // Set arg1 (r0)
         "mov r1, %[arg2]          \n"  // Set arg2 (r1)
         "svc #0                   \n"  // Trigger the syscall
-        "pop {lr}                 \n"
         :  // No output operands
         : [syscall_num] "r" (SYSCALL_DEBUG_NO), [arg1] "r" (str), [arg2] "r" (len)
         : "r0", "r1", "r7"  // Clobbered registers

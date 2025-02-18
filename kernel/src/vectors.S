@@ -110,24 +110,22 @@ irq_handler_new:
     B      userspace_return
 
 swi_stack_handler:
-    @ save 0-3 on stack
+    @ save 0-3 on svc stack
     STMFD   SP!, {R0-R3}
     MOV     R0, LR
+    MRS     R1, SPSR                    @ Get SPSR
 
     @ switch to system mode, load user registers into process stack
     CPS    #0x1F                        @ System mode
 
     @ allocate stack space for user registers
-    SUB    SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
+    SUB    SP, SP, #60                  @ Allocate space for R0-R12, LR, PC and SPSR
+    STR     R0, [SP, #60]               @ Save user PC (LR contains return address)
+    STR     R1, [SP, #56]               @ Save SPSR
 
     STMIA   SP, {R0-R12, LR}       @ Save R0-R3 and return address (LR)
-    @ move return address to PC
-    STR     R0, [SP, #60]              @ Save user PC (LR contains return address)
 
-    MRS     R0, SPSR                    @ Get SPSR
-    STR     R0, [SP, #56]               @ Save SPSR
-    MOV     R0, SP                      @ Get SP
-
+    MOV     R0, SP                     @ Get SP
     CPS    #0x13                       @ Switch to supervisor mode
     LDMFD   SP!, {R1-R4}                   @ Restore old R0-R2, leave R3 on stack
         @ Stack additional parameters (right to left)
@@ -137,5 +135,4 @@ swi_stack_handler:
 
 
     BL     handle_svc_c            @ Call C handler
-    ADD     SP, SP, #8             @ Remove 5th and 6th params from stack
     B      userspace_return
