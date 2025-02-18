@@ -88,17 +88,17 @@ irq_handler:
 
 @ TODO: cleanup, don't clobber r12, do 2 steps to save lr
 irq_handler_new:
-    MOV   R12, LR
+    MRS   R12, SPSR                    @ Get SPSR
     CPS   #0x1F                        @ System mode
     SUB  SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
 
-    MOV   LR, R12                      @ store user registers
     @ store user registers
     STMIA   SP, {R0-R12, LR}           @ Save user registers
-    STR     LR, [SP, #56]              @ Save user PC (LR contains return address)
-
-    MRS     R0, SPSR                    @ Get SPSR
-    STR     R0, [SP, #60]              @ Save SPSR at offset 60
+    STR     R12, [SP, #56]              @ Save SPSR at offset 60
+    CPS    #0x12                       @ Switch to IRQ mode
+    MOV   R12, LR
+    CPS   #0x1F                        @ System mode
+    STR     R12, [SP, #60]              @ Save user PC (LR contains return address)
 
     @ save stack pointer for passing to C handler
     MOV     R0, SP                      @ Get system mode SP
@@ -107,38 +107,6 @@ irq_handler_new:
     CPS     #0x12                       @ Switch to IRQ mode
 
     BL      handle_irq_c               @ Call C handler
-    B      userspace_return
-
-_swi_stack_handler:
-    @ save 0-3 on svc stack
-    STMFD   SP!, {R0-R3}
-    MOV     R0, LR
-    mrs r1, spsr   @ This should give you the User mode CPSR (0x10)
-    and r1, r1, #0x1F
-
-    @ switch to system mode, load user registers into process stack
-    CPS    #0x1F                        @ System mode
-    @ allocate stack space for user registers
-    SUB    SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
-
-    STMIA   SP, {R0-R12, LR}       @ Save R0-R3 and return address (LR)
-    STR     R0, [SP, #60]         @ Save PC at offset 60 (16th slot)
-    STR     R1, [SP, #56]         @ Save CPSR at offset 56 (15th slot)
-
-    @ Prepare arguments for handle_svc_c
-    MOV     R0, SP                @ User stack pointer = context pointer
-    CPS     #0x13                 @ Switch back to Supervisor mode
-
-    @ Restore original r0-r3 from supervisor stack
-    LDMFD   SP!, {R1-R4}          @ R1-R4 now hold original r0-r3
-
-    @ Push arguments for handle_svc_c (syscall_num, context_ptr)
-    STMFD   SP!, {R0}             @ Push context pointer (1st stack arg)
-    STMFD   SP!, {R4}             @ Push r0 (2st stack arg)
-    MOV     R0, R7                @ Syscall number from r7 (0st arg)
-
-    BL     handle_svc_c            @ Call C handler
-    ADD   SP, SP, #4              @ Pop context pointer
     B      userspace_return
 
 swi_stack_handler:

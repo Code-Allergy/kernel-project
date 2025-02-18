@@ -17,7 +17,7 @@
 #include "../drivers/qemu/intc.h"
 
 
-#define KERNEL_HEARTBEAT_TIMER 10000000 // us
+#define KERNEL_HEARTBEAT_TIMER 100000 // us
 
 bootloader_t bootloader_info;
 
@@ -101,8 +101,8 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     kernel_heap_init();
 
     scheduler_init();
-    // interrupt_controller.enable_irq_global();
-    // timer_start(0, KERNEL_HEARTBEAT_TIMER);
+    interrupt_controller.enable_irq_global();
+    timer_start(0, KERNEL_HEARTBEAT_TIMER);
     printk("Kernel initialized\n");
     scheduler();
 
