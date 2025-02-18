@@ -83,7 +83,7 @@ int scheduler_init(void) {
     // spawn_flat_init_process("/bin/while");
 
     // scheduler();
-    __builtin_unreachable();
+    return 0;
 }
 
 uint8_t allocate_asid(void) {
@@ -171,7 +171,7 @@ __attribute__ ((noreturn)) void scheduler(void) {
     mmu_driver.set_l1_with_asid(next_process->ttbr0, next_process->asid);
     current_process = next_process;
     scheduler_driver.schedule_next = 0;
-    user_context_return(next_process->stack_top);
+    user_context_return((uint32_t)next_process->stack_top);
     // unreachable
     __builtin_unreachable();
 
@@ -309,7 +309,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->code_size = size;
 
     // Set up context
-    proc->stack_top = MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t));
+    proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
     uint32_t* sp = ((uint32_t*) ((uint32_t)stack_page + PAGE_SIZE)) - 16; // phys addr
 
     sp[0] = 0; // r0
@@ -389,16 +389,19 @@ __attribute__((naked, noreturn)) void userspace_return() {
         "1:\n\t"
         "ldr r3, =current_process\n\t"
         "ldr r3, [r3]\n\t"
-        "ldr r0, [r3, #12]\n\t"    // ttbr0
-        "ldr r1, [r3, #16]\n\t"    // asid
+        "ldr r0, [r3, %[ttbr0_off]]\n\t"
+        "ldr r1, [r3, %[asid_off]]\n\t"
         "bl mmu_set_l1_with_asid\n\t"
         "ldr r3, =current_process\n\t"
         "ldr r3, [r3]\n\t"
-        "ldr r0, [r3, #56]\n\t"    // stack_top
+        "ldr r0, [r3, %[stack_off]]\n\t"
         "b user_context_return\n\t"
+        :
+        : [ttbr0_off] "i" (offsetof(process_t, ttbr0)),
+          [asid_off] "i" (offsetof(process_t, asid)),
+          [stack_off] "i" (offsetof(process_t, stack_top))
     );
 }
-
 
 scheduler_t scheduler_driver = {
     .schedule_next = 0,

@@ -16,13 +16,9 @@ uint32_t svc_handlers[NR_SYSCALLS] = {0};
 
 void handle_svc_c(
     uint32_t svc_number,  // SVC number (extracted from instruction)
-    uint32_t arg1,        // Original R0
-    uint32_t arg2,        // Original R1
-    uint32_t arg3,        // Original R2
-    uint32_t arg4,        // Original R3
-    uint32_t stack_pointer        // (from SVC caller)
-) {
-    handle_syscall(svc_number, arg1, arg2, arg3, arg4, stack_pointer);
+    uint32_t* sp) {
+    current_process->stack_top = sp;
+    handle_syscall(svc_number, sp[0], sp[1], sp[2], sp[3], (uint32_t)sp);
 }
 
 void data_abort_handler(uint32_t lr) {

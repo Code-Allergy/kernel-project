@@ -18,7 +18,7 @@ void handle_irq_c(uint32_t process_stack) {
     // switch to kernel page table
     mmu_driver.set_l1_table((uint32_t*) (((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE));
 
-    current_process->stack_top = process_stack;
+    current_process->stack_top = (uint32_t*)process_stack;
     for(int reg = 0; reg < 3; reg++) {
         pending = INTC->IRQ_PEND[reg];
         while(pending) {

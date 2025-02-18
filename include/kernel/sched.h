@@ -34,6 +34,7 @@ struct cpu_regs {
 
 
 typedef struct {
+    uint32_t* stack_top;
     uint32_t pid;
     uint32_t priority;
     uint32_t state;
@@ -51,7 +52,6 @@ typedef struct {
     uint32_t data_page_vaddr;
     uint32_t stack_page_paddr;
     uint32_t stack_page_vaddr;
-    uint32_t stack_top;
     uint32_t heap_page_paddr;
     uint32_t heap_page_vaddr;
 

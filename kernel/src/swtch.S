@@ -116,7 +116,7 @@ user_context_return:
     ldr   r0, [sp, #56]        @ Load saved CPSR
 
     @ advance the stack pointer past the last 4
-    add sp, sp, #60            @ update stack
+    add sp, sp, #64            @ update stack
 
     cps    #0x13               @ Switch to Supervisor mode again (needed before returning)
     @ Set SPSR to the saved CPSR (user's CPSR)
