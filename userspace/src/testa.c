@@ -3,6 +3,9 @@
 #include <stdint.h>
 
 int main(void) {
-    printf("Hello world!\n");
+    int i = 50000;
+    while(i--) {
+        printf("Hello world: %d!\n", i);
+    }
     return 0;
 }

@@ -143,7 +143,7 @@ _swi_stack_handler:
 
 swi_stack_handler:
     @ Save critical registers and LR/SPSR to Supervisor stack
-    STMFD   SP!, {R0-R3, LR}      @ Save R0-R3 and Supervisor LR
+    STMFD   SP!, {R0, LR}      @ Save R0-R3 and Supervisor LR
     MRS     R0, SPSR              @ Get user's CPSR from SPSR
     STMFD   SP!, {R0}             @ Save SPSR to Supervisor stack
 
@@ -159,25 +159,24 @@ swi_stack_handler:
     @ Switch back to Supervisor mode to retrieve saved LR/SPSR
     CPS     #0x13
     LDMFD   SP!, {R0}             @ R0 = user's CPSR (from SPSR)
-    LDMFD   SP!, {R1-R4, LR}      @ Restore R0-R3, LR (SWI return address)
+    LDMFD   SP!, {R1, LR}      @ Restore R0-R3, LR (SWI return address)
     MOV     R5, LR                @ Save LR for later
 
     @ Switch to System mode to save PC/CPSR to user stack
     CPS     #0x1F
     @ Store R0-R3 (which are in R1-R4) to user stack
-    STR     R1, [SP, #0]         @ Save R0 at offset 4
-    STR     R2, [SP, #4]         @ Save R1 at offset 8
-    STR     R3, [SP, #8]         @ Save R2 at offset 12
-    STR     R4, [SP, #12]        @ Save R3 at offset 16
+    STR     R1, [SP, #0]         @ Save R0 at offset 0
+@    STR     R2, [SP, #4]         @ Save R1 at offset 4
+@    STR     R3, [SP, #8]         @ Save R2 at offset 8
+@    STR     R4, [SP, #12]        @ Save R3 at offset 12
 
     STR     R5, [SP, #60]         @ Save PC at offset 60
     STR     R0, [SP, #56]         @ Save CPSR at offset 56
 
-    @ Pass arguments to handle_svc_c
-    MOV     R0, SP                @ User stack pointer (context)
-    CPS     #0x13                 @ Back to Supervisor mode
-    MOV     R1, R0                @ Context pointer
+    @ Pass arguments to handle_svc_c and switch back to Supervisor mode for the call
+    MOV     R1, SP                @ User stack pointer (context)
     MOV     R0, R7                @ Syscall number (from R7)
+    CPS     #0x13                 @ Back to Supervisor mode
 
     BL      handle_svc_c
     B       userspace_return

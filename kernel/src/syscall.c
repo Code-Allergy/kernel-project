@@ -37,7 +37,7 @@ int sys_debug(int buf, int len) {
     mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
     void* paddr = mmu_driver.get_physical_address(current_process->ttbr0, (void*)buf);
 
-    printk("[SYS_DEBUG]: %s\n", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
+    printk("[SYS_DEBUG]: %s", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
 
     mmu_driver.set_l1_table((uint32_t*) process_table);
     return 0;
@@ -127,10 +127,10 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
     uint32_t process_table = (uint32_t)current_process->ttbr0;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
 
-    printk("Syscall num: %d, stackp: %p\n", num, arg1);
+    // printk("Syscall num: %d, stackp: %p\n", num, arg1);
 
-    printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
-    printk("Stack pointer: %p\n", stack_pointer);
+    // printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
+    // printk("Stack pointer: %p\n", stack_pointer);
     int ret = -1;
     if (num >= 0 && num < NR_SYSCALLS) {
         switch(syscall_table[num].num_args) {
