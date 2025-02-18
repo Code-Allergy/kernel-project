@@ -2,7 +2,7 @@
 #define KERNEL_SYSCALL_H
 
 
-#define NR_SYSCALLS 4
+#define NR_SYSCALLS 5
 // Called by SVC handler in int.c
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address);
 
@@ -25,6 +25,8 @@ enum syscall_num {
     SYS_EXIT = 1,
     SYS_GETPID = 2,
     SYS_YIELD = 3,
+    SYS_OPEN  = 4,
+    SYS_CLOSE = 5,
 };
 
 

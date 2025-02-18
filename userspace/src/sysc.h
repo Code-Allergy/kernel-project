@@ -39,6 +39,24 @@ static inline void syscall_2(uint32_t syscall_num, uint32_t arg1, uint32_t arg2)
     );
 }
 
+static inline uint32_t syscall_3(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3) {
+    uint32_t result;
+    asm volatile (
+        "mov r7, %[syscall_num]   \n"  // Set syscall number (r7)
+        "mov r0, %[arg1]          \n"  // Set arg1 (r0)
+        "mov r1, %[arg2]          \n"  // Set arg2 (r1)
+        "mov r2, %[arg3]          \n"  // Set arg3 (r2)
+        "svc #0                   \n"  // Trigger the syscall
+        "mov %[result], r0        \n"  // Store return value from r0
+        : [result] "=r" (result)       // Output: store r0 in result
+        : [syscall_num] "r" (syscall_num), [arg1] "r" (arg1),
+          [arg2] "r" (arg2), [arg3] "r" (arg3)  // Inputs
+        : "r0", "r1", "r2", "r7", "memory"  // Clobbered registers
+    );
+    return result;
+}
+
+
 #define debug(fmt) syscall_2(0, fmt, sizeof(fmt))
 // #define sleep(len) syscall_1(1, len)
 #define exit(ret) syscall_1(1, ret)

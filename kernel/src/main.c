@@ -10,6 +10,7 @@
 #include <kernel/fat32.h>
 #include <kernel/intc.h>
 #include <kernel/timer.h>
+#include <kernel/vfs.h>
 
 #include <stdint.h>
 
@@ -17,7 +18,7 @@
 #include "../drivers/qemu/intc.h"
 
 
-#define KERNEL_HEARTBEAT_TIMER 100000 // us
+#define KERNEL_HEARTBEAT_TIMER 10000 // us
 
 bootloader_t bootloader_info;
 
@@ -99,6 +100,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     init_kernel_pages();
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
+    vfs_init();
 
     scheduler_init();
     interrupt_controller.enable_irq_global();

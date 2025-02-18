@@ -213,6 +213,18 @@ uint32_t calculate_checksum(const void *data, size_t len) {
     return checksum;
 }
 
+int strcmp(const char* str1, const char* str2) {
+    while (*str1 != '\0' && *str2 != '\0') {
+        if (*str1 != *str2) {
+            return *str1 - *str2;
+        }
+        str1++;
+        str2++;
+    }
+    return *str1 - *str2;
+}
+
+
 // void dump_registers(void) {
 //     unsigned int r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, sp, lr, pc, cpsr;
 
