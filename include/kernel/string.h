@@ -10,6 +10,6 @@ int toupper(int c);
 void* memset(void* ptr, int value, unsigned long num);
 int memcmp(const void* ptr1, const void* ptr2, unsigned long num);
 void* memcpy(void* dest, const void* src, unsigned long size);
-
+int strcmp(const char* str1, const char* str2);
 
 #endif

@@ -1,3 +1,4 @@
+#include "kernel/vfs.h"
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
 #include <stdint.h>
@@ -25,6 +26,16 @@ int sys_getpid(void) {
 int sys_yield(void) {
     scheduler_driver.schedule_next = 1;
     return 0;
+}
+
+int sys_open(char* path, int flags, int mode) {
+    // for now, just check if we are opening root
+    int res = -1;
+    if (strcmp(path, "/") == 0) {
+        res = vfs_root_node->ops->open(vfs_root_node, flags);
+    }
+
+    return res;
 }
 
 
@@ -93,6 +104,7 @@ static const struct {
     [SYS_EXIT]   = {{.fn1 = sys_exit},   "exit",   1},
     [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
     [SYS_YIELD]  = {{.fn0 = sys_yield},  "yield",  0},
+    [SYS_OPEN]   = {{.fn3 = sys_open},   "open",   3},
 };
 
 static inline void save_kernel_context(void) {

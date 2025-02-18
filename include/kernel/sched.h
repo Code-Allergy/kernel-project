@@ -1,5 +1,8 @@
 #ifndef KERNEL_SCHED_H
 #define KERNEL_SCHED_H
+#include <kernel/vfs.h>
+#include <kernel/file.h>
+
 
 #include <stddef.h>
 #include <stdint.h>
@@ -54,6 +57,10 @@ typedef struct {
     uint32_t stack_top;
     uint32_t heap_page_paddr;
     uint32_t heap_page_vaddr;
+
+    // file management
+    file_t* fd_table[MAX_FDS];
+    uint32_t num_fds;
 
     struct cpu_regs context;
     // rest of registers from user mode

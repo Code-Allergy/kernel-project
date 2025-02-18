@@ -99,6 +99,8 @@ typedef struct vfs_node {
 #define S_ISVTX  01000   /* Sticky bit (restricted deletion flag) */
 
 
+extern vfs_node_t* vfs_root_node;
+
 void vfs_init(void);
 
 #endif // KERNEL_VFS_H

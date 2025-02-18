@@ -1,15 +1,37 @@
 #include "kernel/panic.h"
+#include "kernel/sched.h"
 #include <kernel/vfs.h>
 #include <kernel/printk.h>
 #include <kernel/heap.h>
 #include <kernel/fat32.h>
 #include <kernel/string.h>
+#include <kernel/file.h>
 
 #define VFS_DIR 0x4000
 #define S_ISDIR(node) ((node)->mode & VFS_DIR)
+#define S_ISREG(node) (!((node)->mode & VFS_DIR))
 
 // this shouldn't be here
 #define EINVAL 22
+#define ENOENT 2
+
+
+int vfs_default_open(vfs_node_t* node, int flags) {
+    if (!node) {
+        return -EINVAL;
+    }
+
+    // create an open file structure for the node
+    file_t* file = (file_t*)kmalloc(sizeof(file_t));
+    file->vnode = node;
+    file->offset = 0;
+    file->flags = flags; // TODO - flags should be handled
+
+    // TODO - handle freed-up file descriptors
+    current_process->fd_table[current_process->num_fds] = file;
+
+    return current_process->num_fds++;
+}
 
 vfs_node_t* vfs_create_node(const char* name, uint32_t mode) {
     vfs_node_t* node = (vfs_node_t*)kmalloc(sizeof(vfs_node_t));
@@ -58,6 +80,51 @@ int vfs_add_child(vfs_node_t* parent, vfs_node_t* child) {
     }
 
     return 0;
+}
+
+// Remove a child node from a directory
+int vfs_remove_child(vfs_node_t* parent, vfs_node_t* child) {
+    if (!parent || !child || !S_ISDIR(parent)) {
+        return -EINVAL;
+    }
+
+    if (parent->first_child == child) {
+        // First child
+        parent->first_child = child->next_sibling;
+    } else {
+        // Find child in sibling list
+        vfs_node_t* sibling = parent->first_child;
+        while (sibling && sibling->next_sibling != child) {
+            sibling = sibling->next_sibling;
+        }
+
+        if (sibling) {
+            sibling->next_sibling = child->next_sibling;
+        } else {
+            return -ENOENT; // Child not found
+        }
+    }
+
+    child->parent = NULL;
+    child->next_sibling = NULL;
+    return 0;
+}
+
+// Find a child node by name in a directory
+vfs_node_t* vfs_find_child(vfs_node_t* dir, const char* name) {
+    if (!dir || !S_ISDIR(dir)) {
+        return NULL;
+    }
+
+    vfs_node_t* child = dir->first_child;
+    while (child != NULL) {
+        if (strcmp(child->name, name) == 0) {
+            return child;
+        }
+        child = child->next_sibling;
+    }
+
+    return NULL;
 }
 
 void list_directories(vfs_node_t* dir) {
@@ -124,15 +191,26 @@ void create_test_directory_structure(vfs_node_t* root) {
     }
 }
 
+vfs_ops_t vfs_ops = {
+    .open = vfs_default_open,
+};
+
 
 void vfs_init() {
     // Initialize the root directory
-    vfs_node_t* root = vfs_init_root();
-    if (!root) panic("Failed to initialize root directory!");
+    vfs_root_node = vfs_init_root();
+    if (!vfs_root_node) panic("Failed to initialize root directory!");
+    vfs_root_node->ops = &vfs_ops;
 
     // Create a test directory structure
-    create_test_directory_structure(root);
+    create_test_directory_structure(vfs_root_node);
+
+    // get directories of our fat32 filesystem, and mount them in.
 
     // List the directories
-    list_directories(root);
+    list_directories(vfs_root_node);
 }
+
+
+
+vfs_node_t* vfs_root_node = NULL;

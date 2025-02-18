@@ -100,17 +100,13 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     init_kernel_pages();
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
+    vfs_init();
 
     scheduler_init();
     interrupt_controller.enable_irq_global();
     timer_start(0, KERNEL_HEARTBEAT_TIMER);
     printk("Kernel initialized\n");
-    // scheduler();
-    //
-    vfs_init();
-
-
-    while (1) __asm__ volatile("wfi");
+    scheduler();
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");
     while (1)  __asm__ volatile("wfi");
