@@ -15,7 +15,7 @@ _vectors:
 /* Address table */
 reset_addr:    .word reset_handler
 undef_addr:    .word undef_handler
-swi_addr:      .word swi_handler
+swi_addr:      .word swi_stack_handler
 prefetch_addr: .word prefetch_abort_handler
 data_addr:     .word data_abort_handler
 irq_addr:      .word irq_handler
@@ -84,7 +84,7 @@ irq_handler:
     /* subs pc, lr, #0        Return from exception */
 
 swi_handler:
-    STMFD   SP!, {R0-R3, LR}       @ Save R0-R3 and return address (LR)
+    STMFD   SP!, {R0-R3, LR}       @ Save R0-R3 and return address (LR_svc)
     MOV     R0, R7                 @ Get SVC number from R7
     LDR     R1, [SP, #0]           @ Load original R0 (arg1) from stack
     LDR     R2, [SP, #4]           @ Load original R1 (arg2) from stack
@@ -95,6 +95,35 @@ swi_handler:
     BL      handle_svc_c            @ Call C handler
     ADD     SP, SP, #8             @ Cleanup stack (arg4 and raddr)
     LDMFD   SP!, {R0-R3, PC}^      @ Restore registers and return
+
+swi_stack_handler:
+    @ save 0-3 on stack
+    STMFD   SP!, {R0-R3}
+    MOV     R0, LR
+
+    @ switch to system mode, load user registers into process stack
+    CPS    #0x1F                        @ System mode
+
+    @ allocate stack space for user registers
+    SUB    SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
+
+    @MOV     LR, R0
+    STMIA   SP, {R0-R12, LR, PC}       @ Save R0-R3 and return address (LR)
+    MRS     R0, SPSR                    @ Get SPSR
+    STR     R0, [SP, #60]               @ Save SPSR
+    MOV     R0, SP                      @ Get SP
+
+    CPS    #0x13                       @ Switch to supervisor mode
+    LDMFD   SP!, {R1-R4}                   @ Restore old R0-R2, leave R3 on stack
+        @ Stack additional parameters (right to left)
+    STMFD   SP!, {R0}              @ Push user SP (6th param)
+    STMFD   SP!, {R4}              @ Push original R3 (5th param)
+    MOV     R0, R7                @ Get SVC number from R7
+
+
+    BL     handle_svc_c            @ Call C handler
+    ADD     SP, SP, #8             @ Remove 5th and 6th params from stack
+    B      userspace_return
 
 prefetch_abort_handler:
     b prefetch_abort_c

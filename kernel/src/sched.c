@@ -139,6 +139,7 @@ process_t* get_next_process(void) {
 
     return current_process; // If no other process found, return current one
 }
+extern void user_context_return(uint32_t stack_top);
 
 void debug_stack_access(process_t* proc) {
     printk("Process %d stack info:\n", proc->pid);
@@ -159,15 +160,21 @@ __attribute__((noreturn)) void scheduler(void) {
 
     printk("Starting process pid %u\n", next_process->pid);
     printk("Next process: %p\n", next_process);
-    printk("Jumping to code at %p\n", next_process->context.pc);
-    debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
-    printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
+    printk("Jumping to code at %p\n", *(uint32_t*)(next_process->stack_page_paddr + PAGE_SIZE - (2 * sizeof(uint32_t))));
+    printk("Stack top: %p\n", next_process->stack_top);
 
+    // debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
+    // printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
+    mmu_driver.set_l1_with_asid(next_process->ttbr0, next_process->asid);
+    current_process = next_process;
+    scheduler_driver.schedule_next = 0;
+    user_context_return(next_process->stack_top);
     if (current_process == next_process) {
         printk("Starting current process\n");
         mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
         context_switch_1(&current_process->context);
     }
+    while(1);
 
     // If we have a current process and it's not exited
     if (current_process && current_process->state != PROCESS_NONE) {
@@ -249,6 +256,7 @@ process_t* clone_process(process_t* original_p) {
     return p;
 }
 
+
 // create a new process with a flat binary
 process_t* create_process(uint8_t* bytes, size_t size) {
     printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
@@ -294,26 +302,29 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->heap_page_paddr = (uint32_t) heap_page;
     proc->code_size = size;
 
-    // i want to load these into the program stack, or come up with a better way to do this.
-    proc->context.r0 = 0;
-    proc->context.r1 = 0;
-    proc->context.r2 = 0;
-    proc->context.r3 = 0;
-    proc->context.r4 = 0;
-    proc->context.r5 = 0;
-    proc->context.r6 = 0;
-    proc->context.r7 = 0;
-    proc->context.r8 = 0;
-    proc->context.r9 = 0;
-    proc->context.r10 = 0;
-    proc->context.r11 = 0;
-    proc->context.r12 = 0;
-    proc->context.sp = MEMORY_USER_STACK_BASE + PAGE_SIZE;
-    proc->context.pc = MEMORY_USER_CODE_BASE;
-    proc->context.cpsr = 0x10;
-    proc->context.lr = 0;
+    // Set up context
+    proc->stack_top = MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t));
+    uint32_t* sp = ((uint32_t*) ((uint32_t)stack_page + PAGE_SIZE)) - 16; // phys addr
+
+    sp[0] = 0; // r0
+    sp[1] = 0; // r1
+    sp[2] = 0; // r2
+    sp[3] = 0; // r3
+    sp[4] = 0; // r4
+    sp[5] = 0; // r5
+    sp[6] = 0; // r6
+    sp[7] = 0; // r7
+    sp[8] = 0; // r8
+    sp[9] = 0; // r9
+    sp[10] = 0; // r10
+    sp[11] = 0; // r11
+    sp[12] = 0; // r12
+    sp[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
+    sp[14] = MEMORY_USER_CODE_BASE; // pc
+    sp[15] = 0x10; // cpsr
 
     proc->state = PROCESS_READY;
+    mmu_driver.set_l1_table(proc->ttbr0);
     return proc;
 }
 
@@ -336,3 +347,18 @@ void get_kernel_regs(struct cpu_regs* regs) {
     __asm__ volatile("mov %0, lr" : "=r"(regs->lr));
     __asm__ volatile("mov %0, pc" : "=r"(regs->pc));
 }
+
+
+
+__attribute__((noreturn)) void userspace_return() {
+    if (scheduler_driver.schedule_next) {
+        scheduler();
+    }
+
+    user_context_return(current_process->stack_top);
+}
+
+
+scheduler_t scheduler_driver = {
+    .schedule_next = 0
+};

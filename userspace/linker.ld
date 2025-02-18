@@ -4,6 +4,7 @@ SECTIONS {
     . = 0x10000; /* Start of the program (adjust as needed) */
 
     .text : {
+        *(.text.startup)
         *(.text)  /* Collect all .text sections (code) */
     }
 

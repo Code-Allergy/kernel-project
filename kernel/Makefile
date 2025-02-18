@@ -37,12 +37,12 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -ffreestanding -nostdlib \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
-         -std=gnu99 -g \
+         -std=gnu2x -g \
          -MMD -MP
 
 # Optimization flags
 # CFLAGS += -O2
-CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0 -fstack-usage
+CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0 -fstack-usage -DDEBUG
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
@@ -53,9 +53,6 @@ ASFLAGS = -mcpu=cortex-a8 -g
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
 LDFLAGS = -T kernel.ld -lgcc -L$(LGCC)
 LDFLAGS += --gc-sections --print-memory-usage
-# Discover all source files
-
-
 
 # My kernel code
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)

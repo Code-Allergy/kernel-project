@@ -100,3 +100,23 @@ syscall_return:
 
     /* Return to user mode */
     movs    pc, lr               @ Return and switch to user mode
+
+
+@ r0 is the stack pointer of the current context, with all registers saved
+.global user_context_return
+user_context_return:
+    cps    #0x1F                @ Switch to System mode
+
+    @ Restore user mode sp, then load r0-r12
+    mov   sp, r0               @ Restore user SP
+
+    @ set spsr to the saved cpsr
+    ldr  r0, [sp, #60]        @ Load saved cpsr
+    msr  spsr_cxsf, r0        @ Set spsr register for mode switch
+
+    ldmia sp, {r0-r12, lr}         @ Restore r0-r12
+
+    @ advance the stack pointer past the last 4
+    add sp, sp, #64         @ Skip over cpsr
+
+    movs pc, lr              @ Jump to return address

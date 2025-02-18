@@ -5,6 +5,7 @@ output
 .cache
 compile_commands.json
 .direnv/
+.idea/
 /target
 /team-repo
 qemu.log

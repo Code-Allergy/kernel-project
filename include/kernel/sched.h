@@ -59,6 +59,17 @@ typedef struct {
     // rest of registers from user mode
 } process_t;
 
+typedef struct {
+    process_t* current_process;
+
+
+    int num_processes;
+    int max_processes;
+
+    int schedule_next;
+} scheduler_t;
+extern scheduler_t scheduler_driver;
+
 process_t* create_process(uint8_t* bytes, size_t size);
 process_t* clone_process(process_t* original_p);
 void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);

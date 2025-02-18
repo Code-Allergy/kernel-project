@@ -14,9 +14,6 @@
 #include <stdint.h>
 
 #define KERNEL_HEARTBEAT_TIMER 400000 // us
-#define TEST_FILE "bin/while"
-#define TEST_FILE2 "bin/testa"
-#define STACK_CANARY_VALUE 0xDEADBEEF
 
 bootloader_t bootloader_info;
 
@@ -34,12 +31,12 @@ __attribute__((noreturn)) void system_clock(void) {
     __asm__ volatile ("add sp, sp, #64"); // TODO this is hacky but needed to reset the stack as schedule() doesn't reuturn
 
 
-    scheduler();
+    scheduler(); // don't schedule here, set a flag in scheduler_t
 }
 
 void init_kernel_hardware(void) {
     clock_timer.init();
-    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
+    // clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
@@ -52,14 +49,7 @@ void init_kernel_hardware(void) {
 extern void context_restore(void);
 extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
 void context_switch_1(struct cpu_regs* next_context);
-unsigned long __stack_chk_guard = STACK_CANARY_VALUE;
 
-void __stack_chk_fail(void) {
-    uint32_t kernel_phys_l1 = (uint32_t)l1_page_table - KERNEL_START + DRAM_BASE;
-    mmu_driver.set_l1_table((void*)kernel_phys_l1);
-    printk("STACK CORRUPTION DETECTED (__stack_chk_fail)\nHALT\n");
-    while(1);  // Infinite loop or trigger a fault handler
-}
 
 #define PADDR(addr) ((uint32_t)((addr) - KERNEL_START) + DRAM_BASE)
 
@@ -114,7 +104,7 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_pages();
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
-    interrupt_controller.enable_irq_global();
+    // interrupt_controller.enable_irq_global();
     scheduler_init();
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");

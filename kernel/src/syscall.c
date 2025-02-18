@@ -126,17 +126,17 @@ static inline void restore_user_context(void) {
     );
 }
 
-int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address) {
+int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {
     // save_kernel_context();
-    current_process->context.lr = return_address;
+    current_process->stack_top = stack_pointer;
 
     // Switch to kernel page table
     uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
     uint32_t process_table = (uint32_t)current_process->ttbr0;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
 
-    // printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
-
+    printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
+    printk("Stack pointer: %p\n", stack_pointer);
     int ret = -1;
     if (num >= 0 && num < NR_SYSCALLS) {
         switch(syscall_table[num].num_args) {
@@ -149,8 +149,9 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_a
 
     // Return to process page table
     mmu_driver.set_l1_table((uint32_t*)process_table);
+    // set up return value
 
-    restore_user_context();
+    // restore_user_context();
     return ret;
 }
 

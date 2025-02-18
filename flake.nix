@@ -20,7 +20,9 @@
           pkgs.bear
           pkgs.minicom
           pkgs.lrzsz
+          pkgs.seer
         ];
+
 
         # Optionally, you can set environment variables if needed by your build system:
         shellHook = ''

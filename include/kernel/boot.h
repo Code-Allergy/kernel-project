@@ -31,6 +31,7 @@ extern void setup_stacks(void);
 #define KERNEL_PATH "/boot/kernel.bin"
 
 // temporary stack size
+#define STACK_CANARY_VALUE 0xDEADBEEF
 #define KERNEL_STACK_SIZE (32 * 1024)  // 32KB -- we can set this on the large size for now
 
 typedef int (*entry_t)(void);
