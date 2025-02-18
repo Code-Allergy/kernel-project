@@ -18,7 +18,6 @@ extern void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 extern void unmap_page(void* tbbr0, void* vaddr);
 extern void invalidate_all_tlb(void);
 extern void set_l1_page_table(uint32_t *l1_page_table);
-extern void* get_physical_address(void *vaddr);
 
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
@@ -135,6 +134,25 @@ void set_ttbr0_with_asid(uint32_t* table, uint8_t asid) {
     uint32_t ttbr0 = (uint32_t)table | (asid & 0xFF);
     __asm__ volatile("mcr p15, 0, %0, c2, c0, 0" : : "r"(ttbr0));
 }
+
+// this should be done much more dynamically, for now we don't care
+void* get_physical_address(uint32_t* ttbr0, void *vaddr) {
+    // DRAM is mapped 1:1 with physical addresses
+    if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
+        return vaddr;
+    };
+
+    uint32_t *l1_entry = &ttbr0[SECTION_INDEX((uint32_t)vaddr)];
+    if ((*l1_entry & 0x3) != 0x1) {
+        return (void*)(((uint32_t)vaddr - KERNEL_ENTRY) + DRAM_BASE);
+    }
+
+    uint32_t *l2_table = (uint32_t*)(*l1_entry & 0xFFFFF000);
+    uint32_t l2_index = ((uint32_t)vaddr >> 12) & 0xFF;
+
+    return (void*)((l2_table[l2_index] & 0xFFFFF000) | ((uint32_t)vaddr & 0xFFF));
+}
+
 
 
 mmu_t mmu_driver = {

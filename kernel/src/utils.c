@@ -171,38 +171,6 @@ int memcmp(const void* ptr1, const void* ptr2, unsigned long num) {
     return 0;
 }
 
-/**
- * @brief Division operations for ARM with soft float ABI
- * Note: These must be compiled with -mfloat-abi=soft
- */
-
-// Unsigned integer division
-unsigned int __aeabi_uidiv(unsigned int num, unsigned int den) {
-    unsigned int quot = 0;
-    unsigned int qbit = 1;
-
-    if (den == 0) {
-        return 0xFFFFFFFF; // Handle divide by zero
-    }
-
-    // First, let's get the quotient bit position right
-    while ((signed int)den >= 0) {
-        den <<= 1;
-        qbit <<= 1;
-    }
-
-    while (qbit) {
-        if (den <= num) {
-            num -= den;
-            quot += qbit;
-        }
-        den >>= 1;
-        qbit >>= 1;
-    }
-
-    return quot;
-}
-
 uint32_t calculate_checksum(const void *data, size_t len) {
     uint32_t checksum = 0;
     const uint8_t *ptr = (const uint8_t*)data;

@@ -17,7 +17,8 @@ endif
 AS = arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a8 -g
 LD = arm-none-eabi-ld
-LDFLAGS = -T $(LDSCRIPT) --build-id=none -nostdlib -static --gc-sections
+LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
+LDFLAGS = -T $(LDSCRIPT) --build-id=none -nostdlib -static --gc-sections -L$(LGCC)
 OBJCOPY = arm-none-eabi-objcopy
 CC = arm-none-eabi-gcc
 
@@ -28,7 +29,7 @@ IFLAGS = -I. -I../kernel/src -I../include
 CCDEFINES = -DPLATFORM=$(PLATFORM) -DPLATFORM_$(PLATFORM) -DBOOTLOADER
 CFLAGS = -Wall -Wextra -g -mcpu=cortex-a8 -mfloat-abi=soft -pedantic $(CCDEFINES)
 CFLAGS += -static -ffreestanding -fbuiltin -marm -MMD -MP
-
+LDLIBS = -lgcc
 
 # ======================================================================
 # File Paths
@@ -83,7 +84,7 @@ $(OUTPUT_SDIMG): $(OUTPUT_MLO)
 $(OUTPUT_ELF): $(ALL_OBJS)
 	echo "Linking $@ $^"
 	echo "Core objs $(CORE_OBJS)"
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 	@echo "Build complete for platform: $(PLATFORM)"
 
 $(OUTPUT_BIN): $(OUTPUT_ELF)

@@ -6,10 +6,8 @@
 #include <kernel/sched.h>
 #include <kernel/intc.h>
 
-#include "intc.h"
-#include "uart.h"
-#include "kernel/boot.h"
-#include "kernel/mmu.h"
+#include <kernel/boot.h>
+#include <kernel/mmu.h>
 
 // handle interrupts here
 uint32_t svc_handlers[NR_SYSCALLS] = {0};
@@ -72,23 +70,6 @@ void prefetch_abort_c() {
     asm volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
     printk("Prefetch abort! Addr: %p, Status: %p\n", ifar, ifsr);
     while (1); // Halt
-}
-
-void uart_handler(int irq, void *data) {
-    // Read UART IIR to check interrupt type and clear it
-    uint32_t iir = UART0->IIR_FCR & 0x0F;  // Mask IIR bits
-
-    if (iir == 0x04) {  // Received data available
-        char c = UART0->RBR_THR_DLL;  // Read the character (clears interrupt)
-        printk("Received: %c\n", c);
-    } else if (iir == 0x0C) {  // Timeout (FIFO non-empty)
-        // Handle FIFO timeout
-    }
-
-    // Acknowledge interrupt in INTC (platform-specific)
-    INTC->IRQ_PEND[0] = (irq << 1);
-
-    printk("IRQ %d: UART fired!\n", irq);
 }
 
 void handle_undefined(uint32_t esr, process_t* p) {

@@ -3,6 +3,7 @@
 #include <kernel/uart.h>
 #include <kernel/printk.h>
 #include "uart.h"
+#include "intc.h"
 
 // UART0 Base Allwinner A10 (Cubieboard)
 #define UART0_BASE 0x01C28000
@@ -58,10 +59,23 @@ char uart_getc(void) {
     return UART0->RBR_THR_DLL;
 }
 
-const uart_driver_t uart_driver = {
+// simple handler for cubieboard
+void uart_handler(int irq, void *data) {
+    char c = UART0->RBR_THR_DLL;  // Read the character (clears interrupt)
+    uart_driver.incoming_buffer[uart_driver.incoming_buffer_head++] = c;
+    INTC->IRQ_PEND[0] = (irq << 1);
+
+    printk("IRQ %d: UART fired!\n", irq);
+}
+
+uart_driver_t uart_driver = {
     .init = uart_init,
     .putc = uart_putc,
     .getc = uart_getc,
     .enable_interrupts = uart_init_interrupts,
-    .disable_interrupts = uart_disable_interrupts
+    .disable_interrupts = uart_disable_interrupts,
+
+    .incoming_buffer = {0},
+    .incoming_buffer_head = 0,
+    .incoming_buffer_tail = 0,
 };

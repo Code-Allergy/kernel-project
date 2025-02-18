@@ -1,3 +1,4 @@
+#include "kernel/panic.h"
 #include <kernel/boot.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -78,8 +79,10 @@ int scheduler_init(void) {
 
     scheduler_driver.current_tick = 0;
     spawn_flat_init_process("/bin/null");
+    // spawn_flat_init_process("/bin/open");
     spawn_flat_init_process("/bin/testa");
-    // spawn_flat_init_process("/bin/testb");
+    spawn_flat_init_process("/bin/testa");
+
     // spawn_flat_init_process("/bin/while");
     // spawn_flat_init_process("/bin/while");
 
@@ -147,7 +150,8 @@ process_t* get_next_process(void) {
 
     return current_process; // If no other process found, return current one
 }
-__attribute__((noreturn)) extern void user_context_return(uint32_t stack_top);
+void __attribute__((noreturn, naked)) user_context_return(uint32_t stack_ptr);
+
 
 void debug_stack_access(process_t* proc) {
     printk("Process %d stack info:\n", proc->pid);
@@ -156,51 +160,37 @@ void debug_stack_access(process_t* proc) {
     printk("  Stack physical: %p\n", proc->stack_page_paddr);
 }
 
-__attribute__ ((noreturn)) void scheduler(void) {
+void __attribute__ ((noreturn)) scheduler(void) {
     mmu_driver.set_l1_table((uint32_t*)(((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE));
     next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
-        printk("No more processes to run, halting!\n");
+        panic("No more processes to run, halting!\n");
     }
 
-    printk("Starting process pid %u\n", next_process->pid);
-    printk("Jumping to code at %p\n", *(uint32_t*)(next_process->stack_page_paddr + PAGE_SIZE - (3 * sizeof(uint32_t))));
-    printk("Stack top: %p\n", next_process->stack_top);
+    // printk("Starting process pid %u\n", next_process->pid);
+    // printk("Jumping to code at %p\n", *(uint32_t*)(next_process->stack_page_paddr + PAGE_SIZE - (3 * sizeof(uint32_t))));
+    // printk("Stack top: %p\n", next_process->stack_top);
 
     // debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
     // printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
     mmu_driver.set_l1_with_asid(next_process->ttbr0, next_process->asid);
     current_process = next_process;
     scheduler_driver.schedule_next = 0;
-    user_context_return((uint32_t)next_process->stack_top);
-    // unreachable
+
+    // fix the stack from the compiler function prologue
+    __asm__ ("add sp, sp, #8\n"); // TODO this is a hack, fix it. this WILL break.
+    // TO fix, we should have the scheduler setup in another function and return then pass to asm
+    // this way we won't have to deal with the compiler's prologue
+
+    // Direct tail call with forced assembly branch
+    register uint32_t stack_ptr __asm__("r0") = (uint32_t)next_process->stack_top;
+    __asm__ volatile(
+        "bx %0"
+        :
+        : "r" (user_context_return), "r" (stack_ptr)
+        : "memory"
+    );
     __builtin_unreachable();
-
-    // if (current_process == next_process) {
-    //     printk("Starting current process\n");
-    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-    //     context_switch_1(&current_process->context);
-    // }
-    // while(1);
-
-    // // If we have a current process and it's not exited
-    // if (current_process && current_process->state != PROCESS_NONE) {
-    //     printk("Starting next process\n");
-    //     process_t* prev_process = current_process;
-    //     current_process->state = PROCESS_READY;
-    //     next_process->state = PROCESS_RUNNING;
-    //     current_process = next_process;
-    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-    //     // Use full context switch to save current and restore next
-    //     context_switch(&prev_process->context, &next_process->context);
-    // } else {
-    //     // First time or after process exit, just restore the new process
-    //     printk("First time or after process exit\n");
-    //     current_process = next_process;
-    //     next_process->state = PROCESS_RUNNING;
-    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-    //     context_switch_1(&current_process->context);
-    // }
 }
 
 process_t* get_available_process(void) {
@@ -308,6 +298,8 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->stack_page_paddr = (uint32_t) stack_page;
     proc->heap_page_paddr = (uint32_t) heap_page;
     proc->code_size = size;
+
+    proc->num_fds = 0;
 
     // Set up context
     proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));

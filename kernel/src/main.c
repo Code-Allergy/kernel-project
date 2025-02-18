@@ -104,8 +104,9 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
 
     scheduler_init();
     interrupt_controller.enable_irq_global();
-    timer_start(0, KERNEL_HEARTBEAT_TIMER);
+
     printk("Kernel initialized\n");
+    timer_start(0, KERNEL_HEARTBEAT_TIMER);
     scheduler();
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");

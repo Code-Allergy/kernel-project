@@ -165,19 +165,3 @@ void invalidate_all_tlb(void) {
         : : "r" (0) : "memory"
     );
 }
-
-// this should be done much more dynamically
-void* get_physical_address(void *vaddr) {
-    // DRAM is mapped 1:1 with physical addresses
-    if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
-        return vaddr;
-    };
-
-    uint32_t *l1_entry = &((uint32_t*)l1_page_table)[SECTION_INDEX((uint32_t)vaddr)];
-    if ((*l1_entry & 0x3) != 0x1) {
-        return (void*)(((uint32_t)vaddr - KERNEL_ENTRY) + DRAM_BASE);
-    }
-
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-    return (void*)((l2_table[PAGE_INDEX((uint32_t)vaddr)] & ~0xFFF) | ((uint32_t)vaddr & 0xFFF));
-}

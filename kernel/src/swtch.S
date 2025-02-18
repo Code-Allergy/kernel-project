@@ -102,6 +102,7 @@ syscall_return:
     movs    pc, lr               @ Return and switch to user mode
 
 
+@ TODO this shouldn't clobber any of r0-r12
 @ r0 is the stack pointer of the current context, with all registers saved
 .global user_context_return
 user_context_return:
@@ -113,17 +114,20 @@ user_context_return:
     @ set spsr to the saved cpsr
     ldmia sp, {r0-r12, lr}     @ Load r0-r12, LR
     ldr   ip, [sp, #60]        @ Load saved PC into temporary register (ip/r12)
-    ldr   r0, [sp, #56]        @ Load saved CPSR
+    ldr   r10, [sp, #56]        @ Load saved CPSR
 
     @ advance the stack pointer past the last 4
     add sp, sp, #64            @ update stack
 
     cps    #0x13               @ Switch to Supervisor mode again (needed before returning)
     @ Set SPSR to the saved CPSR (user's CPSR)
-    msr   spsr_cxsf, r0
+    msr   spsr_cxsf, r10
 
     @ Set LR to the saved PC (adjusted for exception return)
     mov   lr, ip
+
+    @ enable IRQs
+    @cpsie    I
 
     @ Return to user mode, restoring CPSR from SPSR
     movs  pc, lr

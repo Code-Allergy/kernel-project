@@ -3,42 +3,6 @@
 #include <kernel/string.h>
 #include <stdint.h>
 
-// used before i found out about libgcc __aeabi_uidiv
-unsigned int soft_div(uint32_t dividend, uint32_t divisor, uint32_t *rem) {
-    // Handle divide by zero
-    if (divisor == 0) {
-        if (rem) *rem = dividend;
-        return 0xFFFFFFFF;  // Return max value on error
-    }
-
-    uint32_t quotient = 0;
-    uint32_t remainder = 0;
-    uint32_t bit = 1;
-
-    // Find highest bit position where divisor <= dividend
-    uint32_t current_divisor = divisor;
-    uint32_t current_bit = bit;
-    while (current_divisor < dividend && (current_divisor & 0x80000000) == 0) {
-        current_divisor <<= 1;
-        current_bit <<= 1;
-    }
-    divisor = current_divisor;
-    bit = current_bit;
-
-    // Main division loop
-    while (bit != 0) {
-        if (dividend >= divisor) {
-            dividend -= divisor;
-            quotient |= bit;
-        }
-        divisor >>= 1;
-        bit >>= 1;
-    }
-
-    if (rem) *rem = dividend;  // dividend now holds remainder
-    return quotient;
-}
-
 int fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr, uint32_t* next) {
     if (!fs || !next) {
         return FAT32_ERROR_BAD_PARAMETER;
@@ -48,8 +12,8 @@ int fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr, uint32_t* next) {
     uint32_t fat_offset = curr * 4;
 
     // Calculate which FAT sector contains this cluster
-    uint32_t entry_offset;
-    uint32_t fat_sector = soft_div(fat_offset, FAT32_SECTOR_SIZE, &entry_offset);
+    uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
+    uint32_t fat_sector = fat_offset / FAT32_SECTOR_SIZE;
     fat_sector += fs->fat_start_sector;
 
     // Read the FAT sector
@@ -123,8 +87,8 @@ int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster, uint32_t *next_cluste
     // Calculate which sector of the FAT contains this cluster's entry
     // Each FAT entry is 4 bytes (32 bits) in FAT32
     uint32_t fat_offset = cluster * 4;
-    uint32_t entry_offset;
-    uint32_t fat_sector = soft_div(fat_offset, FAT32_SECTOR_SIZE, &entry_offset);
+    uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
+    uint32_t fat_sector = fat_offset / FAT32_SECTOR_SIZE;
     fat_sector += fs->fat_start_sector;
 
     // Read the FAT sector
@@ -401,8 +365,8 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
     }
 
     while (remaining > 0) {
-        uint32_t cluster_offset;
-        uint32_t cluster_index = soft_div(file->file_offset, cluster_size, &cluster_offset);
+        uint32_t cluster_offset = file->file_offset % cluster_size;
+        uint32_t cluster_index = file->file_offset / cluster_size;
         uint32_t target_cluster;
 
         int result = get_cluster_at_index(fs, file->start_cluster, cluster_index, &target_cluster);
@@ -432,8 +396,8 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
 
             // Calculate starting sector and position within the cluster
             uint32_t cluster_start_sector = fat32_cluster_to_sector(fs, target_cluster);
-            uint32_t sector_offset;
-            uint32_t sector_in_cluster = soft_div(cluster_offset, fs->bytes_per_sector, &sector_offset);
+            uint32_t sector_offset = cluster_offset % fs->bytes_per_sector;
+            uint32_t sector_in_cluster = cluster_offset % fs->bytes_per_sector;
             uint32_t current_sector = cluster_start_sector + sector_in_cluster;
 
             // printk("Writing %d bytes, remaining: %d\n", bytes_to_read, remaining - bytes_to_read);

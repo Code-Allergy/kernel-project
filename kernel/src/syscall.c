@@ -29,9 +29,10 @@ int sys_yield(void) {
 }
 
 int sys_open(char* path, int flags, int mode) {
-    // for now, just check if we are opening root
+    // for now, just check if we are opening root, but use copy_from_user later
     int res = -1;
-    if (strcmp(path, "/") == 0) {
+    char* paddr_path = (char*)mmu_driver.get_physical_address(current_process->ttbr0, (void*)path);
+    if (strcmp(paddr_path, "/") == 0) {
         res = vfs_root_node->ops->open(vfs_root_node, flags);
     }
 
@@ -155,27 +156,7 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
 
     // Return to process page table
     mmu_driver.set_l1_table((uint32_t*)process_table);
-    // set up return value
-
-    // restore_user_context();
+    // set up return value at r0
+    current_process->stack_top[0] = ret;
     return ret;
 }
-
-
-// int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address) {
-//     dump_registers(&current_process->context);
-//     current_process->context.lr = return_address;
-//     uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-//     mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
-//     printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
-//     mmu_driver.set_l1_table((uint32_t*)current_process->ttbr0);
-//     if (num >= 0 && num < NR_SYSCALLS) {
-//         switch(syscall_table[num].num_args) {
-//             case 0: return syscall_table[num].fn.fn0();
-//             case 1: return syscall_table[num].fn.fn1(arg1);
-//             case 2: return syscall_table[num].fn.fn2(arg1, arg2);
-//             case 3: return syscall_table[num].fn.fn3(arg1, arg2, arg3);
-//         }
-//     }
-//     return -1;
-// }

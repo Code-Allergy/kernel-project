@@ -74,20 +74,9 @@ undef_handler:
     /* Schedule new process */
     b       scheduler
 
-irq_handler:
-    sub lr, lr, #4        /* Adjust LR for IRQ return */
-    mrs r0, spsr          /* Save SPSR */
-    /* push {r0, r1-r12, lr} Save context and SPSR */
-
-    mov r0, lr            /* Pass return address as argument */
-    b handle_irq_c       /* Call C handler */
-
-    /* pop {r0, r1-r12, lr}   Restore context and SPSR */
-    /* msr spsr_cxsf, r0     Restore SPSR */
-    /* subs pc, lr, #0        Return from exception */
-
 @ TODO: cleanup, don't clobber r12, do 2 steps to save lr
 irq_handler_new:
+    @cpsid    I
     MRS   R12, SPSR                    @ Get SPSR
     CPS   #0x1F                        @ System mode
     SUB  SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
