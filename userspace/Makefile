@@ -13,7 +13,7 @@ OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 
 # Compiler flags
 CFLAGS = -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I.
-LDFLAGS = -T linker.ld
+LDFLAGS = -T linker.ld -Llib
 
 SOURCES = $(wildcard $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
@@ -27,10 +27,10 @@ $(BIN_DIR)/%: $(ELF_DIR)/%.elf | $(BIN_DIR)
 
 # Create elf from object files
 $(ELF_DIR)/%.elf: $(OBJ_DIR)/%.o | $(ELF_DIR)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $^ -losc
 
 # Compile C source files into object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR) make-lib
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Create necessary directories if they don't exist
@@ -46,9 +46,13 @@ $(ELF_DIR):
 $(OBJ_DIR):
 	@mkdir -p $(OBJ_DIR)
 
+make-lib:
+	$(MAKE) -C lib
+
 # Clean target to remove generated files
 clean:
+	$(MAKE) -C lib clean
 	rm -rf $(BUILD_DIR)
 
 .PRECIOUS: $(ELF_DIR)/%.elf $(OBJ_DIR)/%.o
-.PHONY: all clean
+.PHONY: all clean make-lib

@@ -23,17 +23,13 @@ int sys_getpid(void) {
 }
 
 int sys_yield(void) {
-    scheduler();
-    return -1; // should never reach here
+    scheduler_driver.schedule_next = 1;
+    return 0;
 }
 
 
+// this should copy memory instead
 int sys_debug(int buf, int len) {
-    char* buff = kmalloc(len);
-    if (buff == NULL) {
-        return -1;
-    }
-
     uint32_t process_table = (uint32_t)mmu_driver.ttbr0;
     // switch page taable so we can print, we won't want this later
 
@@ -41,8 +37,7 @@ int sys_debug(int buf, int len) {
     mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
     void* paddr = mmu_driver.get_physical_address(current_process->ttbr0, (void*)buf);
 
-    printk("buffer addr: %p\n", paddr);
-    printk("buffer: %s\n", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
+    printk("[SYS_DEBUG]: %s\n", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
 
     mmu_driver.set_l1_table((uint32_t*) process_table);
     return 0;

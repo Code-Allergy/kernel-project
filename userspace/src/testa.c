@@ -1,33 +1,14 @@
 #include "sysc.h"
-void __attribute__((section(".text.startup"))) _start(void) {
+int main(void) {
     debug("Hello, World 1!\n");
+    yield();
     debug("Hello, World 1!\n");
+    yield();
     debug("Hello, World 1!\n");
+    yield();
     debug("Hello, World 1!\n");
+    yield();
     debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    debug("Hello, World 1!\n");
-    // yield();
-    exit(0);
+
+    return 0;
 }

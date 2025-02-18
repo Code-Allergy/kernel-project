@@ -1,6 +1,14 @@
 #include "sysc.h"
-void _start(void) {
+int main(void) {
     debug("Hello, World 2!\n");
     yield();
-    exit(0);
+    debug("Hello, World 2!\n");
+    yield();
+    debug("Hello, World 2!\n");
+    yield();
+    debug("Hello, World 2!\n");
+    yield();
+    debug("Hello, World 2!\n");
+
+    return 0;
 }

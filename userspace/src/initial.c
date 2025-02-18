@@ -1,6 +1,6 @@
 #include "sysc.h"
 
-void _start(void) {
+int main(void) {
     // while (1) {
     //     debug("Hello, World!\n");
     //     yield();
@@ -9,7 +9,6 @@ void _start(void) {
     // yield();
 
     debug("Exiting...\n");
-    exit(0);
-    // Exit the program (you can implement this with another syscall if needed)
-    while (1);
+
+    return 0;
 }

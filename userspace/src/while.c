@@ -1,7 +1,7 @@
 #include "sysc.h"
-void _start(void) {
+int main(void) {
     while (1) {
     };
 
-    exit(0);
+    return 0;
 }

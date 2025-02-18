@@ -77,10 +77,11 @@ int scheduler_init(void) {
     }
 
     scheduler_driver.current_tick = 0;
-    // spawn_flat_init_process("/bin/null");
-    spawn_flat_init_process("/bin/while");
-    spawn_flat_init_process("/bin/while");
-
+    spawn_flat_init_process("/bin/null");
+    spawn_flat_init_process("/bin/testa");
+    spawn_flat_init_process("/bin/testb");
+    // spawn_flat_init_process("/bin/while");
+    // spawn_flat_init_process("/bin/while");
 
     // scheduler();
     __builtin_unreachable();
@@ -163,8 +164,7 @@ __attribute__ ((noreturn)) void scheduler(void) {
     }
 
     printk("Starting process pid %u\n", next_process->pid);
-    printk("Next process: %p\n", next_process);
-    printk("Jumping to code at %p\n", *(uint32_t*)(next_process->stack_page_paddr + PAGE_SIZE - (2 * sizeof(uint32_t))));
+    printk("Jumping to code at %p\n", *(uint32_t*)(next_process->stack_page_paddr + PAGE_SIZE - (3 * sizeof(uint32_t))));
     printk("Stack top: %p\n", next_process->stack_top);
 
     // debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
