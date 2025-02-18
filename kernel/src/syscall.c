@@ -1,4 +1,4 @@
-#include "kernel/vfs.h"
+#include <kernel/vfs.h>
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
 #include <stdint.h>
@@ -14,9 +14,12 @@ extern void syscall_return(struct cpu_regs*, int return_value);
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = clone_process(current_process);
-    // child->context.r0 = 0; // return 0 for child
-    // current_process->context.r0 = child->pid; // return child pid for parent
-    scheduler(); // reschedule after creating a fork
+    // get physical address of the child's stack page
+    uint32_t stack_offset = (uint32_t)current_process->stack_top - current_process->stack_page_vaddr;
+    uint32_t* child_stack_paddr = (uint32_t*)((uint32_t)mmu_driver.get_physical_address(child->ttbr0, (void*)child->stack_page_vaddr) + stack_offset);
+    child_stack_paddr[0] = child->pid; // return value of fork in child is the pid
+
+    return 0;
 }
 
 int sys_getpid(void) {
@@ -106,6 +109,7 @@ static const struct {
     [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
     [SYS_YIELD]  = {{.fn0 = sys_yield},  "yield",  0},
     [SYS_OPEN]   = {{.fn3 = sys_open},   "open",   3},
+    [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0}
 };
 
 static inline void save_kernel_context(void) {

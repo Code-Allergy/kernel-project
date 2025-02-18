@@ -145,15 +145,38 @@ void* memset(void* ptr, int value, unsigned long num) {
 
 }
 
+// void* memcpy(void* dest, const void* src, unsigned long size) {
+//     char* d = (char*)dest;
+//     const char* s = (const char*)src;
+//     while (size > 0) {
+//         *d = *s;
+//         d++;
+//         s++;
+//         size--;
+//     }
+//     return dest;
+// }
+
 void* memcpy(void* dest, const void* src, unsigned long size) {
     char* d = (char*)dest;
     const char* s = (const char*)src;
+
+    // Copy in 4-byte chunks
+    while (size >= 4) {
+        *(int*)d = *(const int*)s;
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+
+    // Copy any remaining bytes one-by-one
     while (size > 0) {
         *d = *s;
         d++;
         s++;
         size--;
     }
+
     return dest;
 }
 

@@ -26,28 +26,25 @@ static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
 #define SCHEDULER_PREEMPT_TICKS 10
 
-int spawn_flat_init_process(const char* file_path) {
+process_t* spawn_flat_init_process(const char* file_path) {
     fat32_fs_t sd_card;
     fat32_file_t userspace_application;
     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
         printk("Failed to mount SD card\n");
-        return -1;
+        return NULL;
     }
     if (fat32_open(&sd_card, file_path, &userspace_application)) {
         printk("Failed to open file\n");
-        return -1;
+        return NULL;
     }
 
     static uint8_t bytes[PAGE_SIZE];
     if ((uint32_t)fat32_read(&userspace_application, bytes, PAGE_SIZE) != userspace_application.file_size) {
         printk("Init process not read fully off disk\n");
-        return -1;
+        return NULL;
     };
 
-    create_process(bytes, userspace_application.file_size);
-    // create_process(bytes, userspace_application.file_size);
-
-    return 0;
+    return create_process(bytes, userspace_application.file_size);
 }
 
 static int32_t get_next_pid(void) {
@@ -79,12 +76,7 @@ int scheduler_init(void) {
 
     scheduler_driver.current_tick = 0;
     spawn_flat_init_process("/bin/null");
-    // spawn_flat_init_process("/bin/open");
-    spawn_flat_init_process("/bin/testa");
-    spawn_flat_init_process("/bin/testa");
-
-    // spawn_flat_init_process("/bin/while");
-    // spawn_flat_init_process("/bin/while");
+    process_t* p = spawn_flat_init_process("/bin/testa");
 
     // scheduler();
     return 0;
@@ -174,6 +166,15 @@ void __attribute__ ((noreturn)) scheduler(void) {
     // debug_l1_l2_entries((void*)0x00010000, next_process->ttbr0);
     // printk("Phys=0x446A9000: %p", *(uint32_t*)0x446A9000);
     mmu_driver.set_l1_with_asid(next_process->ttbr0, next_process->asid);
+    // Add TLB invalidation for the new ASID
+    __asm__ volatile (
+        "dsb ish\n"
+        "mcr p15, 0, %0, c8, c7, 2\n"  // Invalidate TLB by ASID
+        "dsb ish\n"
+        "isb\n"
+        : : "r" (next_process->asid)
+    );
+
     current_process = next_process;
     scheduler_driver.schedule_next = 0;
 
@@ -211,11 +212,13 @@ process_t* clone_process(process_t* original_p) {
 
     // allocate pages for code and data
     void* data_page = alloc_page(&kpage_allocator);
+    // TODO - frame corruption?? look into what's happening to mapping here
+    void* _stack_page = alloc_page(&kpage_allocator);
+
     void* stack_page = alloc_page(&kpage_allocator);
     void* heap_page = alloc_page(&kpage_allocator);
     if (!data_page || !stack_page || !heap_page) { // NO SWAPPING
-        printk("Out of memory in clone_process! HALT\n");
-        while (1);
+        panic("Out of memory in clone_process! HALT\n");
     }
 
     p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
@@ -223,17 +226,20 @@ process_t* clone_process(process_t* original_p) {
 
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_CODE_BASE, (void*)original_p->code_page_paddr, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    // TODO clone memory from original process
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
 
     // map kernel mappings
     copy_kernel_mappings(p->ttbr0);
 
+    memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
+    memcpy(stack_page, (void*)original_p->stack_page_paddr, PAGE_SIZE); // TODO COW for stack page / only copy in use stack
+    memcpy(heap_page, (void*)original_p->heap_page_paddr, PAGE_SIZE); // TODO COW for heap page
+
     p->asid = allocate_asid();
     p->pid = get_next_pid();
-    p->priority = 0;
+    p->ppid = original_p->pid;
+    p->priority = original_p->priority;
 
     p->code_page_vaddr = MEMORY_USER_CODE_BASE;
     p->stack_page_vaddr = MEMORY_USER_STACK_BASE;
@@ -245,10 +251,22 @@ process_t* clone_process(process_t* original_p) {
     p->stack_page_paddr = (uint32_t) stack_page;
     p->heap_page_paddr = (uint32_t) heap_page;
 
+    p->stack_top = original_p->stack_top;
     p->code_size = original_p->code_size;
-
-    memcpy(&p->context, &original_p->context, sizeof(struct cpu_regs));
     p->state = PROCESS_READY;
+
+    // Debug: Print L1 entry for user stack
+    uint32_t stack_vaddr = MEMORY_USER_STACK_BASE;
+    uint32_t l1_index = stack_vaddr >> 20;
+    uint32_t l1_entry = p->ttbr0[l1_index];
+    printk("Clone L1[%d] = 0x%08x (phys: 0x%08x)\n",
+           l1_index, l1_entry, (l1_entry & 0xFFF00000));
+
+    uint32_t* addr = mmu_driver.get_physical_address(p->ttbr0, (void*)stack_vaddr);
+    printk("Physical address1:%p\n", addr);
+
+    uint32_t* addr2 = mmu_driver.get_physical_address(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE);
+    printk("Physical address2:%p\n", addr2);
 
     return p;
 }

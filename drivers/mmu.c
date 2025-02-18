@@ -110,14 +110,9 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
         *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
     }
     // identity map the table so we can write to it
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-    // void* l2_table_page = (void*) (*l1_entry & ~0xFFF);
-    // mmu_driver.map_page(NULL, l2_table_page, l2_table_page, L2_KERNEL_DATA_PAGE);
-    // mmu_driver.flush_tlb();
-    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 
-    // unmap the table, we don't need it anymore
-    // mmu_driver.unmap_page(NULL, l2_table);
+    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 }
 
 void unmap_page(void* tbbr0, void* vaddr) {

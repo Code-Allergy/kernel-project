@@ -6,6 +6,8 @@
 #define SYSCALL_EXIT_NO 1
 #define SYSCALL_GET_PID_NO 2
 
+#define SYSCALL_FORK_NO 5
+
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;
 
@@ -50,4 +52,5 @@ static inline __attribute__((always_inline)) void syscall_2(uint32_t syscall_num
 
 void syscall_debug(const char *str, uint32_t len);
 uint32_t getpid(void);
+int fork(void);
 #endif
