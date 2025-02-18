@@ -13,20 +13,17 @@
 extern uint32_t _vectors[];
 
 struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
-void handle_irq_c(uint32_t return_addr) {
+void handle_irq_c(uint32_t process_stack) {
     static uint32_t pending, irq;
     // switch to kernel page table
     mmu_driver.set_l1_table((uint32_t*) (((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE));
 
-    // the pc should also be the return address
-    current_process->context.lr = return_addr - 4;
-    current_process->context.pc = current_process->context.lr;
+    current_process->stack_top = process_stack;
     for(int reg = 0; reg < 3; reg++) {
         pending = INTC->IRQ_PEND[reg];
         while(pending) {
             irq = 32 * reg + __builtin_ctz(pending);
             if(irq_handlers[irq].handler) {
-                printk("Calling handler for irq %d\n", irq);
                 irq_handlers[irq].handler(irq, irq_handlers[irq].data);
             }
             pending &= pending - 1;

@@ -18,9 +18,12 @@ static uint32_t curr_pid;
 volatile bool schedule_needed = false;
 
 process_t* current_process = NULL;
+process_t* next_process = NULL;
 process_t process_table[MAX_PROCESSES];
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
+
+#define SCHEDULER_PREEMPT_TICKS 10
 
 int spawn_flat_init_process(const char* file_path) {
     fat32_fs_t sd_card;
@@ -41,6 +44,8 @@ int spawn_flat_init_process(const char* file_path) {
     };
 
     create_process(bytes, userspace_application.file_size);
+    // create_process(bytes, userspace_application.file_size);
+
     return 0;
 }
 
@@ -71,11 +76,13 @@ int scheduler_init(void) {
         process_table[i].state = PROCESS_NONE;
     }
 
-
-    spawn_flat_init_process("/bin/null");
+    scheduler_driver.current_tick = 0;
     // spawn_flat_init_process("/bin/null");
+    spawn_flat_init_process("/bin/while");
+    spawn_flat_init_process("/bin/while");
 
-    scheduler();
+
+    // scheduler();
     __builtin_unreachable();
 }
 
@@ -139,7 +146,7 @@ process_t* get_next_process(void) {
 
     return current_process; // If no other process found, return current one
 }
-extern void user_context_return(uint32_t stack_top);
+__attribute__((noreturn)) extern void user_context_return(uint32_t stack_top);
 
 void debug_stack_access(process_t* proc) {
     printk("Process %d stack info:\n", proc->pid);
@@ -148,14 +155,11 @@ void debug_stack_access(process_t* proc) {
     printk("  Stack physical: %p\n", proc->stack_page_paddr);
 }
 
-__attribute__((noreturn)) void scheduler(void) {
-    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE;
-    mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
-
-    process_t* next_process = get_next_process();
+__attribute__ ((noreturn)) void scheduler(void) {
+    mmu_driver.set_l1_table((uint32_t*)(((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE));
+    next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
         printk("No more processes to run, halting!\n");
-        return;
     }
 
     printk("Starting process pid %u\n", next_process->pid);
@@ -169,31 +173,34 @@ __attribute__((noreturn)) void scheduler(void) {
     current_process = next_process;
     scheduler_driver.schedule_next = 0;
     user_context_return(next_process->stack_top);
-    if (current_process == next_process) {
-        printk("Starting current process\n");
-        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-        context_switch_1(&current_process->context);
-    }
-    while(1);
+    // unreachable
+    __builtin_unreachable();
 
-    // If we have a current process and it's not exited
-    if (current_process && current_process->state != PROCESS_NONE) {
-        printk("Starting next process\n");
-        process_t* prev_process = current_process;
-        current_process->state = PROCESS_READY;
-        next_process->state = PROCESS_RUNNING;
-        current_process = next_process;
-        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-        // Use full context switch to save current and restore next
-        context_switch(&prev_process->context, &next_process->context);
-    } else {
-        // First time or after process exit, just restore the new process
-        printk("First time or after process exit\n");
-        current_process = next_process;
-        next_process->state = PROCESS_RUNNING;
-        mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-        context_switch_1(&current_process->context);
-    }
+    // if (current_process == next_process) {
+    //     printk("Starting current process\n");
+    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+    //     context_switch_1(&current_process->context);
+    // }
+    // while(1);
+
+    // // If we have a current process and it's not exited
+    // if (current_process && current_process->state != PROCESS_NONE) {
+    //     printk("Starting next process\n");
+    //     process_t* prev_process = current_process;
+    //     current_process->state = PROCESS_READY;
+    //     next_process->state = PROCESS_RUNNING;
+    //     current_process = next_process;
+    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+    //     // Use full context switch to save current and restore next
+    //     context_switch(&prev_process->context, &next_process->context);
+    // } else {
+    //     // First time or after process exit, just restore the new process
+    //     printk("First time or after process exit\n");
+    //     current_process = next_process;
+    //     next_process->state = PROCESS_RUNNING;
+    //     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+    //     context_switch_1(&current_process->context);
+    // }
 }
 
 process_t* get_available_process(void) {
@@ -259,7 +266,7 @@ process_t* clone_process(process_t* original_p) {
 
 // create a new process with a flat binary
 process_t* create_process(uint8_t* bytes, size_t size) {
-    printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
+    // printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
     process_t* proc = get_available_process();
     if (proc == NULL) {
         printk("Out of available processes in create_process! HALT\n");
@@ -324,7 +331,6 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     sp[15] = 0x10; // cpsr
 
     proc->state = PROCESS_READY;
-    mmu_driver.set_l1_table(proc->ttbr0);
     return proc;
 }
 
@@ -348,17 +354,54 @@ void get_kernel_regs(struct cpu_regs* regs) {
     __asm__ volatile("mov %0, pc" : "=r"(regs->pc));
 }
 
-
-
-__attribute__((noreturn)) void userspace_return() {
-    if (scheduler_driver.schedule_next) {
-        scheduler();
+void tick(void) {
+    if (scheduler_driver.current_tick++ % SCHEDULER_PREEMPT_TICKS == 0) {
+        scheduler_driver.schedule_next = 1;
     }
+}
 
-    user_context_return(current_process->stack_top);
+
+
+// __attribute__((noreturn)) void userspace_return() {
+//     // add 8 to stack pointer
+//     __asm__ volatile("add sp, sp, #8");
+
+//     if (scheduler_driver.schedule_next) {
+//         scheduler();
+//     }
+
+//     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
+//     user_context_return(current_process->stack_top);
+// }
+
+void mmu_set_l1_with_asid(uint32_t ttbr0, uint32_t asid) {
+    mmu_driver.set_l1_with_asid((uint32_t*)ttbr0, asid);
+}
+
+
+// TODO clean this up
+__attribute__((naked, noreturn)) void userspace_return() {
+    __asm__ volatile(
+        "ldr r3, =scheduler_driver\n\t"
+        "ldr r3, [r3]\n\t"
+        "cmp r3, #0\n\t"
+        "beq 1f\n\t"
+        "b scheduler\n"
+        "1:\n\t"
+        "ldr r3, =current_process\n\t"
+        "ldr r3, [r3]\n\t"
+        "ldr r0, [r3, #12]\n\t"    // ttbr0
+        "ldr r1, [r3, #16]\n\t"    // asid
+        "bl mmu_set_l1_with_asid\n\t"
+        "ldr r3, =current_process\n\t"
+        "ldr r3, [r3]\n\t"
+        "ldr r0, [r3, #56]\n\t"    // stack_top
+        "b user_context_return\n\t"
+    );
 }
 
 
 scheduler_t scheduler_driver = {
-    .schedule_next = 0
+    .schedule_next = 0,
+    .tick = tick,
 };

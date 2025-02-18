@@ -37,11 +37,11 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -ffreestanding -nostdlib \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
-         -std=gnu2x -g \
+         -std=gnu99 -g \
          -MMD -MP
 
 # Optimization flags
-# CFLAGS += -O2
+# CFLAGS += -O0
 CFLAGS += -fstack-protector-all -fno-strict-aliasing -O0 -fstack-usage -DDEBUG
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader

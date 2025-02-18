@@ -18,7 +18,7 @@ undef_addr:    .word undef_handler
 swi_addr:      .word swi_stack_handler
 prefetch_addr: .word prefetch_abort_handler
 data_addr:     .word data_abort_handler
-irq_addr:      .word irq_handler
+irq_addr:      .word irq_handler_new
 fiq_addr:      .word fiq_handler
 
 /* Default handlers */
@@ -26,8 +26,11 @@ fiq_addr:      .word fiq_handler
 
 .section .text
 reset_handler:
-fiq_handler:
+fiq_handler: /* No FIQ hardware on AM335x */
     b .  /* Infinite loop for unhandled exceptions */
+
+prefetch_abort_handler:
+    b prefetch_abort_c
 
 undef_handler:
     /* Save Undefined mode LR and SPSR */
@@ -83,18 +86,28 @@ irq_handler:
     /* msr spsr_cxsf, r0     Restore SPSR */
     /* subs pc, lr, #0        Return from exception */
 
-swi_handler:
-    STMFD   SP!, {R0-R3, LR}       @ Save R0-R3 and return address (LR_svc)
-    MOV     R0, R7                 @ Get SVC number from R7
-    LDR     R1, [SP, #0]           @ Load original R0 (arg1) from stack
-    LDR     R2, [SP, #4]           @ Load original R1 (arg2) from stack
-    LDR     R3, [SP, #8]           @ Load original R2 (arg3) from stack
-    LDR     R12, [SP, #12]         @ Load original R3 (arg4) from stack
-    LDR     LR, [SP, #16]          @ Load return address (raddr) from stack
-    STMFD   SP!, {R12, LR}         @ Push arg4 and raddr to stack (for C call)
-    BL      handle_svc_c            @ Call C handler
-    ADD     SP, SP, #8             @ Cleanup stack (arg4 and raddr)
-    LDMFD   SP!, {R0-R3, PC}^      @ Restore registers and return
+@ TODO: cleanup, don't clobber r12, do 2 steps to save lr
+irq_handler_new:
+    MOV   R12, LR
+    CPS   #0x1F                        @ System mode
+    SUB  SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
+
+    MOV   LR, R12                      @ store user registers
+    @ store user registers
+    STMIA   SP, {R0-R12, LR}           @ Save user registers
+    STR     LR, [SP, #56]              @ Save user PC (LR contains return address)
+
+    MRS     R0, SPSR                    @ Get SPSR
+    STR     R0, [SP, #60]              @ Save SPSR at offset 60
+
+    @ save stack pointer for passing to C handler
+    MOV     R0, SP                      @ Get system mode SP
+
+    @ switch back to IRQ mode
+    CPS     #0x12                       @ Switch to IRQ mode
+
+    BL      handle_irq_c               @ Call C handler
+    B      userspace_return
 
 swi_stack_handler:
     @ save 0-3 on stack
@@ -124,6 +137,3 @@ swi_stack_handler:
     BL     handle_svc_c            @ Call C handler
     ADD     SP, SP, #8             @ Remove 5th and 6th params from stack
     B      userspace_return
-
-prefetch_abort_handler:
-    b prefetch_abort_c

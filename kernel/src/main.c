@@ -13,36 +13,32 @@
 
 #include <stdint.h>
 
-#define KERNEL_HEARTBEAT_TIMER 400000 // us
+#include "../drivers/qemu/timer.h"
+#include "../drivers/qemu/intc.h"
+
+
+#define KERNEL_HEARTBEAT_TIMER 100000 // us
 
 bootloader_t bootloader_info;
 
+// TODO remove -- testing only
+void timer_start(int timer_idx, uint32_t interval_us);
+
 // system clock
-__attribute__((noreturn)) void system_clock(void) {
-    extern uint32_t canary_value_start;
-    if (canary_value_start != STACK_CANARY_VALUE) {
-        uint32_t kernel_phys_l1 = (uint32_t)l1_page_table - KERNEL_START + DRAM_BASE;
-        mmu_driver.set_l1_table((void*)kernel_phys_l1);
-        printk("STACK CORRUPTION DETECTED\nHALT\n");
-        while (1);
-    }
-
-    // fix stack pointer (64 bytes)
-    __asm__ volatile ("add sp, sp, #64"); // TODO this is hacky but needed to reset the stack as schedule() doesn't reuturn
-
-
-    scheduler(); // don't schedule here, set a flag in scheduler_t
+void system_clock(int irq, void* data) {
+    scheduler_driver.tick();
+    AW_Timer *t = (AW_Timer*) TIMER_BASE;
+    t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
 }
 
 void init_kernel_hardware(void) {
     clock_timer.init();
-    // clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
     uart_driver.enable_interrupts();
 
-    // interrupt_controller.register_irq(1, uart_handler, NULL);
+    interrupt_controller.register_irq(1, uart_handler, NULL);
     interrupt_controller.enable_irq(1);
 }
 
@@ -87,8 +83,7 @@ void init_stack_canary(void) {
 }
 
 #ifndef BOOTLOADER
-__attribute__((section(".text.kernel_main")))
-int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
+__attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
     init_stack_canary();
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
@@ -104,8 +99,12 @@ int kernel_main(bootloader_t* _bootloader_info) { // we can pass a different str
     init_kernel_pages();
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
-    // interrupt_controller.enable_irq_global();
+
     scheduler_init();
+    // interrupt_controller.enable_irq_global();
+    timer_start(0, KERNEL_HEARTBEAT_TIMER);
+    printk("Kernel initialized\n");
+    scheduler();
 
     printk("Reached end of kernel_main, something bad happened!\nHalting\n");
     while (1)  __asm__ volatile("wfi");

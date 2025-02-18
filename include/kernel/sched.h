@@ -60,13 +60,17 @@ typedef struct {
 } process_t;
 
 typedef struct {
+    int schedule_next;
     process_t* current_process;
 
 
     int num_processes;
     int max_processes;
 
-    int schedule_next;
+
+    uint32_t current_tick;
+
+    void (*tick)(void);
 } scheduler_t;
 extern scheduler_t scheduler_driver;
 
@@ -76,10 +80,11 @@ void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);
 extern process_t* current_process;
 int scheduler_init(void);
-__attribute__((noreturn)) void scheduler(void);
+void scheduler(void) __attribute__ ((noreturn));
 int spawn_flat_init_process(const char* file_path);
 // asm
 extern void context_switch(struct cpu_regs* old_context, struct cpu_regs* new_context);
 extern void context_switch_1(struct cpu_regs* next_context);
+void __attribute__((noreturn)) userspace_return();
 
 #endif // KERNEL_SCHED_H
