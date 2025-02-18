@@ -37,8 +37,8 @@ int spawn_flat_init_process(const char* file_path) {
         return -1;
     }
 
-    static uint8_t bytes[1024];
-    if ((uint32_t)fat32_read(&userspace_application, bytes, 1024) != userspace_application.file_size) {
+    static uint8_t bytes[PAGE_SIZE];
+    if ((uint32_t)fat32_read(&userspace_application, bytes, PAGE_SIZE) != userspace_application.file_size) {
         printk("Init process not read fully off disk\n");
         return -1;
     };
@@ -77,9 +77,8 @@ int scheduler_init(void) {
     }
 
     scheduler_driver.current_tick = 0;
-    spawn_flat_init_process("/bin/null");
+    // spawn_flat_init_process("/bin/null");
     spawn_flat_init_process("/bin/testa");
-    spawn_flat_init_process("/bin/testb");
     // spawn_flat_init_process("/bin/while");
     // spawn_flat_init_process("/bin/while");
 
@@ -327,8 +326,8 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     sp[11] = 0; // r11
     sp[12] = 0; // r12
     sp[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
-    sp[14] = MEMORY_USER_CODE_BASE; // pc
-    sp[15] = 0x10; // cpsr
+    sp[14] = 0x10; // cpsr
+    sp[15] = MEMORY_USER_CODE_BASE; // pc
 
     proc->state = PROCESS_READY;
     return proc;

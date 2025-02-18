@@ -74,7 +74,7 @@ qemu: sdcard
 	$(QEMU_PATH)qemu-system-arm -m 512M -M cubieboard \
 	-cpu cortex-a8 -drive if=sd,format=raw,file=$(OUTPUT_IMG) \
 	-serial mon:stdio -nographic \
-	-d guest_errors,unimp,int -D qemu.log \
+	-d guest_errors,unimp,int \
 	-kernel $(BOOTLOADER_BIN)
 
 qemu-gdb: sdcard

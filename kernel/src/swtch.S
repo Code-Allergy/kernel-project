@@ -109,14 +109,24 @@ user_context_return:
 
     @ Restore user mode sp, then load r0-r12
     mov   sp, r0               @ Restore user SP
+    ldr   r0, [sp, #60]        @ Load pc
+
+    @ set svc exit address
+    cps    #0x13                @ Switch to Supervisor mode again (needed before returning)
+
+    mov  lr, r0               @ Set lr to the pc value
+
+    cps   #0x1F                @ Switch to System mode
 
     @ set spsr to the saved cpsr
-    ldr  r0, [sp, #60]        @ Load saved cpsr
-    msr  spsr_cxsf, r0        @ Set spsr register for mode switch
+
 
     ldmia sp, {r0-r12, lr}         @ Restore r0-r12
+    ldr  r12, [sp, #56]        @ Load saved cpsr
 
     @ advance the stack pointer past the last 4
-    add sp, sp, #64         @ Skip over cpsr
+    add sp, sp, #60         @ Skip over cpsr
 
-    movs pc, lr              @ Jump to return address
+    cps    #0x13                @ Switch to Supervisor mode again (needed before returning)
+    msr  spsr_cxsf, r12        @ Set spsr register for mode switch
+    bx     lr                  @ Return to the caller

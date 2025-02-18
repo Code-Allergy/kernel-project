@@ -11,9 +11,13 @@ CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 
+GCC_LIB_DIR = $(dir $(shell $(CC) -print-libgcc-file-name))
+
+
 # Compiler flags
 CFLAGS = -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I.
-LDFLAGS = -T linker.ld -Llib
+LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
+LDLIBS = -losc -lgcc
 
 SOURCES = $(wildcard $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
@@ -27,7 +31,7 @@ $(BIN_DIR)/%: $(ELF_DIR)/%.elf | $(BIN_DIR)
 
 # Create elf from object files
 $(ELF_DIR)/%.elf: $(OBJ_DIR)/%.o | $(ELF_DIR)
-	$(LD) $(LDFLAGS) -o $@ $^ -losc
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compile C source files into object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR) make-lib

@@ -11,6 +11,7 @@ CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 
+
 CFLAGS = -ffreestanding -nostdlib -nostartfiles -std=gnu99 -Wall -Wextra -Wpedantic -Iinclude
 CFLAGS += -mcpu=cortex-a8 -mfloat-abi=soft
 

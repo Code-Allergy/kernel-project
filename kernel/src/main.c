@@ -17,7 +17,7 @@
 #include "../drivers/qemu/intc.h"
 
 
-#define KERNEL_HEARTBEAT_TIMER 100000 // us
+#define KERNEL_HEARTBEAT_TIMER 10000000 // us
 
 bootloader_t bootloader_info;
 

@@ -120,10 +120,12 @@ swi_stack_handler:
     @ allocate stack space for user registers
     SUB    SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
 
-    @MOV     LR, R0
-    STMIA   SP, {R0-R12, LR, PC}       @ Save R0-R3 and return address (LR)
+    STMIA   SP, {R0-R12, LR}       @ Save R0-R3 and return address (LR)
+    @ move return address to PC
+    STR     R0, [SP, #60]              @ Save user PC (LR contains return address)
+
     MRS     R0, SPSR                    @ Get SPSR
-    STR     R0, [SP, #60]               @ Save SPSR
+    STR     R0, [SP, #56]               @ Save SPSR
     MOV     R0, SP                      @ Get SP
 
     CPS    #0x13                       @ Switch to supervisor mode
