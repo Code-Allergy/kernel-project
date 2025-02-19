@@ -16,6 +16,8 @@
 
 #include <stdint.h>
 
+#include "../drivers/qemu/i2c.h"
+
 
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
@@ -119,6 +121,10 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     interrupt_controller.enable_irq_global();
 
     printk("Kernel initialized at time %d\n", epoch_now());
+
+    struct cubie_twi twi;
+    twi.base = (uint32_t*)TWI0_BASE;
+    rtc_i2c_read(&twi, 0);
 
 
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);

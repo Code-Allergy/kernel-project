@@ -28,6 +28,7 @@ l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 
 #define OTHER_IO_BASE (0x01c20000 + IO_KERNEL_OFFSET)
+#define TWI_IO_BASE   (0x01C2A000 + IO_KERNEL_OFFSET) // has twi and other io in this block.
 
 // for now all hw is identity mapped inside the kernel page table
 void mmu_map_hw_pages(void) {
@@ -38,6 +39,8 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(UART4_BASE)][PAGE_INDEX(UART4_BASE)] = UART4_BASE | L2_DEVICE_PAGE;
     // Map 4KB for MMC0
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
+    // Map 4KB for twi and other misc IO
+    l2_tables[SECTION_INDEX(TWI_IO_BASE)][PAGE_INDEX(TWI_IO_BASE)] = TWI_IO_BASE | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(OTHER_IO_BASE)][PAGE_INDEX(OTHER_IO_BASE)] = OTHER_IO_BASE | L2_DEVICE_PAGE;
 
@@ -48,6 +51,8 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(UART4_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(UART4_BASE + IO_KERNEL_OFFSET)] = UART4_BASE | L2_DEVICE_PAGE;
     // Map 4KB for MMC0
     l2_tables[SECTION_INDEX(MMC0_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(MMC0_BASE + IO_KERNEL_OFFSET)]   = MMC0_BASE  | L2_DEVICE_PAGE;
+    // Map 4KB for twi and other misc IO
+    l2_tables[SECTION_INDEX(TWI_IO_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(TWI_IO_BASE + IO_KERNEL_OFFSET)] = TWI_IO_BASE | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(OTHER_IO_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(OTHER_IO_BASE + IO_KERNEL_OFFSET)] = OTHER_IO_BASE | L2_DEVICE_PAGE;
     #else
@@ -57,6 +62,8 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(UART4_BASE)][PAGE_INDEX(UART4_BASE)] = (UART4_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
     // Map 4KB for MMC0
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = (MMC0_BASE - IO_KERNEL_OFFSET)  | L2_DEVICE_PAGE;
+    // Map 4KB for twi and other misc IO
+    l2_tables[SECTION_INDEX(TWI_IO_BASE)][PAGE_INDEX(TWI_IO_BASE)] = TWI_IO_BASE - IO_KERNEL_OFFSET | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(OTHER_IO_BASE)][PAGE_INDEX(OTHER_IO_BASE)] = (OTHER_IO_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
     #endif
