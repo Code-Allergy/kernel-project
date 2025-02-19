@@ -2,6 +2,7 @@
 
 #include <kernel/uart.h>
 #include <kernel/printk.h>
+#include <kernel/intc.h>
 #include "uart.h"
 #include "intc.h"
 
@@ -38,6 +39,8 @@ void uart_init_interrupts(void) {
 
     // Enable receive interrupts
     UART0->IER_DLH = UART_IER_RX_INT;
+
+    interrupt_controller.register_irq(1, uart_handler, NULL);
 }
 
 void uart_disable_interrupts(void) {

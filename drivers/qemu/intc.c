@@ -10,13 +10,15 @@
 #include "intc.h"
 
 /* Initial vector table for ARM, memory is pointed to here in VBAR register */
+
+#ifndef BOOTLOADER
 extern uint32_t _vectors[];
+#endif
+
 
 struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 void handle_irq_c(uint32_t process_stack) {
-    static uint32_t pending, irq;
-    // switch to kernel page table
-    // mmu_driver.set_l1_table((uint32_t*) (((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE));
+    uint32_t pending, irq;
 
     current_process->stack_top = (uint32_t*)process_stack;
     for(int reg = 0; reg < 3; reg++) {
@@ -29,13 +31,10 @@ void handle_irq_c(uint32_t process_stack) {
             pending &= pending - 1;
         }
     }
-
-    // if we were in a process, return to it
-    // if (current_process) {
-        // mmu_driver.set_l1_table((uint32_t*) current_process->ttbr0);
-    // }
 }
 
+
+#ifndef BOOTLOADER // bootloader doesn't handle interrupts, we might want to do this in the future
 static void intc_init(void) {
     uint32_t vbar_addr = (uint32_t)_vectors;
     if(vbar_addr & 0x1F) {
@@ -59,6 +58,11 @@ static void intc_init(void) {
         "msr cpsr_c, r0 \n"
     );
 }
+#else
+static void intc_init(void) {
+    panic("intc_init called in bootloader, this should not happen.");
+}
+#endif
 
 static void enable_irq(uint32_t irq) {
     if(irq >= MAX_IRQ_HANDLERS) panic("IRQ too large");

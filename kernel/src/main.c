@@ -12,28 +12,21 @@
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
 #include <kernel/string.h>
+#include <kernel/time.h>
 
 #include <stdint.h>
-
-#include "../drivers/qemu/timer.h"
-#include "../drivers/qemu/intc.h"
 
 
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 20000 // usec
+#define KERNEL_HEARTBEAT_TIMER 10000 // usec
 
 bootloader_t bootloader_info;
 
-// TODO remove -- testing only
-void timer_start(int timer_idx, uint32_t interval_us);
-
 // system clock
-void system_clock(int irq, void* data) {
+void system_clock() {
     scheduler_driver.tick();
-    AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    t->irq_status ^= (get_timer_idx_from_irq(irq) << 0);
 }
 
 void init_kernel_hardware(void) {
@@ -42,8 +35,6 @@ void init_kernel_hardware(void) {
 
     // these 2 can be combined when we rewrite drivers
     uart_driver.enable_interrupts();
-
-    interrupt_controller.register_irq(1, uart_handler, NULL);
     interrupt_controller.enable_irq(1);
 }
 
@@ -105,8 +96,6 @@ void init_stack_canary(void) {
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
-    // // clear bss
-    // for (uint32_t* p = &__bss_start; p < &__bss_end; p++) *p = 0;
 
     if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!"); // TODO this can't log here!!
     init_kernel_pages();
@@ -129,7 +118,10 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     scheduler_init();
     interrupt_controller.enable_irq_global();
 
-    printk("Kernel initialized\n");
+    printk("Kernel initialized at time %d\n", epoch_now());
+
+
+    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     // timer_start(0, KERNEL_HEARTBEAT_TIMER);
     scheduler();
 

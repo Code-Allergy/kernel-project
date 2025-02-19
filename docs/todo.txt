@@ -1,1 +1,2 @@
-data abort after context switch, guessing from clobbered registers or interrupted instructions.
+data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions.
+multi processes are broken argain, stack page seems empty on second created process when we queue it up.

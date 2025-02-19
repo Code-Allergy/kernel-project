@@ -25,12 +25,10 @@ typedef struct {
     // Watchdog and count registers (0x90-0xA8)
     volatile uint32_t wdog_control;  // 0x90
     volatile uint32_t wdog_mode;     // 0x94
-    volatile uint32_t reserved2[3];  // 0x98-0xA4
+    volatile uint32_t reserved2[2];  // 0x98-0xA0
     volatile uint32_t count_ctl;     // 0xA0
     volatile uint32_t count_lo;      // 0xA4
     volatile uint32_t count_hi;      // 0xA8
-
-    volatile uint32_t reserved3[0x400/4 - 0xAC/4];
 } AW_Timer;
 
 #define TIMER_BASE (0x01C20C00 + IO_KERNEL_OFFSET)
@@ -72,5 +70,10 @@ static inline uint32_t get_timer_idx_from_irq(uint32_t irq_idx) {
 // Timer selection (use timer 1 for general purpose)
 #define TIMER_SELECT 1
 #define TIMER_IRQ_NUM TIMER_SELECT
+
+#define RTC_YY_MM_DD_REG (TIMER_BASE + 0x00A4)
+#define RTC_HH_MM_SS_REG (TIMER_BASE + 0x00A4)
+
+
 
 #endif

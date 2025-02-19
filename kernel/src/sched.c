@@ -72,8 +72,8 @@ int scheduler_init(void) {
     }
 
     scheduler_driver.current_tick = 0;
-    // spawn_flat_init_process("/bin/null");
-    process_t* p = spawn_flat_init_process("/bin/testa");
+    spawn_flat_init_process("/bin/null");
+    // process_t* p = spawn_flat_init_process("/bin/testa");
     // process_t* p_ = spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
@@ -289,8 +289,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     memcpy(PHYS_TO_KERNEL_VIRT(code_page), bytes, size);
 
-    // Copy kernel mappings (TTBR0 content)
-    // copy_kernel_mappings(proc->ttbr0);
+
     proc->asid = allocate_asid();
     proc->pid = get_next_pid();
     proc->priority = 0;
@@ -309,9 +308,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     proc->num_fds = 0;
 
     mmu_driver.set_l1_with_asid(proc->ttbr0, proc->asid);
-    // Set up context
     proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-    // uint32_t* sp = PHYS_TO_KERNEL_VIRT(((uint32_t*)((uint32_t)stack_page + PAGE_SIZE)) - 16); // phys addr
 
     proc->stack_top[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
     proc->stack_top[14] = 0x10; // cpsr
@@ -346,20 +343,6 @@ void tick(void) {
         scheduler_driver.schedule_next = 1;
     }
 }
-
-
-
-// __attribute__((noreturn)) void userspace_return() {
-//     // add 8 to stack pointer
-//     __asm__ volatile("add sp, sp, #8");
-
-//     if (scheduler_driver.schedule_next) {
-//         scheduler();
-//     }
-
-//     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
-//     user_context_return(current_process->stack_top);
-// }
 
 void mmu_set_l1_with_asid(uint32_t ttbr0, uint32_t asid) {
     mmu_driver.set_l1_with_asid((uint32_t*)ttbr0, asid);
