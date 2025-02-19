@@ -60,14 +60,10 @@ void init_kernel_pages(void) {
     extern uint32_t kernel_code_end;
     extern uint32_t kernel_end;
 
-    // // zero out all page tables
-    // for (int i = 0; i < 4096; i++) {
-    //     l1_page_table[i] = 0;
-    // }
-
-    // for (int i = 0; i < 4096; i++) {
-    //     memset(l2_tables[i], 0, 256);
-    // }
+    // zero out all page tables
+    for (int i = 0; i < 4096; i++) {
+        l1_page_table[i] = 0;
+    }
 
     mmu_driver.init();
 
@@ -78,10 +74,10 @@ void init_kernel_pages(void) {
         mmu_driver.map_page(NULL, (void*)vaddr, (void*)(vaddr - dram_offset), L2_KERNEL_DATA_PAGE);
     }
 
-    // map all dram as identity for now
-    for (uint32_t vaddr = DRAM_BASE; vaddr < DRAM_BASE + DRAM_SIZE; vaddr += PAGE_SIZE) {
-        mmu_driver.map_page(NULL, (void*)vaddr, (void*)vaddr, L2_KERNEL_DATA_PAGE);
-    }
+    // // map all dram as identity for now
+    // for (uint32_t vaddr = DRAM_BASE; vaddr < DRAM_BASE + DRAM_SIZE; vaddr += PAGE_SIZE) {
+    //     mmu_driver.map_page(NULL, (void*)vaddr, (void*)vaddr, L2_KERNEL_DATA_PAGE);
+    // }
 
     // map kernel code pages, 4k aligned
     for (uint32_t vaddr = KERNEL_START; vaddr < (uint32_t)&kernel_code_end; vaddr += PAGE_SIZE) {
@@ -98,12 +94,10 @@ void init_kernel_pages(void) {
     mmu_driver.flush_tlb();
     set_ttbr1(((uint32_t)l1_page_table - KERNEL_START + DRAM_BASE));
     ttbcr_configure_2gb_split();
+    ttbcr_enable_ttbr0();
     ttbcr_enable_ttbr1();
     mmu_driver.kernel_mem = 1;
-    // mmu_driver.set_l1_table((uint32_t*)((uint32_t)l1_page_table - KERNEL_START + DRAM_BASE));
-
-
-
+    mmu_driver.set_l1_table(NULL);
 }
 
 void init_stack_canary(void) {

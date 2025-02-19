@@ -113,6 +113,7 @@ void mmu_enable(void) {
 #ifdef BOOTLOADER
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     if (ttbr0 == NULL) ttbr0 = l1_page_table;
+
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
         panic("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
     }
@@ -138,7 +139,7 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // printk("Kernel mem? %d\n", mmu_driver.kernel_mem);
     if (ttbr0 == NULL) ttbr0 = l1_page_table;
-
+    else ttbr0 = PHYS_TO_KERNEL_VIRT(ttbr0);
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
         printk("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);

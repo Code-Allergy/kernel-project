@@ -308,26 +308,14 @@ process_t* create_process(uint8_t* bytes, size_t size) {
 
     proc->num_fds = 0;
 
+    mmu_driver.set_l1_with_asid(proc->ttbr0, proc->asid);
     // Set up context
     proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-    uint32_t* sp = PHYS_TO_KERNEL_VIRT(((uint32_t*) ((uint32_t)stack_page + PAGE_SIZE)) - 16); // phys addr
+    // uint32_t* sp = PHYS_TO_KERNEL_VIRT(((uint32_t*)((uint32_t)stack_page + PAGE_SIZE)) - 16); // phys addr
 
-    sp[0] = 0; // r0
-    sp[1] = 0; // r1
-    sp[2] = 0; // r2
-    sp[3] = 0; // r3
-    sp[4] = 0; // r4
-    sp[5] = 0; // r5
-    sp[6] = 0; // r6
-    sp[7] = 0; // r7
-    sp[8] = 0; // r8
-    sp[9] = 0; // r9
-    sp[10] = 0; // r10
-    sp[11] = 0; // r11
-    sp[12] = 0; // r12
-    sp[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
-    sp[14] = 0x10; // cpsr
-    sp[15] = MEMORY_USER_CODE_BASE; // pc
+    proc->stack_top[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
+    proc->stack_top[14] = 0x10; // cpsr
+    proc->stack_top[15] = MEMORY_USER_CODE_BASE; // pc
 
     proc->state = PROCESS_READY;
     return proc;
