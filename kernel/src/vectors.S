@@ -76,8 +76,14 @@ undef_handler:
 
 @ TODO: cleanup, don't clobber r12, do 2 steps to save lr
 irq_handler_new:
-    @cpsid    I
-    MRS   R12, SPSR                    @ Get SPSR
+    cpsid    I         @ disable all interrupts
+    MRS   R12, SPSR    @ Get SPSR
+
+    @ Check if we were in user mode before the interrupt
+    TST     R12, #0b11111               @ Mask mode bits
+    BNE     irq_from_kernel             @ If not user mode, store in kernel space
+
+    @ ----------------- User mode process -----------------
     CPS   #0x1F                        @ System mode
     SUB  SP, SP, #64                  @ Allocate space for R0-R12, LR, PC and SPSR
 
@@ -97,6 +103,25 @@ irq_handler_new:
 
     BL      handle_irq_c               @ Call C handler
     B      userspace_return
+
+@ handle interrupt in kernel space
+irq_from_kernel:
+    STMDB   SP!, {R0-R12, LR}             @ Save kernel registers
+    MRS     R0, SPSR                      @ Get SPSR_irq
+    STMDB   SP!, {R0}                     @ Save SPSR onto the stack
+
+
+    MOV    R0, #0                         @ load 0 to R0 to indicate kernel mode
+    BL      handle_irq_c                  @ Call IRQ handler
+
+    @ Restore registers
+    LDMIA   SP!, {R0}                     @ Restore SPSR from stack
+    MSR     SPSR_cxsf, R0                 @ Restore SPSR
+    LDMIA   SP!, {R0-R12, LR}              @ Restore registers
+
+    SUBS    PC, LR, #4                     @ Return to kernel (adjust IRQ offset)
+
+
 
 swi_stack_handler:
     @ Save critical registers and LR/SPSR to Supervisor stack

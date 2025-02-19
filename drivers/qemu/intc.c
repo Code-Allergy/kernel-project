@@ -20,7 +20,11 @@ struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 void handle_irq_c(uint32_t process_stack) {
     uint32_t pending, irq;
 
-    current_process->stack_top = (uint32_t*)process_stack;
+    // if process_stack != 0, we came from a process, otherwise we came from kernel
+    if (process_stack) {
+        current_process->stack_top = (uint32_t*)process_stack;
+    }
+
     for(int reg = 0; reg < 3; reg++) {
         pending = INTC->IRQ_PEND[reg];
         while(pending) {

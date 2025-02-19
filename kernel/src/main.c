@@ -53,11 +53,6 @@ void init_kernel_pages(void) {
     extern uint32_t kernel_code_end;
     extern uint32_t kernel_end;
 
-    // zero out all page tables
-    for (int i = 0; i < 4096; i++) {
-        l1_page_table[i] = 0;
-    }
-
     mmu_driver.init();
 
     const uint32_t dram_offset = KERNEL_VIRTUAL_DRAM - DRAM_BASE;
@@ -86,7 +81,7 @@ void init_kernel_pages(void) {
     ttbcr_enable_ttbr0();
     ttbcr_enable_ttbr1();
     mmu_driver.kernel_mem = 1;
-    mmu_driver.set_l1_table(NULL);
+    // mmu_driver.set_l1_table(NULL);
 }
 
 void init_stack_canary(void) {
@@ -124,7 +119,9 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
 
     struct cubie_twi twi;
     twi.base = (uint32_t*)TWI0_BASE;
-    rtc_i2c_read(&twi, 0);
+    printk("TWI base: %p\n", twi.base);
+    // while(1);
+    // rtc_i2c_read(&twi, 0);
 
 
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
