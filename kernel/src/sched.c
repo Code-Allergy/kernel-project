@@ -72,8 +72,8 @@ int scheduler_init(void) {
     }
 
     scheduler_driver.current_tick = 0;
-    spawn_flat_init_process("/bin/null");
-    // process_t* p = spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/null");
+    process_t* p = spawn_flat_init_process("/bin/testa");
     // process_t* p_ = spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");

@@ -84,32 +84,6 @@ void mmu_enable(void) {
     __asm__ volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr));
 }
 
-// // Map a 4KB page into virtual memory using process-specific page tables
-// void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
-//     if (ttbr0 == NULL) ttbr0 = l1_page_table;
-//     // --- Sanity Checks ---
-//     // Verify 4KB alignment (last 12 bits must be 0)
-//     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
-//         printk("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
-//         while (1);
-//     }
-
-//     // --- L1 Table Lookup ---
-//     uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)]; // Pointer to L1 entry
-//     if ((*l1_entry & 0x3) != 0x1) {
-// #ifdef BOOTLOADER
-//         printk("Page not allocated, aborting %p (%p->%p)\n", *l1_entry, vaddr, paddr);
-//         while (1);
-// #endif
-//         void* l2_table = alloc_page(&kpage_allocator);
-//         *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
-//     }
-//     // identity map the table so we can write to it
-
-//     uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
-//     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
-// }
-
 #ifdef BOOTLOADER
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     if (ttbr0 == NULL) ttbr0 = l1_page_table;
@@ -135,6 +109,7 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 }
 
 #else
+// TODO instead of checking if kernel mem is set, we should just make 2 functions, and replace the function pointer
 // Map a 4KB page into virtual memory using process-specific page tables
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // printk("Kernel mem? %d\n", mmu_driver.kernel_mem);
@@ -185,12 +160,9 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
 #endif
 
-
-
-
-
-void unmap_page(void* tbbr0, void* vaddr) {
-    if (tbbr0 == NULL) tbbr0 = l1_page_table;
+void unmap_page(void* ttbr0, void* vaddr) {
+    if (ttbr0 == NULL) ttbr0 = l1_page_table;
+    else ttbr0 = PHYS_TO_KERNEL_VIRT(ttbr0);
     // --- Sanity Checks ---
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0) {
@@ -199,35 +171,34 @@ void unmap_page(void* tbbr0, void* vaddr) {
     }
 
     // --- L1 Table Lookup ---
-    uint32_t* l1_entry = &((uint32_t*)tbbr0)[SECTION_INDEX((uint32_t)vaddr)]; // Pointer to L1 entry
+    uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)]; // Pointer to L1 entry
     if ((*l1_entry & 0x3) != 0x1) {
         printk("Page not allocated, aborting %p (%p)\n", *l1_entry, vaddr);
         while (1);
     }
 
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    uint32_t *l2_table;
+    if (mmu_driver.kernel_mem) {
+        l2_table = PHYS_TO_KERNEL_VIRT((uint32_t*)(*l1_entry & ~0x3FF));
+    } else {
+        l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    }
+
     l2_table[PAGE_INDEX((uint32_t)vaddr)] = 0;
 }
 
 void set_l1_page_table(uint32_t *l1_page_table) {
     mmu_driver.ttbr0 = l1_page_table;
-    asm volatile(
+    __asm__ volatile(
         "mcr p15, 0, %0, c2, c0, 0 \n" // TTBR0
         "dsb \n"
         "isb \n"
         : : "r"(mmu_driver.ttbr0)
     );
-
-    // Invalidate TLB and caches
-    asm volatile("mcr p15, 0, %0, c8, c7, 0" : : "r"(0)); // Invalidate TLB
-    asm volatile("mcr p15, 0, %0, c7, c5, 0" : : "r"(0)); // Invalidate I-cache
-    asm volatile("mcr p15, 0, %0, c7, c6, 0" : : "r"(0)); // Invalidate data cache
-    asm volatile("mcr p15, 0, %0, c7, c10, 0" : : "r"(0)); // Clean data cache
-    asm volatile("mcr p15, 0, %0, c7, c10, 4" : : "r"(0)); // Drain write buffer
 }
 
 void invalidate_all_tlb(void) {
-    __asm__ __volatile__ (
+    __asm__ volatile (
         "mcr p15, 0, %0, c8, c7, 0\n"
         "dsb\n"
         "isb\n"

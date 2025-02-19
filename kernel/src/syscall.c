@@ -51,8 +51,6 @@ int sys_debug(int buf, int len) {
 }
 
 int sys_exit(int exit_status) {
-    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
     // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr); // Need RCs before we can free this, for now just let it leak
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);
@@ -68,7 +66,7 @@ int sys_exit(int exit_status) {
     // TODO reassign PID or parents of children
     // TODO clean up any open files
     free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
-    memset(current_process, 0, sizeof(*current_process));
+    memset(current_process, 0, sizeof(process_t));
     current_process->state = PROCESS_NONE;
     current_process = NULL;
     scheduler_driver.schedule_next = 1;

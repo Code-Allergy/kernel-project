@@ -69,15 +69,11 @@ void init_kernel_pages(void) {
 
     const uint32_t dram_offset = KERNEL_VIRTUAL_DRAM - DRAM_BASE;
     // map all dram into kernel space (KERNEL_VIRTUAL_DRAM)
+    // TODO - we can use section mapping for this, it will be faster.
     for (uint32_t vaddr = KERNEL_VIRTUAL_DRAM; vaddr < (KERNEL_VIRTUAL_DRAM + DRAM_SIZE); vaddr += PAGE_SIZE) {
         mmu_driver.unmap_page(NULL, (void*)vaddr);
         mmu_driver.map_page(NULL, (void*)vaddr, (void*)(vaddr - dram_offset), L2_KERNEL_DATA_PAGE);
     }
-
-    // // map all dram as identity for now
-    // for (uint32_t vaddr = DRAM_BASE; vaddr < DRAM_BASE + DRAM_SIZE; vaddr += PAGE_SIZE) {
-    //     mmu_driver.map_page(NULL, (void*)vaddr, (void*)vaddr, L2_KERNEL_DATA_PAGE);
-    // }
 
     // map kernel code pages, 4k aligned
     for (uint32_t vaddr = KERNEL_START; vaddr < (uint32_t)&kernel_code_end; vaddr += PAGE_SIZE) {
