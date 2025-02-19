@@ -9,8 +9,6 @@
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 
-
-extern void syscall_return(struct cpu_regs*, int return_value);
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = clone_process(current_process);
@@ -141,13 +139,14 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
     // printk("Syscall num: %d, stackp: %p\n", num, arg1);
 
     // log the syscall
+#ifdef TRACE_SYSCALLS
     switch (syscall_table[num].num_args) {
         case 0: printk("Syscall: %s()\n", syscall_table[num].name); break;
         case 1: printk("Syscall: %s(%d (%p))\n", syscall_table[num].name, arg1, arg1); break;
         case 2: printk("Syscall: %s(%d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2); break;
         case 3: printk("Syscall: %s(%d (%p), %d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2, arg3, arg3); break;
     }
-
+#endif
     // printk("Stack pointer: %p\n", stack_pointer);
     int ret = -1;
     if (num >= 0 && num < NR_SYSCALLS) {

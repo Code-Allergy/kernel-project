@@ -1,1 +1,1 @@
-fix stack corruption with interrupts? something stack corrupting. look into it further.
+data abort after context switch, guessing from clobbered registers or interrupted instructions.

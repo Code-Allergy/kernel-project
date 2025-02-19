@@ -71,6 +71,179 @@
 #define SECTION_INDEX(addr) ((addr) >> 20)
 #define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
 
+#define PHYS_TO_VIRT(phys)   ((phys) + KERNEL_VIRTUAL_BASE)
+#define VIRT_TO_PHYS(virt)   ((virt) - KERNEL_VIRTUAL_BASE)
+
+/* TTBCR Masks and Shifts */
+#define TTBCR_N_MASK     0x7
+#define TTBCR_PD0_MASK   (1 << 4)
+#define TTBCR_PD1_MASK   (1 << 5)
+#define TTBCR_EAE_MASK   (1 << 31)
+
+/* For splitting at 0x80000000, we need N=1 (2GB/2GB split) */
+#define TTBCR_SPLIT_2GB   1
+
+/* Helper macros for boundary calculations */
+#define TTBR0_BOUNDARY(n) (0xFFFFFFFF >> (n))
+#define TTBR1_BOUNDARY(n) (~TTBR0_BOUNDARY(n))
+
+
+
+// arm specific
+static inline void set_ttbr0(uint32_t val) {
+    asm volatile ("mcr p15, 0, %0, c2, c0, 0" : : "r" (val) : "memory");
+}
+
+static inline void set_ttbr1(uint32_t val) {
+    asm volatile ("mcr p15, 0, %0, c2, c0, 1" : : "r" (val) : "memory");
+}
+
+static inline uint32_t get_ttbr0(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (val));
+    return val;
+}
+
+static inline uint32_t get_ttbr1(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c2, c0, 1" : "=r" (val));
+    return val;
+}
+
+/**
+ * Translation Table Base Control Register
+ */
+static inline void set_ttbcr(uint32_t val) {
+    asm volatile ("mcr p15, 0, %0, c2, c0, 2" : : "r" (val) : "memory");
+}
+
+static inline uint32_t get_ttbcr(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (val));
+    return val;
+}
+
+/**
+ * Domain Access Control Register
+ */
+static inline void set_dacr(uint32_t val) {
+    asm volatile ("mcr p15, 0, %0, c3, c0, 0" : : "r" (val) : "memory");
+}
+
+static inline uint32_t get_dacr(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c3, c0, 0" : "=r" (val));
+    return val;
+}
+
+/**
+ * MMU Control Functions
+ */
+static inline void enable_mmu(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
+    val |= 1; // Set M bit
+    asm volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
+}
+
+static inline void disable_mmu(void) {
+    uint32_t val;
+    asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
+    val &= ~1; // Clear M bit
+    asm volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
+}
+
+/**
+ * TLB Operations
+ */
+static inline void invalidate_tlb(void) {
+    asm volatile ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0) : "memory");
+}
+
+static inline void invalidate_tlb_single(uint32_t mva) {
+    asm volatile ("mcr p15, 0, %0, c8, c7, 1" : : "r" (mva) : "memory");
+}
+
+/**
+ * Cache Operations
+ */
+static inline void invalidate_icache(void) {
+    asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory");
+}
+
+static inline void invalidate_dcache(void) {
+    asm volatile ("mcr p15, 0, %0, c7, c6, 0" : : "r" (0) : "memory");
+}
+
+/**
+ * Data Memory Barrier
+ */
+static inline void dmb(void) {
+    asm volatile ("dmb" : : : "memory");
+}
+
+/**
+ * Data Synchronization Barrier
+ */
+static inline void dsb(void) {
+    asm volatile ("dsb" : : : "memory");
+}
+
+
+/**
+ * TTBCR configuration helpers
+ */
+static inline void ttbcr_set_split(uint32_t n) {
+    uint32_t val = get_ttbcr();
+    val &= ~TTBCR_N_MASK;  // Clear N bits
+    val |= (n & TTBCR_N_MASK);  // Set new N value
+    set_ttbcr(val);
+}
+
+static inline uint32_t ttbcr_get_split(void) {
+    return get_ttbcr() & TTBCR_N_MASK;
+}
+
+/* Configure 2GB/2GB split (TTBR0: 0x00000000-0x7FFFFFFF, TTBR1: 0x80000000-0xFFFFFFFF) */
+static inline void ttbcr_configure_2gb_split(void) {
+    ttbcr_set_split(TTBCR_SPLIT_2GB);
+}
+
+/* Enable/Disable TTBR0 or TTBR1 */
+static inline void ttbcr_disable_ttbr0(void) {
+    uint32_t val = get_ttbcr();
+    val |= TTBCR_PD0_MASK;
+    set_ttbcr(val);
+}
+
+static inline void ttbcr_enable_ttbr0(void) {
+    uint32_t val = get_ttbcr();
+    val &= ~TTBCR_PD0_MASK;
+    set_ttbcr(val);
+}
+
+static inline void ttbcr_disable_ttbr1(void) {
+    uint32_t val = get_ttbcr();
+    val |= TTBCR_PD1_MASK;
+    set_ttbcr(val);
+}
+
+static inline void ttbcr_enable_ttbr1(void) {
+    uint32_t val = get_ttbcr();
+    val &= ~TTBCR_PD1_MASK;
+    set_ttbcr(val);
+}
+
+/* Check which TTBR handles a specific address */
+static inline int is_ttbr0_addr(uint32_t addr, uint32_t n) {
+    return addr <= TTBR0_BOUNDARY(n);
+}
+
+static inline int is_ttbr1_addr(uint32_t addr, uint32_t n) {
+    return addr > TTBR0_BOUNDARY(n);
+}
+
+
 typedef uint32_t l2_page_table_t[256];
 // // L1 Page Table (4096 entries, 4KB each for 4GB address space)
 #ifdef PLATFORM_BBB
@@ -147,6 +320,10 @@ typedef struct {
     // uint32_t (*get_fault_status)(void);
     // void* (*get_fault_address)(void);
     // void (*debug_dump)(void)
+    //
+
+
+    uint32_t kernel_mem; // if the high kernel memory space dram is used, if 0, physical memory is used.
 } mmu_t;
 
 extern mmu_t mmu_driver;

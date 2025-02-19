@@ -16,7 +16,7 @@ struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 void handle_irq_c(uint32_t process_stack) {
     static uint32_t pending, irq;
     // switch to kernel page table
-    mmu_driver.set_l1_table((uint32_t*) (((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE));
+    // mmu_driver.set_l1_table((uint32_t*) (((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE));
 
     current_process->stack_top = (uint32_t*)process_stack;
     for(int reg = 0; reg < 3; reg++) {
@@ -31,15 +31,15 @@ void handle_irq_c(uint32_t process_stack) {
     }
 
     // if we were in a process, return to it
-    if (current_process) {
-        mmu_driver.set_l1_table((uint32_t*) current_process->ttbr0);
-    }
+    // if (current_process) {
+        // mmu_driver.set_l1_table((uint32_t*) current_process->ttbr0);
+    // }
 }
 
 static void intc_init(void) {
     uint32_t vbar_addr = (uint32_t)_vectors;
     if(vbar_addr & 0x1F) {
-        printk("VBAR unaligned! Fixing %p → %p\n",
+        printk("VBAR unaligned! Fix %p → %p\n",
                vbar_addr, vbar_addr & ~0x1F);
         vbar_addr &= ~0x1F;
         panic("VBAR unaligned");

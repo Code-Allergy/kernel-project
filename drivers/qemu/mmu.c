@@ -40,6 +40,16 @@ void mmu_map_hw_pages(void) {
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
     l2_tables[SECTION_INDEX(OTHER_IO_BASE)][PAGE_INDEX(OTHER_IO_BASE)] = OTHER_IO_BASE | L2_DEVICE_PAGE;
+
+    // also map the kernel hardware mappings
+    // Map 4KB for UART0-UART3
+    l2_tables[SECTION_INDEX(UART0_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(UART0_BASE + IO_KERNEL_OFFSET)] = UART0_BASE | L2_DEVICE_PAGE;
+    // Map 4KB for UART4-UART7 (not used)
+    l2_tables[SECTION_INDEX(UART4_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(UART4_BASE + IO_KERNEL_OFFSET)] = UART4_BASE | L2_DEVICE_PAGE;
+    // Map 4KB for MMC0
+    l2_tables[SECTION_INDEX(MMC0_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(MMC0_BASE + IO_KERNEL_OFFSET)]   = MMC0_BASE  | L2_DEVICE_PAGE;
+    // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
+    l2_tables[SECTION_INDEX(OTHER_IO_BASE + IO_KERNEL_OFFSET)][PAGE_INDEX(OTHER_IO_BASE + IO_KERNEL_OFFSET)] = OTHER_IO_BASE | L2_DEVICE_PAGE;
     #else
     // Map 4KB for UART0-UART3
     l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = (UART0_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
@@ -138,6 +148,9 @@ void debug_l1_l2_entries(void *va, uint32_t* ttbr0) {
 }
 
 void mmu_init(void) {
+    mmu_driver.kernel_mem = 0;
+
+
     mmu_init_l1_page_table();
     mmu_set_domains();
     mmu_map_hw_pages();
@@ -187,4 +200,6 @@ mmu_t mmu_driver = {
 
     // device info for qemu - cubieboard
     .page_size = 4096,
+
+    .kernel_mem = 0,
 };

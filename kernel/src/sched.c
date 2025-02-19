@@ -23,9 +23,6 @@ process_t* next_process = NULL;
 process_t process_table[MAX_PROCESSES];
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
-
-#define SCHEDULER_PREEMPT_TICKS 10
-
 process_t* spawn_flat_init_process(const char* file_path) {
     fat32_fs_t sd_card;
     fat32_file_t userspace_application;
@@ -76,9 +73,16 @@ int scheduler_init(void) {
 
     scheduler_driver.current_tick = 0;
     spawn_flat_init_process("/bin/null");
-    process_t* p = spawn_flat_init_process("/bin/testa");
-    clone_process(p);
-    clone_process(p);
+    // process_t* p = spawn_flat_init_process("/bin/testa");
+    // process_t* p_ = spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/testa");
+
+    // clone_process(p);
+    // clone_process(p);
     // scheduler();
     return 0;
 }
@@ -94,22 +98,8 @@ uint8_t allocate_asid(void) {
     mmu_driver.flush_tlb();
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
-    printk("Got asid\n");
     return 1;
 }
-
-// void copy_kernel_mappings(uint32_t *ttbr0) {
-//     uint32_t *kernel_ttbr0;
-//     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
-
-//     // start at kernel start entry, copy until end of memory space
-//     const int KERNEL_START_ENTRY = KERNEL_ENTRY / 0x400000;
-//     const int KERNEL_SIZE_ENTRIES = (0xFFFFFFFF - KERNEL_ENTRY) / 0x400000;
-
-//     for(int i = KERNEL_START_ENTRY; i < KERNEL_START_ENTRY + KERNEL_SIZE_ENTRIES; i++) {
-//         ttbr0[i] = kernel_ttbr0[i];
-//     }
-// }
 
 void copy_kernel_mappings(uint32_t *ttbr0) {
     uint32_t *kernel_ttbr0;
@@ -117,7 +107,7 @@ void copy_kernel_mappings(uint32_t *ttbr0) {
     __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
 
     // Start at the kernel entry point and copy mappings up to the kernel end
-    for (uint32_t addr = 0x80000000; addr < 0xF0000000; addr += 0x100000) {
+    for (uint32_t addr = 0x80000000; addr < 0xFFEFFFFF; addr += 0x100000) {
         // Compute the index into the TTBR0 table
         uint32_t index = addr / 0x100000;
         ttbr0[index] = kernel_ttbr0[index];
@@ -154,7 +144,6 @@ void debug_stack_access(process_t* proc) {
 }
 
 void __attribute__ ((noreturn)) scheduler(void) {
-    mmu_driver.set_l1_table((uint32_t*)(((uint32_t)l1_page_table - KERNEL_START) + DRAM_BASE));
     next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
         panic("No more processes to run, halting!\n");
@@ -254,19 +243,19 @@ process_t* clone_process(process_t* original_p) {
     p->state = PROCESS_READY;
 
     // Debug: Print L1 entry for user stack
-    uint32_t stack_vaddr = MEMORY_USER_STACK_BASE;
-    uint32_t l1_index = stack_vaddr >> 20;
-    uint32_t l1_entry = p->ttbr0[l1_index];
-    printk("Clone L1[%d] = 0x%08x (phys: 0x%08x)\n",
-           l1_index, l1_entry, (l1_entry & 0xFFF00000));
+    // uint32_t stack_vaddr = MEMORY_USER_STACK_BASE;
+    // uint32_t l1_index = stack_vaddr >> 20;
+    // uint32_t l1_entry = p->ttbr0[l1_index];
+    // printk("Clone L1[%d] = 0x%08x (phys: 0x%08x)\n",
+    //        l1_index, l1_entry, (l1_entry & 0xFFF00000));
 
-    printk("stack paddr: %p\nheap paddr: %p\n", stack_page, heap_page);
+    // printk("stack paddr: %p\nheap paddr: %p\n", stack_page, heap_page);
 
-    uint32_t* addr = mmu_driver.get_physical_address(p->ttbr0, (void*)stack_vaddr);
-    printk("Physical address1:%p\n", addr);
+    // uint32_t* addr = mmu_driver.get_physical_address(p->ttbr0, (void*)stack_vaddr);
+    // printk("Physical address1:%p\n", addr);
 
-    uint32_t* addr2 = mmu_driver.get_physical_address(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE);
-    printk("Physical address2:%p\n", addr2);
+    // uint32_t* addr2 = mmu_driver.get_physical_address(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE);
+    // printk("Physical address2:%p\n", addr2);
 
     return p;
 }
@@ -298,10 +287,10 @@ process_t* create_process(uint8_t* bytes, size_t size) {
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    memcpy(code_page, bytes, size);
+    memcpy(PHYS_TO_KERNEL_VIRT(code_page), bytes, size);
 
     // Copy kernel mappings (TTBR0 content)
-    copy_kernel_mappings(proc->ttbr0);
+    // copy_kernel_mappings(proc->ttbr0);
     proc->asid = allocate_asid();
     proc->pid = get_next_pid();
     proc->priority = 0;
@@ -321,7 +310,7 @@ process_t* create_process(uint8_t* bytes, size_t size) {
 
     // Set up context
     proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-    uint32_t* sp = ((uint32_t*) ((uint32_t)stack_page + PAGE_SIZE)) - 16; // phys addr
+    uint32_t* sp = PHYS_TO_KERNEL_VIRT(((uint32_t*) ((uint32_t)stack_page + PAGE_SIZE)) - 16); // phys addr
 
     sp[0] = 0; // r0
     sp[1] = 0; // r1

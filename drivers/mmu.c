@@ -1,4 +1,5 @@
 // universal functions for bbb/qemu
+#include "kernel/panic.h"
 #include <stdint.h>
 #include <kernel/mmu.h>
 #include <kernel/printk.h>
@@ -21,7 +22,7 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
     if(!addr) return 0;
 
     // Initialize L1 table
-    memset(addr, 0, 16*1024);
+    memset(PHYS_TO_KERNEL_VIRT(addr), 0, 16*1024);
     return (uint32_t)addr;
 }
 
@@ -109,12 +110,35 @@ void mmu_enable(void) {
 //     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 // }
 
+#ifdef BOOTLOADER
+void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
+    if (ttbr0 == NULL) ttbr0 = l1_page_table;
+    if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
+        panic("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
+    }
+
+    uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)];
+    if ((*l1_entry & 0x3) != 0x1) {
+        panic("Page not allocated, aborting %p (%p->%p)\n", *l1_entry, vaddr, paddr);
+    }
+
+    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    uint32_t existing = l2_table[PAGE_INDEX((uint32_t)vaddr)];
+    if (existing & L2_SMALL_PAGE) { // check if we are overwriting an existing mapping
+        panic("Warning: Overwriting existing page mapping at vaddr %p (old paddr: %p, new paddr: %p)\n",
+               vaddr, (void*)(existing & ~0xFFF), paddr);
+    }
+
+    // Map the page
+    l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
+}
+
+#else
 // Map a 4KB page into virtual memory using process-specific page tables
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
-    if (ttbr0 == NULL)
-        ttbr0 = l1_page_table;
+    // printk("Kernel mem? %d\n", mmu_driver.kernel_mem);
+    if (ttbr0 == NULL) ttbr0 = l1_page_table;
 
-    // --- Sanity Checks ---
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
         printk("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
@@ -129,29 +153,39 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
     // Create L2 table if it doesn't exist
     if ((*l1_entry & 0x3) != 0x1) {
-        #ifdef BOOTLOADER
-        printk("Page not allocated, aborting %p (%p->%p)\n", *l1_entry, vaddr, paddr);
-        while (1);
-        #endif
         void* l2_table = alloc_page(&kpage_allocator);
+        if (mmu_driver.kernel_mem) {
+            memset(PHYS_TO_KERNEL_VIRT(l2_table), 0, 4096);
+        } else {
+            memset(l2_table, 0, 4096);
+        }
         // Clear the new L2 table
-        memset(l2_table, 0, 4096);
         *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
     }
 
-    // Get L2 table address (clearing control bits)
-    uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    uint32_t *l2_table;
+    if (mmu_driver.kernel_mem) {
+        l2_table = PHYS_TO_KERNEL_VIRT((uint32_t*)(*l1_entry & ~0x3FF));
+    } else {
+        l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+    }
 
     // Check if page is already mapped
     uint32_t existing = l2_table[PAGE_INDEX((uint32_t)vaddr)];
     if (existing & L2_SMALL_PAGE) {
-        printk("Warning: Overwriting existing page mapping at vaddr %p (old paddr: %p, new paddr: %p)\n",
+        // panic for now, but we probably should never let this happen, probably indicates some corruption
+        panic("Warning: Overwriting existing page mapping at vaddr %p (old paddr: %p, new paddr: %p)\n",
                vaddr, (void*)(existing & ~0xFFF), paddr);
     }
 
     // Map the page
     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 }
+
+#endif
+
+
+
 
 
 void unmap_page(void* tbbr0, void* vaddr) {
