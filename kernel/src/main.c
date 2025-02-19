@@ -87,9 +87,10 @@ void init_stack_canary(void) {
 __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
     setup_stacks();
     init_stack_canary();
+    init_kernel_pages();
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
-    if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
+    // if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
 
     printk("Kernel starting - version %s\n", GIT_VERSION);
     printk("Kernel base address %p\n", kernel_main);
@@ -97,7 +98,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     printk("Finished initializing hardware\n");
 
     // we already have vm from the bootloader, but we should switch to our own tables
-    init_kernel_pages();
+
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
     vfs_init();

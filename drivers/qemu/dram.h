@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define DRAMC_BASE 0x01c01000
+#define DRAMC_BASE (0x01c01000 + IO_KERNEL_OFFSET)
 
 typedef struct {
     volatile uint32_t SDR_CCR; //0x00

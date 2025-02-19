@@ -2,7 +2,7 @@
 #define MMC_H
 #include <stdint.h>
 
-#define MMC0_BASE 0x01C0F000
+#define MMC0_BASE (0x01C0F000 + IO_KERNEL_OFFSET)
 
 typedef volatile struct {
     uint32_t gctrl;       // 0x00: Global Control

@@ -6,7 +6,7 @@
 #include "intc.h"
 
 // UART0 Base Allwinner A10 (Cubieboard)
-#define UART0_BASE 0x01C28000
+
 void uart_init(void) {
     // Disable interrupts (IER)
     UART0->IER_DLH = 0x00;

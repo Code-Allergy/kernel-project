@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define INTC_BASE 0x01C20400
+#define INTC_BASE (0x01C20400 + IO_KERNEL_OFFSET)
 
 typedef struct {
     volatile uint32_t VECTOR;         // 0x00 - Interrupt Vector

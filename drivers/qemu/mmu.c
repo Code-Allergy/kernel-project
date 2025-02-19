@@ -27,8 +27,11 @@ l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 
+#define OTHER_IO_BASE (0x01c20000 + IO_KERNEL_OFFSET)
+
 // for now all hw is identity mapped inside the kernel page table
 void mmu_map_hw_pages(void) {
+    #ifdef BOOTLOADER
     // Map 4KB for UART0-UART3
     l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = UART0_BASE | L2_DEVICE_PAGE;
     // Map 4KB for UART4-UART7 (not used)
@@ -36,7 +39,17 @@ void mmu_map_hw_pages(void) {
     // Map 4KB for MMC0
     l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = MMC0_BASE  | L2_DEVICE_PAGE;
     // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
-    l2_tables[SECTION_INDEX(0x01c20000)][PAGE_INDEX(0x01c20000)] = 0x01c20000 | L2_DEVICE_PAGE;
+    l2_tables[SECTION_INDEX(OTHER_IO_BASE)][PAGE_INDEX(OTHER_IO_BASE)] = OTHER_IO_BASE | L2_DEVICE_PAGE;
+    #else
+    // Map 4KB for UART0-UART3
+    l2_tables[SECTION_INDEX(UART0_BASE)][PAGE_INDEX(UART0_BASE)] = (UART0_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
+    // Map 4KB for UART4-UART7 (not used)
+    l2_tables[SECTION_INDEX(UART4_BASE)][PAGE_INDEX(UART4_BASE)] = (UART4_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
+    // Map 4KB for MMC0
+    l2_tables[SECTION_INDEX(MMC0_BASE)][PAGE_INDEX(MMC0_BASE)]   = (MMC0_BASE - IO_KERNEL_OFFSET)  | L2_DEVICE_PAGE;
+    // Map 4KB for other io, CCM, IRQ, PIO, timer, pwm
+    l2_tables[SECTION_INDEX(OTHER_IO_BASE)][PAGE_INDEX(OTHER_IO_BASE)] = (OTHER_IO_BASE - IO_KERNEL_OFFSET) | L2_DEVICE_PAGE;
+    #endif
 }
 
 // static void* get_physical_address(void *vaddr) {

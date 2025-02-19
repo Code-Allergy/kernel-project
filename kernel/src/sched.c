@@ -77,7 +77,8 @@ int scheduler_init(void) {
     scheduler_driver.current_tick = 0;
     spawn_flat_init_process("/bin/null");
     process_t* p = spawn_flat_init_process("/bin/testa");
-
+    clone_process(p);
+    clone_process(p);
     // scheduler();
     return 0;
 }
@@ -213,8 +214,6 @@ process_t* clone_process(process_t* original_p) {
     // allocate pages for code and data
     void* data_page = alloc_page(&kpage_allocator);
     // TODO - frame corruption?? look into what's happening to mapping here
-    void* _stack_page = alloc_page(&kpage_allocator);
-
     void* stack_page = alloc_page(&kpage_allocator);
     void* heap_page = alloc_page(&kpage_allocator);
     if (!data_page || !stack_page || !heap_page) { // NO SWAPPING
@@ -228,7 +227,6 @@ process_t* clone_process(process_t* original_p) {
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-
     // map kernel mappings
     copy_kernel_mappings(p->ttbr0);
 
@@ -261,6 +259,8 @@ process_t* clone_process(process_t* original_p) {
     uint32_t l1_entry = p->ttbr0[l1_index];
     printk("Clone L1[%d] = 0x%08x (phys: 0x%08x)\n",
            l1_index, l1_entry, (l1_entry & 0xFFF00000));
+
+    printk("stack paddr: %p\nheap paddr: %p\n", stack_page, heap_page);
 
     uint32_t* addr = mmu_driver.get_physical_address(p->ttbr0, (void*)stack_vaddr);
     printk("Physical address1:%p\n", addr);

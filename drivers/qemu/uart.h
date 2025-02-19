@@ -2,8 +2,9 @@
 #define UART_H
 
 #include <stdint.h>
-#define UART0_BASE 0x01C28000
-#define UART4_BASE 0x01c29000
+#include <kernel/boot.h>
+#define UART0_BASE (0x01C28000 + IO_KERNEL_OFFSET)
+#define UART4_BASE (0x01c29000 + IO_KERNEL_OFFSET)
 
 typedef struct {
     volatile uint32_t RBR_THR_DLL; // 0x00: Receive/Transmit Buffer

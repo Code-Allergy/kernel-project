@@ -29,10 +29,6 @@ void mmu_set_domains(void) {
     // Set domain 0 (kernel) to manager access (0x3)
     uint32_t dacr = 0x3;  // Just set domain 0 to manager (0x3)
     __asm__ volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
-
-    // Verify the setting
-    uint32_t check = read_dacr();
-    printk("DACR value: %p\n", check);
 }
 
 
@@ -47,7 +43,6 @@ int mmu_init_l1_page_table(void) {
         printk("L2 tables not 1KB aligned\n");
         return -1;
     }
-    printk("Dram base: %p\n", DRAM_BASE);
     // map all l1 entries to l2 tables
     for (uint32_t section = 0; section < 4096; section++) {
         uint32_t l2_table = ((uint32_t)&l2_tables[section] > KERNEL_ENTRY) ?
@@ -57,7 +52,6 @@ int mmu_init_l1_page_table(void) {
         l1_page_table[section] = l2_table | MMU_PAGE_DESCRIPTOR | (MMU_DOMAIN_KERNEL << 5);
     }
 
-    printk("Done\n");
     return 0;
 }
 
@@ -89,9 +83,37 @@ void mmu_enable(void) {
     __asm__ volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr));
 }
 
+// // Map a 4KB page into virtual memory using process-specific page tables
+// void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
+//     if (ttbr0 == NULL) ttbr0 = l1_page_table;
+//     // --- Sanity Checks ---
+//     // Verify 4KB alignment (last 12 bits must be 0)
+//     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
+//         printk("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
+//         while (1);
+//     }
+
+//     // --- L1 Table Lookup ---
+//     uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)]; // Pointer to L1 entry
+//     if ((*l1_entry & 0x3) != 0x1) {
+// #ifdef BOOTLOADER
+//         printk("Page not allocated, aborting %p (%p->%p)\n", *l1_entry, vaddr, paddr);
+//         while (1);
+// #endif
+//         void* l2_table = alloc_page(&kpage_allocator);
+//         *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
+//     }
+//     // identity map the table so we can write to it
+
+//     uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+//     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
+// }
+
 // Map a 4KB page into virtual memory using process-specific page tables
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
-    if (ttbr0 == NULL) ttbr0 = l1_page_table;
+    if (ttbr0 == NULL)
+        ttbr0 = l1_page_table;
+
     // --- Sanity Checks ---
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
@@ -99,21 +121,38 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
         while (1);
     }
 
+    // Clear the unused bits from paddr (keeping only the physical frame number)
+    paddr = (void*)((uint32_t)paddr & ~0xFFF);
+
     // --- L1 Table Lookup ---
-    uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)]; // Pointer to L1 entry
+    uint32_t* l1_entry = &((uint32_t*)ttbr0)[SECTION_INDEX((uint32_t)vaddr)];
+
+    // Create L2 table if it doesn't exist
     if ((*l1_entry & 0x3) != 0x1) {
-#ifdef BOOTLOADER
+        #ifdef BOOTLOADER
         printk("Page not allocated, aborting %p (%p->%p)\n", *l1_entry, vaddr, paddr);
         while (1);
-#endif
+        #endif
         void* l2_table = alloc_page(&kpage_allocator);
+        // Clear the new L2 table
+        memset(l2_table, 0, 4096);
         *l1_entry = ((uint32_t)l2_table | 0x1 | (MMU_DOMAIN_KERNEL << 5));
     }
-    // identity map the table so we can write to it
 
+    // Get L2 table address (clearing control bits)
     uint32_t *l2_table = (uint32_t*)(*l1_entry & ~0x3FF);
+
+    // Check if page is already mapped
+    uint32_t existing = l2_table[PAGE_INDEX((uint32_t)vaddr)];
+    if (existing & L2_SMALL_PAGE) {
+        printk("Warning: Overwriting existing page mapping at vaddr %p (old paddr: %p, new paddr: %p)\n",
+               vaddr, (void*)(existing & ~0xFFF), paddr);
+    }
+
+    // Map the page
     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
 }
+
 
 void unmap_page(void* tbbr0, void* vaddr) {
     if (tbbr0 == NULL) tbbr0 = l1_page_table;

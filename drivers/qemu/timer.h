@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/boot.h>
 
 typedef struct {
     // Global registers (0x00-0x0C)
@@ -32,7 +33,7 @@ typedef struct {
     volatile uint32_t reserved3[0x400/4 - 0xAC/4];
 } AW_Timer;
 
-#define TIMER_BASE 0x01C20C00
+#define TIMER_BASE (0x01C20C00 + IO_KERNEL_OFFSET)
 #define TIMER0 ((AW_Timer *)TIMER_BASE)
 
 enum {

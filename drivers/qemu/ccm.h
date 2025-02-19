@@ -2,8 +2,9 @@
 #define CCM_H
 
 #include <stdint.h>
+#include <kernel/boot.h>
 
-#define CCM_BASE 0x01c20000
+#define CCM_BASE (0x01c20000 + IO_KERNEL_OFFSET)
 
 /* reference */
 /* https://linux-sunxi.org/Clock_Control_Module */

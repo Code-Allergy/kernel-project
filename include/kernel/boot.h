@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <utils.h>
+#include <kernel/mm.h>
 
 extern void setup_stacks(void);
 
@@ -28,10 +29,16 @@ extern void setup_stacks(void);
   #define DRAM_SIZE 0x20000000
 #endif
 
+#ifdef BOOTLOADER
+  #define IO_KERNEL_OFFSET 0
+#else
+  #define IO_KERNEL_OFFSET 0xF0000000
+#endif
+
 #define KERNEL_PATH "/boot/kernel.bin"
 
 // temporary stack size
-#define STACK_CANARY_VALUE 0xDEADB00F
+#define STACK_CANARY_VALUE 0xDEADBEEF
 #define KERNEL_STACK_SIZE (32 * 1024)  // 32KB -- we can set this on the large size for now
 
 typedef int (*entry_t)(void);
