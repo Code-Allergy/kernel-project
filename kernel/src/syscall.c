@@ -45,16 +45,9 @@ int sys_open(char* path, int flags, int mode) {
 
 // this should copy memory instead
 int sys_debug(int buf, int len) {
-    uint32_t process_table = (uint32_t)mmu_driver.ttbr0;
-    // switch page taable so we can print, we won't want this later
-
-    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
-    void* paddr = mmu_driver.get_physical_address(current_process->ttbr0, (void*)buf);
-
-    printk("[SYS_DEBUG]: %s", current_process->code_page_paddr + (uint32_t)buf - 0x10000);
-
-    mmu_driver.set_l1_table((uint32_t*) process_table);
+    // TODO: we should still copy from user space, or maybe we don't need to?
+    // after we have proper domain and ttbr1 setup, we can just use the user space pointer, as long as we check if it's valid
+    printk("[SYS_DEBUG]: %s", buf);
     return 0;
     // syscall_return(&current_process->context, 0);
 }
@@ -62,11 +55,11 @@ int sys_debug(int buf, int len) {
 int sys_exit(int exit_status) {
     uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
     mmu_driver.set_l1_table((uint32_t*)kernel_l1_phys);
-    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr);
+    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr); // Need RCs before we can free this, for now just let it leak
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->heap_page_vaddr);
-    free_page(&kpage_allocator, (void*)current_process->code_page_paddr);
+    // free_page(&kpage_allocator, (void*)current_process->code_page_paddr); // Need RCs before we can free this, for now just let it leak
     free_page(&kpage_allocator, (void*)current_process->data_page_paddr);
     free_page(&kpage_allocator, (void*)current_process->stack_page_paddr);
     free_page(&kpage_allocator, (void*)current_process->heap_page_paddr);
@@ -75,11 +68,12 @@ int sys_exit(int exit_status) {
     // TODO free pages in l1 table of process:
     // TODO free anything else in the process
     // TODO reassign PID or parents of children
+    // TODO clean up any open files
     free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
     memset(current_process, 0, sizeof(*current_process));
     current_process->state = PROCESS_NONE;
     current_process = NULL;
-    scheduler(); // reschedule after releasing the process struct;
+    scheduler_driver.schedule_next = 1;
 }
 
 static inline void dump_registers(struct cpu_regs* regs) {
@@ -140,13 +134,20 @@ static inline void restore_user_context(void) {
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {
     // Switch to kernel page table
-    uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    uint32_t process_table = (uint32_t)current_process->ttbr0;
-    mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
+    // uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
+    // uint32_t process_table = (uint32_t)current_process->ttbr0;
+    // mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
 
     // printk("Syscall num: %d, stackp: %p\n", num, arg1);
 
-    // printk("Syscall: %s(%d, %d, %d, %d)\n", syscall_table[num].name, arg1, arg2, arg3, arg4);
+    // log the syscall
+    switch (syscall_table[num].num_args) {
+        case 0: printk("Syscall: %s()\n", syscall_table[num].name); break;
+        case 1: printk("Syscall: %s(%d (%p))\n", syscall_table[num].name, arg1, arg1); break;
+        case 2: printk("Syscall: %s(%d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2); break;
+        case 3: printk("Syscall: %s(%d (%p), %d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2, arg3, arg3); break;
+    }
+
     // printk("Stack pointer: %p\n", stack_pointer);
     int ret = -1;
     if (num >= 0 && num < NR_SYSCALLS) {
@@ -159,8 +160,11 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
     }
 
     // Return to process page table
-    mmu_driver.set_l1_table((uint32_t*)process_table);
+    // mmu_driver.set_l1_table((uint32_t*)process_table);
     // set up return value at r0
-    current_process->stack_top[0] = ret;
+
+
+    // process doesn't necessarily exist anymore, so check for it first
+    if (current_process) current_process->stack_top[0] = ret;
     return ret;
 }
