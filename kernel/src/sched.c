@@ -1,3 +1,4 @@
+#include "elf32.h"
 #include "kernel/panic.h"
 #include <kernel/boot.h>
 #include <stdint.h>
@@ -44,6 +45,33 @@ process_t* spawn_flat_init_process(const char* file_path) {
     return create_process(bytes, userspace_application.file_size);
 }
 
+process_t* spawn_elf_init_process(const char* file_path) {
+    fat32_fs_t sd_card;
+    fat32_file_t userspace_application;
+    if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
+        printk("Failed to mount SD card\n");
+        return NULL;
+    }
+    if (fat32_open(&sd_card, file_path, &userspace_application)) {
+        printk("Failed to open file\n");
+        return NULL;
+    }
+
+    uint8_t* buffer = kmalloc(userspace_application.file_size);
+    if (!buffer) {
+        printk("Failed to allocate buffer for ELF\n");
+        return NULL;
+    }
+    if ((uint32_t)fat32_read(&userspace_application, buffer, userspace_application.file_size) != userspace_application.file_size) {
+        printk("Init process not read fully off disk\n");
+        return NULL;
+    };
+
+    binary_t* init_bin = load_elf32(buffer, userspace_application.file_size);
+    printk("Creating elf bin!\n");
+    return _create_process(init_bin, NULL);
+}
+
 static int32_t get_next_pid(void) {
     printk("Allocating PID: %d\n", total_processes);
     return total_processes++;
@@ -67,23 +95,22 @@ int scheduler_init(void) {
     current_process = NULL;
     total_processes = 0;
     curr_pid = 0;
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        process_table[i].state = PROCESS_NONE;
-    }
+    memset(process_table, 0, sizeof(process_table) * MAX_PROCESSES);
 
     scheduler_driver.current_tick = 0;
     // spawn_flat_init_process("/bin/null");
-    process_t* p = spawn_flat_init_process("/bin/open");
+    // process_t* p = spawn_flat_init_process("/bin/open");
     // process_t* p_ = spawn_flat_init_process("/bin/testa");
+    process_t* p = spawn_elf_init_process("/elf/testa.elf");
+    if (p == NULL) {
+        printk("Failed to spawn init process\n");
+        return -1;
+    }
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
-
-    // clone_process(p);
-    // clone_process(p);
-    // scheduler();
     return 0;
 }
 
@@ -134,14 +161,6 @@ process_t* get_next_process(void) {
     return current_process; // If no other process found, return current one
 }
 void __attribute__((noreturn, naked)) user_context_return(uint32_t stack_ptr);
-
-
-void debug_stack_access(process_t* proc) {
-    printk("Process %d stack info:\n", proc->pid);
-    printk("  Stack base: %p\n", proc->stack_page_vaddr);
-    printk("  Stack top: %p\n", proc->context.sp);
-    printk("  Stack physical: %p\n", proc->stack_page_paddr);
-}
 
 void __attribute__ ((noreturn)) scheduler(void) {
     next_process = get_next_process();
@@ -347,6 +366,152 @@ void tick(void) {
 
 void mmu_set_l1_with_asid(uint32_t ttbr0, uint32_t asid) {
     mmu_driver.set_l1_with_asid((uint32_t*)ttbr0, asid);
+}
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+process_t* _create_process(binary_t* bin, process_t* parent) {
+    if (!bin) return NULL;
+
+    (void)parent; // TODO implement fork
+    process_t* p = get_available_process();
+
+    p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
+    if(!p->ttbr0) return NULL;
+
+    // do this better later
+    if (bin->type == BINARY_TYPE_ELF32) {
+        for (uint32_t i = 0; i < bin->data.elf.program_header_count; i++) {
+            elf_program_header_t* phdr = &bin->data.elf.program_headers[i];
+            if (phdr->p_type == ELF_PROGRAM_HEADER_TYPE_LOAD) {
+                uint32_t page_count = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
+
+                bool is_code = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_EXECUTABLE;
+                bool is_writable = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_WRITABLE;
+
+                for (uint32_t j = 0; j < page_count; j++) {
+                    void* page = alloc_page(&kpage_allocator);
+                    if (!page) {
+                        printk("Failed to allocate page for ELF segment\n");
+                        return NULL;
+                    }
+
+                    // Copy segment data into page
+                    size_t copy_size = MIN(PAGE_SIZE, phdr->p_filesz - (j * PAGE_SIZE));
+                    if (copy_size > 0) {
+                        memcpy(PHYS_TO_KERNEL_VIRT(page), bin->data.elf.raw + phdr->p_offset + (j * PAGE_SIZE), copy_size);
+                    }
+
+                    // Map page with appropriate permissions
+                    uint32_t prot = MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
+                    if (is_writable) {
+                        prot |= MMU_AP_RW;
+                    } else {
+                        prot |= MMU_AP_RO;
+                    }
+                    if (is_code) {
+                        prot |= MMU_EXECUTE;
+                    }
+                    uint32_t vaddr_aligned = phdr->p_vaddr & ~(PAGE_SIZE - 1);
+
+                    mmu_driver.map_page(p->ttbr0,
+                                       (void*)(vaddr_aligned + (j * PAGE_SIZE)),
+                                       page,
+                                       prot);
+
+                    if (is_code) {
+                        p->code_page_paddr = (uint32_t) page;
+                        p->code_page_vaddr = phdr->p_vaddr;
+                    } else {
+                        p->data_page_paddr = (uint32_t) page;
+                        p->data_page_vaddr = phdr->p_vaddr;
+                    }
+                }
+            }
+
+        }
+    } else {
+        panic("Flat binary not supported yet!\n");
+    }
+    void* heap_page = alloc_page(&kpage_allocator);
+    void* stack_page = alloc_page(&kpage_allocator);
+    if (!stack_page || !heap_page) {
+        return NULL;
+    }
+
+    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
+    debug_l1_l2_entries((void*)MEMORY_USER_HEAP_BASE, p->ttbr0);
+
+    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
+    debug_l1_l2_entries((void*)MEMORY_USER_STACK_BASE, p->ttbr0);
+
+    printk("Stack page paddr: %p\n", stack_page);
+    printk("Heap page paddr: %p\n", heap_page);
+
+
+
+    // pages are mapped, load rest of the process info
+    p->asid = allocate_asid();
+    p->pid = get_next_pid();
+    p->priority = 0;
+
+    mmu_driver.set_l1_with_asid(p->ttbr0, p->asid);
+    p->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
+
+    // uint32_t* sp_phys = PHYS_TO_KERNEL_VIRT((uint32_t)stack_page - (16 * sizeof(uint32_t)));
+    p->stack_top[13] = 0xCAFEBABE; // lr -- TODO: set to exit handler backup when we have dynamic linking
+    p->stack_top[14] = 0x10; // cpsr
+    p->stack_top[15] = bin->entry; // pc
+
+    p->state = PROCESS_READY;
+    return p;
+}
+
+// Common process creation function
+process_t* create_new_process(uint8_t* bytes, size_t size, process_t* original_p) {
+    process_t* proc = get_available_process();
+    if (proc == NULL) {
+        printk("Out of available processes! HALT\n");
+        while (1);
+    }
+
+    // Allocate L1 table
+    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
+    if (!proc->ttbr0) return NULL;
+
+    // Allocate and map pages
+    if (!setup_pages(proc, bytes, size)) {
+        printk("Out of memory during process setup! HALT\n");
+        while (1);
+    }
+
+    // Allocate ASID and assign PID
+    proc->asid = allocate_asid();
+    proc->pid = get_next_pid();
+    proc->ppid = original_p ? original_p->pid : 0; // In case of cloning
+    proc->priority = original_p ? original_p->priority : 0; // Default priority
+
+    // Set up memory mappings for kernel sections (could be added as part of helper)
+    mmu_driver.set_l1_with_asid(proc->ttbr0, proc->asid);
+
+    // Copy data from the original process for cloning
+    if (original_p) {
+        memcpy((void*)MEMORY_USER_DATA_BASE, PHYS_TO_KERNEL_VIRT(original_p->data_page_paddr), PAGE_SIZE);
+        memcpy((void*)MEMORY_USER_STACK_BASE, PHYS_TO_KERNEL_VIRT(original_p->stack_page_paddr), PAGE_SIZE);
+        memcpy((void*)MEMORY_USER_HEAP_BASE, PHYS_TO_KERNEL_VIRT(original_p->heap_page_paddr), PAGE_SIZE);
+    }
+
+    // Setup other process state
+    proc->code_size = size;
+    proc->state = PROCESS_READY;
+    proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
+
+    // Setup stack for context
+    proc->stack_top[13] = MEMORY_USER_CODE_BASE; // lr
+    proc->stack_top[14] = 0x10; // cpsr
+    proc->stack_top[15] = MEMORY_USER_CODE_BASE; // pc
+
+    return proc;
 }
 
 

@@ -176,22 +176,6 @@ static inline void save_kernel_context(void) {
     current_process->kernel_cpsr = cpsr;
 }
 
-static inline void restore_user_context(void) {
-    uint32_t cpsr = current_process->context.cpsr;
-    // Ensure we're returning to user mode
-    cpsr &= ~0x1F;  // Clear mode bits
-    cpsr |= 0x10;   // Set user mode
-    cpsr &= ~0x80;  // Enable interrupts
-
-    __asm__ volatile(
-        "msr spsr_cxsf, %0\n"    // Set up spsr for return
-        "mov lr, %1\n"           // Set up return address
-        :
-        : "r" (cpsr), "r" (current_process->context.lr)
-        : "lr"
-    );
-}
-
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {
     // Switch to kernel page table
     // uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;

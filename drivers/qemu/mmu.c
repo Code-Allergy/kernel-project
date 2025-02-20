@@ -94,7 +94,7 @@ void debug_l1_entry(uint32_t *va, uint32_t* ttbr0) {
 
     // Get L1 index (bits 31-20)
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = ttbr0[l1_index];
+    uint32_t l1_entry = (uint32_t)(PHYS_TO_KERNEL_VIRT(ttbr0)[l1_index]);
 
     printk("L1 Entry [%p] @ %p: %p\n", l1_index, &l1_page_table[l1_index], l1_entry);
 
@@ -118,7 +118,7 @@ void debug_l2_entry(uint32_t *va, uint32_t* ttbr0) {
 
     // Get L1 index first
     uint32_t l1_index = va_val >> 20;
-    uint32_t l1_entry = ttbr0[l1_index];
+    uint32_t l1_entry = (uint32_t)PHYS_TO_KERNEL_VIRT(ttbr0)[l1_index];
 
     if((l1_entry & 0x3) != 0x1) {
         printk("No L2 table for address %p\n", va);
@@ -126,11 +126,11 @@ void debug_l2_entry(uint32_t *va, uint32_t* ttbr0) {
     }
 
     // Get L2 table address
-    uint32_t *l2_table = (uint32_t*)(l1_entry & 0xFFFFFC00);
+    uint32_t *l2_table = (uint32_t*)PHYS_TO_KERNEL_VIRT(l1_entry & 0xFFFFFC00);
 
     // Get L2 index (bits 19-12)
     uint32_t l2_index = (va_val >> 12) & 0xFF;
-    uint32_t l2_entry = l2_table[l2_index];
+    uint32_t l2_entry = (uint32_t)l2_table[l2_index];
 
     printk("L2 Entry [%p] @ %p: %p\n",
           l2_index, &l2_table[l2_index], l2_entry);
@@ -149,7 +149,7 @@ void debug_l2_entry(uint32_t *va, uint32_t* ttbr0) {
 }
 
 void debug_l1_l2_entries(void *va, uint32_t* ttbr0) {
-    printk("\n=== MMU Debug for %p, TTBR0: %p ======================\n", va);
+    printk("\n=== MMU Debug for %p, TTBR0: %p ======================\n", va, ttbr0);
     debug_l1_entry(va, ttbr0);
     debug_l2_entry(va, ttbr0);
     printk("=============================================\n\n");

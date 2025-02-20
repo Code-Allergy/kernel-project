@@ -117,10 +117,10 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
     // printk("Kernel mem? %d\n", mmu_driver.kernel_mem);
     if (ttbr0 == NULL) ttbr0 = l1_page_table;
     else ttbr0 = PHYS_TO_KERNEL_VIRT(ttbr0);
+
     // Verify 4KB alignment (last 12 bits must be 0)
     if (((uint32_t)vaddr & 0xFFF) != 0 || ((uint32_t)paddr & 0xFFF) != 0) {
-        printk("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
-        while (1);
+        panic("Unaligned vaddr(%p) or paddr(%p)", vaddr, paddr);
     }
 
     // Clear the unused bits from paddr (keeping only the physical frame number)
@@ -158,6 +158,10 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
     // Map the page
     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
+    // printk("Mapping vaddr %p to paddr %p\n", vaddr, paddr);
+    // printk("L1 Entry Address: %p (Value: %p)\n", l1_entry, *PHYS_TO_KERNEL_VIRT(l1_entry));
+    // printk("Using L2 Table Address: %p\n", l2_table);
+    // printk("L2 Entry Address: %p (Value: %p)\n", &l2_table[PAGE_INDEX((uint32_t)vaddr)], l2_table[PAGE_INDEX((uint32_t)vaddr)]);
 }
 
 #endif

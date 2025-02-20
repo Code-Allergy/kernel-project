@@ -2,6 +2,7 @@
 #define KERNEL_SCHED_H
 #include <kernel/vfs.h>
 #include <kernel/file.h>
+#include <elf32.h>
 
 
 #include <stddef.h>
@@ -38,6 +39,13 @@ struct cpu_regs {
     uint32_t pc;  // 64
 };
 
+typedef struct process_page {
+    void* vaddr;
+    void* paddr;
+    uint32_t ref_count;
+    uint32_t flags;
+} process_page_t;
+
 
 typedef struct {
     uint32_t* stack_top;
@@ -62,11 +70,22 @@ typedef struct {
     uint32_t heap_page_paddr;
     uint32_t heap_page_vaddr;
 
+    process_page_t* code_pages;
+    uint32_t num_code_pages;
+
+    process_page_t* data_pages;
+    uint32_t num_data_pages;
+
+    process_page_t* heap_page;
+    uint32_t num_heap_pages;
+
+    process_page_t* stack_page;
+
     // file management
     file_t* fd_table[MAX_FDS];
     int num_fds;
 
-    struct cpu_regs context;
+    // struct cpu_regs context;
     // rest of registers from user mode
 } process_t;
 
@@ -86,6 +105,7 @@ typedef struct {
 extern scheduler_t scheduler_driver;
 
 process_t* create_process(uint8_t* bytes, size_t size);
+process_t* _create_process(binary_t* bin, process_t* parent);
 process_t* clone_process(process_t* original_p);
 void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
 void get_kernel_regs(struct cpu_regs* regs);

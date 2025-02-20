@@ -1,5 +1,5 @@
 #include <stddef.h>
-#include "../include/syscall.h"
+#include "../include/syscalls.h"
 
 // from include/syyscall.h
 typedef __builtin_va_list va_list;

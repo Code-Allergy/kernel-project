@@ -15,9 +15,15 @@ GCC_LIB_DIR = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 
 # Compiler flags
-CFLAGS = -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I. -Ilib/include
-LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
+CFLAGS = -g -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I. -Ilib/include
+
+LDFLAGS = -Llib -L$(GCC_LIB_DIR) --entry _start # -Wl,--heap=0x01000000 -g
 LDLIBS = -losc -lgcc
+
+
+# bin files, when targeting elf we don't need custom linker script
+#LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
+
 
 SOURCES = $(wildcard $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))

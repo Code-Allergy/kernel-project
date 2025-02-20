@@ -14,6 +14,7 @@
 #include <kernel/string.h>
 #include <kernel/time.h>
 #include <kernel/rtc.h>
+#include <elf32.h>
 
 #include <stdint.h>
 
@@ -122,7 +123,10 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
 
 
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
-    // timer_start(0, KERNEL_HEARTBEAT_TIMER);
+
+    // test_elf32();
+    // while(1);
+
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

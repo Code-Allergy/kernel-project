@@ -1,5 +1,5 @@
 #include "runtime.h"
-#include "../include/syscall.h"
+#include <syscalls.h>
 
 void syscall_debug(const char *str, uint32_t len) {
     syscall_2(SYSCALL_DEBUG_NO, (uint32_t) str, len);

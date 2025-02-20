@@ -77,13 +77,10 @@ void handle_undefined(uint32_t esr, process_t* p) {
     const uint32_t il = (esr >> 25) & 1;
     const uint32_t iss = esr & 0x1FFFFFF;
 
-    uint32_t kernel_l1_phys = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    mmu_driver.set_l1_table((uint32_t*) kernel_l1_phys);
-
     // Log exception details
-    printk("Undefined Instruction in PID %d at %p\n",
-           p->pid, p->context.pc);
-    printk("Instruction: %p\n", *(uint32_t*)p->context.pc);
+    printk("Undefined Instruction in PID %d at TODO\n",
+           p->pid);
+    // printk("Instruction: %p\n", *(uint32_t*)p->context.pc);
     printk("ESR: %p (EC=%p IL=%d ISS=%p)\n",
            esr, ec, il, iss);
 

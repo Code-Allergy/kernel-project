@@ -47,6 +47,7 @@
 #define MMU_SHAREABLE       (1 << 10)    // Mark as shareable
 #define MMU_NON_SHAREABLE   (1 << 10)    // Mark as non-shareable
 #define MMU_EXECUTE_NEVER   (1 << 4)     // Prevent instruction fetches
+#define MMU_EXECUTE         (0 << 4)     // Enable instruction fetches
 
 // Memory Region Types
 #define MMU_NORMAL_MEMORY   (MMU_CACHEABLE | MMU_BUFFERABLE)
