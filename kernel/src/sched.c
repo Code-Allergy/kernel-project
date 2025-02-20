@@ -95,25 +95,10 @@ int scheduler_init(void) {
     current_process = NULL;
     total_processes = 0;
     curr_pid = 0;
-    memset(process_table, 0, sizeof(process_table) * MAX_PROCESSES);
+    memset(process_table, 0, sizeof(process_table));
 
     scheduler_driver.current_tick = 0;
-    // spawn_flat_init_process("/bin/null");
-    // process_t* p = spawn_flat_init_process("/bin/open");
-    // process_t* p_ = spawn_flat_init_process("/bin/testa");
-    process_t* p = spawn_elf_init_process("/elf/null.elf");
-    if (p == NULL) {
-        printk("Failed to spawn null process\n");
-        return -1;
-    }
-    process_t* _p = spawn_elf_init_process("/elf/init.elf");
-    // _create_process(NULL, _p);
-
-    // spawn_flat_init_process("/bin/testa");
-    // spawn_flat_init_process("/bin/testa");
-    // spawn_flat_init_process("/bin/testa");
-    // spawn_flat_init_process("/bin/testa");
-    // spawn_flat_init_process("/bin/testa");
+    process_t* p_ = spawn_flat_init_process("/bin/testa");
     return 0;
 }
 
