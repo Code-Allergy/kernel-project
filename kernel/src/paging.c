@@ -135,7 +135,7 @@ void free_aligned_pages(struct page_allocator *alloc, void *ptr, size_t count) {
 
     // Verify these are valid allocated pages
     for (size_t i = 0; i < count; i++) {
-        if (alloc->pages[page_index + i].paddr != ptr + (i * PAGE_SIZE)) {
+        if ((uint32_t)alloc->pages[page_index + i].paddr != ((uint32_t)ptr + (i * PAGE_SIZE))) {
             printk("Corrupted aligned page free attempt: %p\n", ptr);
             return;
         }

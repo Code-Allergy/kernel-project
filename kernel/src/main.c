@@ -22,7 +22,7 @@
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 5000 // usec
+#define KERNEL_HEARTBEAT_TIMER 2000 // usec
 
 bootloader_t bootloader_info;
 
@@ -89,7 +89,7 @@ void init_stack_canary(void) {
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) {
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
-    if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
+    if (calculate_checksum((void*)(intptr_t)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     init_kernel_pages();
     setup_stacks();

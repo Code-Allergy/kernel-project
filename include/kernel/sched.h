@@ -2,13 +2,17 @@
 #define KERNEL_SCHED_H
 #include <kernel/vfs.h>
 #include <kernel/file.h>
+#include <kernel/list.h>
 #include <elf32.h>
 
 
 #include <stddef.h>
 #include <stdint.h>
 
-
+#define MAX_PROCESSES 128
+#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
+#define NULL_PROCESS_FILE "/elf/null.elf"
+#define INIT_PROCESS_FILE "/elf/testa.elf"
 
 /* Process state definitions */
 #define PROCESS_RUNNING  1
@@ -39,11 +43,24 @@ struct cpu_regs {
     uint32_t pc;  // 64
 };
 
+enum process_page_type {
+    PROCESS_PAGE_CODE,
+    PROCESS_PAGE_DATA,
+    PROCESS_PAGE_STACK,
+    PROCESS_PAGE_HEAP,
+    PROCESS_PAGE_OTHER
+};
+
 typedef struct process_page {
-    void* vaddr;
-    void* paddr;
-    uint32_t ref_count;
-    uint32_t flags;
+    void* vaddr;           // Virtual address of the page
+    void* paddr;           // Physical address of the page
+    uint32_t ref_count;    // Number of processes referencing this page
+    uint32_t flags;        // Page flags (read/write/execute etc)
+
+    enum process_page_type page_type;   // Type of page (code, data, stack etc)
+    struct list_node list;
+    // size_t size;           // Size of the page (all 4k for now)
+    // uint32_t last_access;  // Timestamp of last page access
 } process_page_t;
 
 
@@ -70,25 +87,27 @@ typedef struct {
     uint32_t heap_page_paddr;
     uint32_t heap_page_vaddr;
 
-    process_page_t* code_pages;
-    uint32_t num_code_pages;
-
-    process_page_t* data_pages;
-    uint32_t num_data_pages;
-
-    process_page_t* heap_page;
-    uint32_t num_heap_pages;
-
-    process_page_t* stack_page;
-
-    int forked; // 1 if forked, 0 if not -- DEBUG - remove later
+    process_page_t* process_pages;
 
     // file management
     file_t* fd_table[MAX_FDS];
     int num_fds;
 
-    // struct cpu_regs context;
-    // rest of registers from user mode
+    int forked; // 1 if forked, 0 if not -- DEBUG - remove later
+
+    uint32_t syscall_trace; // syscalls to trace (bitmask)
+
+    // debug info
+    char* process_name;            // Name or identifier for the process
+    uint32_t creation_time;        // Process creation timestamp
+    uint32_t last_schedule_time;   // Last time this process was scheduled
+    uint32_t total_run_time;       // Total CPU time used
+    uint32_t context_switches;     // Number of times process was context switched
+    uint32_t page_faults;          // Number of page faults
+    uint32_t syscall_count;        // Number of system calls made
+    char* current_syscall;         // Name of currently executing syscall if any
+    uint32_t stack_usage;          // Current stack usage
+    uint32_t heap_usage;          // Current heap memory usage
 } process_t;
 
 typedef struct {

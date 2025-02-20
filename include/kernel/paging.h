@@ -35,4 +35,5 @@ void init_page_allocator(struct page_allocator *alloc);
 
 void* alloc_aligned_pages(struct page_allocator *alloc, size_t count);
 void free_aligned_pages(struct page_allocator *alloc, void *ptr, size_t count);
+uint32_t alloc_l1_table(struct page_allocator *alloc);
 #endif

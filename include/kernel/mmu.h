@@ -67,8 +67,6 @@
 #define MMU_S               (1 << 16)     // Shareable
 #define MMU_AP2            (1 << 15)     // Access Permission extension
 
-#define MMU_TABLE_ALIGN  __attribute__((aligned(16384)))
-
 #define SECTION_INDEX(addr) ((addr) >> 20)
 #define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
 
@@ -248,7 +246,7 @@ typedef uint32_t l2_page_table_t[256];
 extern volatile uint32_t * const l1_page_table;
 extern l2_page_table_t * const l2_tables;
 #else
-extern uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+extern uint32_t l1_page_table[4096] __attribute__((aligned(16384)));
 extern l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
 #endif
 

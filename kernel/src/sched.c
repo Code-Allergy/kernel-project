@@ -10,40 +10,59 @@
 #include <kernel/printk.h>
 #include <kernel/string.h>
 #include <kernel/fat32.h>
+#include <kernel/heap.h>
 
 static uint32_t total_processes;
 static uint32_t curr_pid;
-#define MAX_PROCESSES 128
-#define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 
-// use a bitmap and struct later for this and other flags
-volatile bool schedule_needed = false;
-
-process_t* current_process = NULL;
-process_t* next_process = NULL;
-process_t process_table[MAX_PROCESSES];
 static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
-process_t* spawn_flat_init_process(const char* file_path) {
-    fat32_fs_t sd_card;
-    fat32_file_t userspace_application;
-    if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
-        printk("Failed to mount SD card\n");
-        return NULL;
-    }
-    if (fat32_open(&sd_card, file_path, &userspace_application)) {
-        printk("Failed to open file\n");
-        return NULL;
-    }
+process_t* current_process;
+process_t* next_process;
 
-    static uint8_t bytes[PAGE_SIZE];
-    if ((uint32_t)fat32_read(&userspace_application, bytes, PAGE_SIZE) != userspace_application.file_size) {
-        printk("Init process not read fully off disk\n");
-        return NULL;
-    };
+process_t process_table[MAX_PROCESSES]; // TODO dynamic processes
 
-    return create_process(bytes, userspace_application.file_size);
-}
+
+// binary_t* load_flat_bin(uint8_t* bytes, size_t len) {
+//     binary_t* bin = kmalloc(sizeof(binary_t));
+//     if (!bin) {
+//         return NULL;
+//     }
+
+//     bin->bytes = bytes;
+//     bin->len = len;
+//     bin->entry = (void*)bytes;
+
+//     return bin;
+// }
+
+// process_t* spawn_flat_init_process(const char* file_path) {
+//     fat32_fs_t sd_card;
+//     fat32_file_t userspace_application;
+//     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
+//         printk("Failed to mount SD card\n");
+//         return NULL;
+//     }
+//     if (fat32_open(&sd_card, file_path, &userspace_application)) {
+//         printk("Failed to open file\n");
+//         return NULL;
+//     }
+
+//     uint8_t* bytes = kmalloc(userspace_application.file_size);
+//     if (!bytes) {
+//         printk("Failed to allocate buffer for FLAT BIN\n");
+//         return NULL;
+//     }
+
+//     if ((uint32_t)fat32_read(&userspace_application, bytes, PAGE_SIZE) != userspace_application.file_size) {
+//         printk("Init process not read fully off disk\n");
+//         return NULL;
+//     };
+
+//     binary_t* init_bin = load_flat_bin(bytes, userspace_application.file_size);
+
+//     return _create_process(init_bin, NULL);
+// }
 
 process_t* spawn_elf_init_process(const char* file_path) {
     fat32_fs_t sd_card;
@@ -98,8 +117,11 @@ int scheduler_init(void) {
     memset(process_table, 0, sizeof(process_table));
 
     scheduler_driver.current_tick = 0;
-    process_t* nullp = spawn_flat_init_process("/bin/null");
-    process_t* initp = spawn_elf_init_process("/elf/testa.elf");
+    process_t* nullp = spawn_elf_init_process(NULL_PROCESS_FILE);
+    if (!nullp) panic("Failed to start " NULL_PROCESS_FILE);
+
+    process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
+    if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
     return 0;
 }
 
@@ -205,132 +227,6 @@ process_t* get_available_process(void) {
         }
     }
     return NULL;
-}
-
-process_t* clone_process(process_t* original_p) {
-    process_t* p = get_available_process();
-    if (p == NULL) {
-        printk("Out of available processes in clone_process! HALT\n");
-        while (1);
-    }
-
-    // allocate pages for code and data
-    void* data_page = alloc_page(&kpage_allocator);
-    // TODO - frame corruption?? look into what's happening to mapping here
-    void* stack_page = alloc_page(&kpage_allocator);
-    void* heap_page = alloc_page(&kpage_allocator);
-    if (!data_page || !stack_page || !heap_page) { // NO SWAPPING
-        panic("Out of memory in clone_process! HALT\n");
-    }
-
-    p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
-    if(!p->ttbr0) return NULL;
-
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_CODE_BASE, (void*)original_p->code_page_paddr, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-
-    p->asid = allocate_asid();
-    p->pid = get_next_pid();
-    p->ppid = original_p->pid;
-    p->priority = original_p->priority;
-
-    // map kernel mappings
-    mmu_driver.set_l1_with_asid(p->ttbr0, p->asid);
-
-    memcpy((void*)MEMORY_USER_DATA_BASE, PHYS_TO_KERNEL_VIRT(original_p->data_page_paddr), PAGE_SIZE); // TODO COW for data page
-    memcpy((void*)MEMORY_USER_STACK_BASE, PHYS_TO_KERNEL_VIRT(original_p->stack_page_paddr), PAGE_SIZE); // TODO COW for stack page / only copy in use stack
-    memcpy((void*)MEMORY_USER_HEAP_BASE, PHYS_TO_KERNEL_VIRT(original_p->heap_page_paddr), PAGE_SIZE); // TODO COW for heap page
-
-    p->code_page_vaddr = MEMORY_USER_CODE_BASE;
-    p->stack_page_vaddr = MEMORY_USER_STACK_BASE;
-    p->data_page_vaddr = MEMORY_USER_DATA_BASE;
-    p->heap_page_vaddr = MEMORY_USER_HEAP_BASE;
-
-    p->code_page_paddr = (uint32_t) original_p->code_page_paddr;
-    p->data_page_paddr = (uint32_t) data_page;
-    p->stack_page_paddr = (uint32_t) stack_page;
-    p->heap_page_paddr = (uint32_t) heap_page;
-
-    p->stack_top = original_p->stack_top;
-    p->code_size = original_p->code_size;
-    p->state = PROCESS_READY;
-
-    // Debug: Print L1 entry for user stack
-    // uint32_t stack_vaddr = MEMORY_USER_STACK_BASE;
-    // uint32_t l1_index = stack_vaddr >> 20;
-    // uint32_t l1_entry = p->ttbr0[l1_index];
-    // printk("Clone L1[%d] = 0x%08x (phys: 0x%08x)\n",
-    //        l1_index, l1_entry, (l1_entry & 0xFFF00000));
-
-    // printk("stack paddr: %p\nheap paddr: %p\n", stack_page, heap_page);
-
-    // uint32_t* addr = mmu_driver.get_physical_address(p->ttbr0, (void*)stack_vaddr);
-    // printk("Physical address1:%p\n", addr);
-
-    // uint32_t* addr2 = mmu_driver.get_physical_address(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE);
-    // printk("Physical address2:%p\n", addr2);
-
-    return p;
-}
-
-
-// create a new process with a flat binary
-process_t* create_process(uint8_t* bytes, size_t size) {
-    // printk("Process bytes: %p %p %p %p\n", *(uint32_t*)bytes, *(uint32_t*)bytes + 4, *(uint32_t*)bytes + 8, *(uint32_t*)bytes + 12);
-    process_t* proc = get_available_process();
-    if (proc == NULL) {
-        printk("Out of available processes in create_process! HALT\n");
-        while (1);
-    }
-
-    void* code_page = alloc_page(&kpage_allocator);
-    void* data_page = alloc_page(&kpage_allocator);
-    void* stack_page = alloc_page(&kpage_allocator);
-    void* heap_page = alloc_page(&kpage_allocator);
-    if (!code_page || !data_page || !stack_page || !heap_page) { // NO SWAPPING
-        printk("Out of memory in create_process! HALT\n");
-        while (1);
-    }
-
-    // Allocate 16KB-aligned L1 table
-    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
-    if(!proc->ttbr0) return NULL;
-
-    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_CODE_BASE, code_page, MMU_NORMAL_MEMORY | MMU_AP_RO | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    mmu_driver.map_page(proc->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    memcpy(PHYS_TO_KERNEL_VIRT(code_page), bytes, size);
-
-
-    proc->asid = allocate_asid();
-    proc->pid = get_next_pid();
-    proc->priority = 0;
-
-    proc->code_page_vaddr = MEMORY_USER_CODE_BASE;
-    proc->data_page_vaddr = MEMORY_USER_DATA_BASE;
-    proc->stack_page_vaddr = MEMORY_USER_STACK_BASE;
-    proc->heap_page_vaddr = MEMORY_USER_HEAP_BASE;
-
-    proc->code_page_paddr = (uint32_t) code_page;
-    proc->data_page_paddr = (uint32_t) data_page;
-    proc->stack_page_paddr = (uint32_t) stack_page;
-    proc->heap_page_paddr = (uint32_t) heap_page;
-    proc->code_size = size;
-
-    proc->num_fds = 0;
-
-    mmu_driver.set_l1_with_asid(proc->ttbr0, proc->asid);
-    proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-
-    proc->stack_top[13] = MEMORY_USER_CODE_BASE; // lr -- TODO: set to exit handler backup
-    proc->stack_top[14] = 0x10; // cpsr
-    proc->stack_top[15] = MEMORY_USER_CODE_BASE; // pc
-
-    proc->state = PROCESS_READY;
-    return proc;
 }
 
 void get_kernel_regs(struct cpu_regs* regs) {
@@ -443,7 +339,6 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
     } else {
         panic("No binary or parent process provided\n"); // panic for now
     }
-    uint32_t entry_point = bin ? bin->entry : parent->stack_top[15];
     void* heap_page = alloc_page(&kpage_allocator);
     void* stack_page = alloc_page(&kpage_allocator);
     if (!stack_page || !heap_page) {
@@ -480,53 +375,6 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
 
     p->state = PROCESS_READY;
     return p;
-}
-
-// Common process creation function
-process_t* create_new_process(uint8_t* bytes, size_t size, process_t* original_p) {
-    process_t* proc = get_available_process();
-    if (proc == NULL) {
-        printk("Out of available processes! HALT\n");
-        while (1);
-    }
-
-    // Allocate L1 table
-    proc->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
-    if (!proc->ttbr0) return NULL;
-
-    // Allocate and map pages
-    if (!setup_pages(proc, bytes, size)) {
-        printk("Out of memory during process setup! HALT\n");
-        while (1);
-    }
-
-    // Allocate ASID and assign PID
-    proc->asid = allocate_asid();
-    proc->pid = get_next_pid();
-    proc->ppid = original_p ? original_p->pid : 0; // In case of cloning
-    proc->priority = original_p ? original_p->priority : 0; // Default priority
-
-    // Set up memory mappings for kernel sections (could be added as part of helper)
-    mmu_driver.set_l1_with_asid(proc->ttbr0, proc->asid);
-
-    // Copy data from the original process for cloning
-    if (original_p) {
-        memcpy((void*)MEMORY_USER_DATA_BASE, PHYS_TO_KERNEL_VIRT(original_p->data_page_paddr), PAGE_SIZE);
-        memcpy((void*)MEMORY_USER_STACK_BASE, PHYS_TO_KERNEL_VIRT(original_p->stack_page_paddr), PAGE_SIZE);
-        memcpy((void*)MEMORY_USER_HEAP_BASE, PHYS_TO_KERNEL_VIRT(original_p->heap_page_paddr), PAGE_SIZE);
-    }
-
-    // Setup other process state
-    proc->code_size = size;
-    proc->state = PROCESS_READY;
-    proc->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-
-    // Setup stack for context
-    proc->stack_top[13] = MEMORY_USER_CODE_BASE; // lr
-    proc->stack_top[14] = 0x10; // cpsr
-    proc->stack_top[15] = MEMORY_USER_CODE_BASE; // pc
-
-    return proc;
 }
 
 

@@ -9,27 +9,9 @@
 struct vfs_node;
 struct vfs_mount;
 
-// typedef ssize_t (*read_fn)(struct vfs_node*, void*, size_t, off_t);
-// typedef ssize_t (*write_fn)(struct vfs_node*, const void*, size_t, off_t);
-typedef int (*open_fn)(struct vfs_dirent*, int flags);
-typedef int (*close_fn)(int fd);
-typedef struct vfs_node* (*lookup_fn)(struct vfs_node*, const char* name);
-typedef int (*readdir_fn)(struct vfs_node*, struct dirent*, size_t);
-
-
 typedef uint32_t uid_t;
 typedef uint32_t gid_t;
 typedef uint32_t time_t;
-
-// File operations structure
-typedef struct vfs_ops {
-    // read_fn read;
-    // write_fn write;
-    open_fn open;
-    close_fn close;
-    lookup_fn lookup;
-    readdir_fn readdir;
-} vfs_ops_t;
 
 // File system operations
 typedef struct filesystem_ops {
@@ -132,6 +114,26 @@ typedef struct dirent {
 #define S_ISREG(node) (!((node)->mode & VFS_DIR))
 
 extern vfs_dentry_t* vfs_root_node;
+
+// typedef ssize_t (*read_fn)(struct vfs_node*, void*, size_t, off_t);
+// typedef ssize_t (*write_fn)(struct vfs_node*, const void*, size_t, off_t);
+typedef int (*open_fn)(vfs_dentry_t*, int flags);
+typedef int (*close_fn)(int fd);
+typedef struct vfs_node* (*lookup_fn)(struct vfs_node*, const char* name);
+typedef int (*readdir_fn)(struct vfs_node*, struct dirent*, size_t);
+
+
+
+
+// File operations structure
+typedef struct vfs_ops {
+    // read_fn read;
+    // write_fn write;
+    open_fn open;
+    close_fn close;
+    lookup_fn lookup;
+    readdir_fn readdir;
+} vfs_ops_t;
 
 void vfs_init(void);
 

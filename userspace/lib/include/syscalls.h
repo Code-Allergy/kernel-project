@@ -80,7 +80,7 @@ void syscall_debug(const char *str, uint32_t len);
 uint32_t getpid(void);
 int fork(void);
 int yield(void);
-
+int fork(void);
 
 
 

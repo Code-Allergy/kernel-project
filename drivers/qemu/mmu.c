@@ -23,8 +23,14 @@ int check_if_user_addr(uint32_t vaddr, uint32_t len);
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
 // L1 Page Table (4096 entries, 4KB each for 4GB address space)
-uint32_t l1_page_table[4096] MMU_TABLE_ALIGN;
+#ifdef BOOTLOADER
+uint32_t l1_page_table[4096] __attribute__((section(".boot_tables"), aligned(16384)));
+l2_page_table_t l2_tables[4096] __attribute__((section(".boot_tables"), aligned(1024)));
+#else
+uint32_t l1_page_table[4096] __attribute__((aligned(16384)));
 l2_page_table_t l2_tables[4096] __attribute__((aligned(1024)));
+#endif
+
 
 #define panic(fmt, ...) do { printk(fmt, ##__VA_ARGS__); while(1); } while(0)
 

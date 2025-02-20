@@ -14,7 +14,17 @@ SECTIONS
     . = ORIGIN(RAM);
     .data : { *(.data) }
     .bss : { *(.bss COMMON) }
-    . = ALIGN(8);
-    . = . + 0x1000; /* 4kB of stack memory */
-    _stack_start = .;
+
+    .stack (NOLOAD) : {
+        . = ALIGN(16);
+        _stack_bottom = .;
+        . += 0x1000;
+        _stack_top = .;
+    }
+
+    .boot_tables 0x5F610000 (NOLOAD) : {
+        _boot_tables_start = .;
+        *(.boot_tables*)
+        _boot_tables_end = .;
+    }
 }
