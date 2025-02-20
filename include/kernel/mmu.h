@@ -1,6 +1,5 @@
 #ifndef KERNEL_MMU_H
 #define KERNEL_MMU_H
-#include "kernel/mm.h"
 #include <stdint.h>
 #include <stddef.h>
 // #include <kernel/paging.h>
@@ -23,19 +22,19 @@
 
 #define MMU_DOMAIN_KERNEL    0
 
-// Domain Settings
-#define MMU_DOMAIN_DEVICE    1           // Domain 1 for kernel
-#define DACR_CLIENT_DOMAIN_KERNEL  (1 << MMU_DOMAIN_KERNEL)    // Client access for domain kernel
-#define DACR_MANAGER_DOMAIN_KERNEL (3 << MMU_DOMAIN_KERNEL)    // Manager access for domain kernel
-
-#define MMU_DOMAIN_USER      2           // Domain 2 for user
+#define MMU_DOMAIN_USER      1           // Domain 1 for user
 #define DACR_CLIENT_DOMAIN_USER    (1 << MMU_DOMAIN_USER)      // Client access for domain user
 #define DACR_MANAGER_DOMAIN_USER   (3 << MMU_DOMAIN_USER)      // Manager access for domain user
 
+
+// TODO fix!! shouldn't he << 8, but << 4 and 2 sections.
 // Access Permissions
 #define MMU_AP_RW           (3 << 8)    // Read/write access
 #define MMU_AP_RO           (2 << 8)    // Read-only access
 #define MMU_AP_NO_ACCESS    (0 << 8)    // No access
+// #define MMU_AP_KERNEL_RW    (1 << 8)    // Kernel read/write access
+// #define MMU_AP_KERNEL_RO    (1 << 8 | 1 << )    // Kernel read-only access
+// #define MMU_AP_KERNEL_RW    (1 << 10)   // Kernel read/write access
 
 // Memory Type
 #define MMU_CACHEABLE       (1 << 3)     // Enable caching

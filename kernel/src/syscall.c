@@ -115,25 +115,27 @@ int sys_debug(int buf, int len) {
 
 int sys_exit(int exit_status) {
     printk("EXIT %d\n", current_process->pid);
+    panic("unimplementted");
     // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr); // Need RCs before we can free this, for now just let it leak
-    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
-    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);
-    mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->heap_page_vaddr);
-    // free_page(&kpage_allocator, (void*)current_process->code_page_paddr); // Need RCs before we can free this, for now just let it leak
-    free_page(&kpage_allocator, (void*)current_process->data_page_paddr);
-    free_page(&kpage_allocator, (void*)current_process->stack_page_paddr);
-    free_page(&kpage_allocator, (void*)current_process->heap_page_paddr);
+    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
+    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);
+    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->heap_page_vaddr);
+    // // free_page(&kpage_allocator, (void*)current_process->code_page_paddr); // Need RCs before we can free this, for now just let it leak
+    // free_page(&kpage_allocator, (void*)current_process->data_page_paddr);
+    // free_page(&kpage_allocator, (void*)current_process->stack_page_paddr);
+    // free_page(&kpage_allocator, (void*)current_process->heap_page_paddr);
 
 
-    // TODO free pages in l1 table of process:
-    // TODO free anything else in the process
-    // TODO reassign PID or parents of children
-    // TODO clean up any open files
-    free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
-    memset(current_process, 0, sizeof(process_t));
-    current_process->state = PROCESS_NONE;
-    current_process = NULL;
-    scheduler_driver.schedule_next = 1;
+    // // TODO free pages in l1 table of process:
+    // // TODO free anything else in the process
+    // // TODO reassign PID or parents of children
+    // // TODO clean up any open files
+    // free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
+    // memset(current_process, 0, sizeof(process_t));
+    // current_process->state = PROCESS_NONE;
+    // current_process = NULL;
+    // scheduler_driver.schedule_next = 1;
+    return 0;
 }
 
 static inline void dump_registers(struct cpu_regs* regs) {

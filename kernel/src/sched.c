@@ -1,4 +1,5 @@
 #include "elf32.h"
+#include <kernel/list.h>
 #include "kernel/panic.h"
 #include <kernel/boot.h>
 #include <stdint.h>
@@ -21,48 +22,6 @@ process_t* current_process;
 process_t* next_process;
 
 process_t process_table[MAX_PROCESSES]; // TODO dynamic processes
-
-
-// binary_t* load_flat_bin(uint8_t* bytes, size_t len) {
-//     binary_t* bin = kmalloc(sizeof(binary_t));
-//     if (!bin) {
-//         return NULL;
-//     }
-
-//     bin->bytes = bytes;
-//     bin->len = len;
-//     bin->entry = (void*)bytes;
-
-//     return bin;
-// }
-
-// process_t* spawn_flat_init_process(const char* file_path) {
-//     fat32_fs_t sd_card;
-//     fat32_file_t userspace_application;
-//     if (fat32_mount(&sd_card, &mmc_fat32_diskio) != 0) {
-//         printk("Failed to mount SD card\n");
-//         return NULL;
-//     }
-//     if (fat32_open(&sd_card, file_path, &userspace_application)) {
-//         printk("Failed to open file\n");
-//         return NULL;
-//     }
-
-//     uint8_t* bytes = kmalloc(userspace_application.file_size);
-//     if (!bytes) {
-//         printk("Failed to allocate buffer for FLAT BIN\n");
-//         return NULL;
-//     }
-
-//     if ((uint32_t)fat32_read(&userspace_application, bytes, PAGE_SIZE) != userspace_application.file_size) {
-//         printk("Init process not read fully off disk\n");
-//         return NULL;
-//     };
-
-//     binary_t* init_bin = load_flat_bin(bytes, userspace_application.file_size);
-
-//     return _create_process(init_bin, NULL);
-// }
 
 process_t* spawn_elf_init_process(const char* file_path) {
     fat32_fs_t sd_card;
@@ -94,19 +53,6 @@ process_t* spawn_elf_init_process(const char* file_path) {
 static int32_t get_next_pid(void) {
     printk("Allocating PID: %d\n", total_processes);
     return total_processes++;
-}
-
-// this shouldn't flush EL2, and shouldn't be here either. not sure why it's here
-static inline void flush_tlb(void) {
-    __asm__ volatile (
-        "dsb ish\n"        // Ensure all previous memory accesses complete
-        "tlbi alle2\n"     // Invalidate all TLB entries at EL2
-        "dsb ish\n"        // Ensure completion of TLB invalidation
-        "isb\n"            // Synchronize the instruction stream
-        : // No output operands
-        : // No input operands
-        : "memory"         // Clobbers memory
-    );
 }
 
 // never return
@@ -261,12 +207,29 @@ void mmu_set_l1_with_asid(uint32_t ttbr0, uint32_t asid) {
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+process_page_t* alloc_process_page(void) {
+    process_page_t* page = kmalloc(sizeof(process_page_t));
+    if (!page) return NULL;
+
+    // printk("OK\n");
+    page->paddr = alloc_page(&kpage_allocator);
+    if (!page->paddr) {
+        kfree(page);
+        return NULL;
+    }
+
+    INIT_LIST_HEAD(&page->list);
+    return page;
+}
+
+// TODO: This leaks memory, we should goto a cleanup label and free all the pages
 process_t* _create_process(binary_t* bin, process_t* parent) {
     process_t* p = get_available_process();
 
     p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
     if(!p->ttbr0) return NULL;
 
+    INIT_LIST_HEAD(&p->pages_head);
     // do this better later
     if (bin) {
         if (bin->type == BINARY_TYPE_ELF32) {
@@ -274,24 +237,27 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
                 elf_program_header_t* phdr = &bin->data.elf.program_headers[i];
                 if (phdr->p_type == ELF_PROGRAM_HEADER_TYPE_LOAD) {
                     uint32_t page_count = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
+                    uint32_t vaddr_aligned = phdr->p_vaddr & ~(PAGE_SIZE - 1);
 
                     bool is_code = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_EXECUTABLE;
                     bool is_writable = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_WRITABLE;
 
                     for (uint32_t j = 0; j < page_count; j++) {
-                        void* page = alloc_page(&kpage_allocator);
-                        if (!page) {
-                            printk("Failed to allocate page for ELF segment\n");
-                            return NULL;
-                        }
+                        process_page_t *page = alloc_process_page();
+                        printk("OK\n");
+                        if (!page) return NULL;
+                        printk("OK2\n");
+
+                        page->vaddr = (void*) (vaddr_aligned + (j * PAGE_SIZE));
+                        page->ref_count = 1;
 
                         // Copy segment data into page
                         size_t copy_size = MIN(PAGE_SIZE, phdr->p_filesz - (j * PAGE_SIZE));
                         if (copy_size > 0) {
-                            memcpy(PHYS_TO_KERNEL_VIRT(page), bin->data.elf.raw + phdr->p_offset + (j * PAGE_SIZE), copy_size);
+                            memcpy(PHYS_TO_KERNEL_VIRT(page->paddr), bin->data.elf.raw + phdr->p_offset + (j * PAGE_SIZE), copy_size);
                         }
 
-                        // Map page with appropriate permissions
+                        // // Map page with appropriate permissions
                         uint32_t prot = MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
                         if (is_writable) {
                             prot |= MMU_AP_RW;
@@ -301,20 +267,16 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
                         if (is_code) {
                             prot |= MMU_EXECUTE;
                         }
-                        uint32_t vaddr_aligned = phdr->p_vaddr & ~(PAGE_SIZE - 1);
+
+                        page->flags = prot;
 
                         mmu_driver.map_page(p->ttbr0,
-                                           (void*)(vaddr_aligned + (j * PAGE_SIZE)),
-                                           page,
+                                           page->vaddr,
+                                           page->paddr,
                                            prot);
-
-                        if (is_code) {
-                            p->code_page_paddr = (uint32_t) page;
-                            p->code_page_vaddr = vaddr_aligned;
-                        } else {
-                            p->data_page_paddr = (uint32_t) page;
-                            p->data_page_vaddr = vaddr_aligned;
-                        }
+                        page->page_type = is_code ? PROCESS_PAGE_CODE : PROCESS_PAGE_DATA;
+                        list_add(&page->list, &p->pages_head);
+                        p->num_pages++;
                     }
                 }
             }
@@ -322,41 +284,52 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
             panic("Flat binary not supported yet!\n");
         }
     } else if (parent) {
-        // Copy parent's memory layout for code and give it a new data page
-        void* data_page = alloc_page(&kpage_allocator);
-        if (!data_page) {
-            printk("Failed to allocate page for cloned process\n");
-            return NULL;
-        }
+        // // Copy parent's memory layout for code and give it a new data page
+        // void* data_page = alloc_page(&kpage_allocator);
+        // if (!data_page) {
+        //     printk("Failed to allocate page for cloned process\n");
+        //     return NULL;
+        // }
 
-        mmu_driver.map_page(p->ttbr0, (void*)parent->code_page_vaddr, (void*)parent->code_page_paddr, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RO | MMU_EXECUTE);
-        if (parent->data_page_paddr) {
-            mmu_driver.map_page(p->ttbr0, (void*)parent->data_page_vaddr, data_page, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RW | MMU_EXECUTE_NEVER);
-            memcpy(PHYS_TO_KERNEL_VIRT(data_page), PHYS_TO_KERNEL_VIRT(parent->data_page_paddr), PAGE_SIZE);
-        }
-        p->stack_top = parent->stack_top;
+        // mmu_driver.map_page(p->ttbr0, (void*)parent->code_page_vaddr, (void*)parent->code_page_paddr, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RO | MMU_EXECUTE);
+        // if (parent->data_page_paddr) {
+        //     mmu_driver.map_page(p->ttbr0, (void*)parent->data_page_vaddr, data_page, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RW | MMU_EXECUTE_NEVER);
+        //     memcpy(PHYS_TO_KERNEL_VIRT(data_page), PHYS_TO_KERNEL_VIRT(parent->data_page_paddr), PAGE_SIZE);
+        // }
+        // p->stack_top = parent->stack_top;
 
     } else {
         panic("No binary or parent process provided\n"); // panic for now
     }
-    void* heap_page = alloc_page(&kpage_allocator);
-    void* stack_page = alloc_page(&kpage_allocator);
+
+    process_page_t *heap_page = alloc_process_page();
+    process_page_t *stack_page = alloc_process_page();
     if (!stack_page || !heap_page) {
         return NULL;
     }
 
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
-    mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
-    if (parent) {
-        memcpy(PHYS_TO_KERNEL_VIRT(heap_page), PHYS_TO_KERNEL_VIRT(parent->heap_page_paddr), PAGE_SIZE);
-        memcpy(PHYS_TO_KERNEL_VIRT(stack_page), PHYS_TO_KERNEL_VIRT(parent->stack_page_paddr), PAGE_SIZE);
-    }
+    heap_page->vaddr = (void*)MEMORY_USER_HEAP_BASE;
+    heap_page->ref_count = 1;
+    heap_page->page_type = PROCESS_PAGE_HEAP;
 
-    p->heap_page_paddr = (uint32_t) heap_page;
-    p->heap_page_vaddr = MEMORY_USER_HEAP_BASE;
+    stack_page->vaddr = (void*)MEMORY_USER_STACK_BASE;
+    stack_page->ref_count = 1;
+    stack_page->page_type = PROCESS_PAGE_STACK;
 
-    p->stack_page_paddr = (uint32_t) stack_page;
-    p->heap_page_vaddr = MEMORY_USER_STACK_BASE;
+    mmu_driver.map_page(p->ttbr0, heap_page->vaddr, heap_page->paddr, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
+    mmu_driver.map_page(p->ttbr0, stack_page->vaddr, stack_page->paddr, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
+    // panic("unimplemented\n");
+    // if (parent) {
+    //     process_page_t* current_page;
+    //     list_for_each_entry(current_page, p->pages_head, list) {
+    //     }
+    //     // TODO here
+
+    //     memcpy(PHYS_TO_KERNEL_VIRT(heap_page->paddr), PHYS_TO_KERNEL_VIRT(parent->heap_page_paddr), PAGE_SIZE);
+    //     memcpy(PHYS_TO_KERNEL_VIRT(stack_page), PHYS_TO_KERNEL_VIRT(parent->stack_page_paddr), PAGE_SIZE);
+    // }
+
+
 
     // pages are mapped, load rest of the process info
     p->asid = allocate_asid();
@@ -366,7 +339,7 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
 
     if (bin) {
         p->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
-        uint32_t* sp_phys = PHYS_TO_KERNEL_VIRT(p->stack_page_paddr + PAGE_SIZE - (16 * sizeof(uint32_t)));
+        uint32_t* sp_phys = PHYS_TO_KERNEL_VIRT(stack_page->paddr + PAGE_SIZE - (16 * sizeof(uint32_t)));
 
         sp_phys[13] = 0xCAFEBABE; // lr -- TODO: set to exit handler backup when we have dynamic linking
         sp_phys[14] = 0x10; // cpsr
@@ -379,7 +352,7 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
 
 
 // TODO clean this up
-__attribute__((naked, noreturn)) void userspace_return() {
+__attribute__((naked, noreturn)) void userspace_return(void) {
     __asm__ volatile(
         "ldr r3, =scheduler_driver\n\t"
         "ldr r3, [r3]\n\t"

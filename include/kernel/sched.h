@@ -12,7 +12,7 @@
 #define MAX_PROCESSES 128
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 #define NULL_PROCESS_FILE "/elf/null.elf"
-#define INIT_PROCESS_FILE "/elf/testa.elf"
+#define INIT_PROCESS_FILE "/elf/while.elf"
 
 /* Process state definitions */
 #define PROCESS_RUNNING  1
@@ -58,7 +58,7 @@ typedef struct process_page {
     uint32_t flags;        // Page flags (read/write/execute etc)
 
     enum process_page_type page_type;   // Type of page (code, data, stack etc)
-    struct list_node list;
+    struct list_head list;
     // size_t size;           // Size of the page (all 4k for now)
     // uint32_t last_access;  // Timestamp of last page access
 } process_page_t;
@@ -78,16 +78,17 @@ typedef struct {
 
     uint32_t code_size;
     uint32_t code_entry;
-    uint32_t code_page_paddr;
-    uint32_t code_page_vaddr;
-    uint32_t data_page_paddr;
-    uint32_t data_page_vaddr;
-    uint32_t stack_page_paddr;
-    uint32_t stack_page_vaddr;
-    uint32_t heap_page_paddr;
-    uint32_t heap_page_vaddr;
+    // uint32_t code_page_paddr;
+    // uint32_t code_page_vaddr;
+    // uint32_t data_page_paddr;
+    // uint32_t data_page_vaddr;
+    // uint32_t stack_page_paddr;
+    // uint32_t stack_page_vaddr;
+    // uint32_t heap_page_paddr;
+    // uint32_t heap_page_vaddr;
 
-    process_page_t* process_pages;
+    struct list_head pages_head;
+    uint32_t num_pages;
 
     // file management
     file_t* fd_table[MAX_FDS];
@@ -109,6 +110,7 @@ typedef struct {
     uint32_t stack_usage;          // Current stack usage
     uint32_t heap_usage;          // Current heap memory usage
 } process_t;
+extern process_t* current_process;
 
 typedef struct {
     int schedule_next;
@@ -123,18 +125,16 @@ typedef struct {
 } scheduler_t;
 extern scheduler_t scheduler_driver;
 
-process_t* create_process(uint8_t* bytes, size_t size);
+// this can create or fork a process, based on which parameter is non-NULL
 process_t* _create_process(binary_t* bin, process_t* parent);
-process_t* clone_process(process_t* original_p);
-void place_context_on_user_stack(struct cpu_regs* regs, uint32_t* stack_top);
-void get_kernel_regs(struct cpu_regs* regs);
-extern process_t* current_process;
+
+// initialize the scheduler
 int scheduler_init(void);
+
+// run the scheduler and start the next process. This function should never return, so be mindful of the stack usage.
 void scheduler(void) __attribute__ ((noreturn));
-process_t* spawn_flat_init_process(const char* file_path);
-// asm
-extern void context_switch(struct cpu_regs* old_context, struct cpu_regs* new_context);
-extern void context_switch_1(struct cpu_regs* next_context);
-void __attribute__((noreturn)) userspace_return();
+
+// call to jump to userspace, either back to current process or to a new process
+void __attribute__((noreturn)) userspace_return(void);
 
 #endif // KERNEL_SCHED_H

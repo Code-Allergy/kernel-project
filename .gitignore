@@ -9,3 +9,4 @@ compile_commands.json
 /target
 /team-repo
 qemu.log
+userspace/lib/libosc.a

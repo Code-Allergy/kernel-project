@@ -1,49 +1,65 @@
 #ifndef KERNEL_LIST_H
 #define KERNEL_LIST_H
 
-#include <stddef.h> // for offsetof
+#include <stddef.h>
 
-struct list_node {
-    struct list_node *next;
-    struct list_node *prev;
+struct list_head {
+    struct list_head *next, *prev;
 };
 
-// Initialize a list head
-#define LIST_INIT(head) { (head)->next = (head); (head)->prev = (head); }
+#define LIST_HEAD_INIT(name) { &(name), &(name) }
 
-// Add a new node between two existing nodes
-#define LIST_ADD(new, prev, next) do { \
-    (next)->prev = (new); \
-    (new)->next = (next); \
-    (new)->prev = (prev); \
-    (prev)->next = (new); \
-} while (0)
+#define LIST_HEAD(name) \
+    struct list_head name = LIST_HEAD_INIT(name)
 
-// Remove a node by updating its neighbors
-#define LIST_DEL(entry) do { \
-    (entry)->prev->next = (entry)->next; \
-    (entry)->next->prev = (entry)->prev; \
-} while (0)
+static inline void INIT_LIST_HEAD(struct list_head *head) {
+    head->next = head;
+    head->prev = head;
+}
 
-// Check if the list is empty
-#define LIST_IS_EMPTY(head) ((head)->next == (head))
+static inline void __list_add(struct list_head *new,
+                              struct list_head *prev,
+                              struct list_head *next) {
+    next->prev = new;
+    new->next = next;
+    new->prev = prev;
+    prev->next = new;
+}
 
-// Get the containing struct from a list_node pointer
-#define LIST_ENTRY(ptr, type, member) \
-    ((type *)((char *)(ptr) - offsetof(type, member)))
+static inline void list_add(struct list_head *new, struct list_head *head) {
+    __list_add(new, head, head->next);
+}
 
-// Iterate over list nodes
-#define LIST_FOR_EACH(pos, head) \
+static inline void list_add_tail(struct list_head *new, struct list_head *head) {
+    __list_add(new, head->prev, head);
+}
+
+static inline void __list_del(struct list_head *prev, struct list_head *next) {
+    next->prev = prev;
+    prev->next = next;
+}
+
+static inline void list_del(struct list_head *entry) {
+    __list_del(entry->prev, entry->next);
+}
+
+static inline int list_empty(const struct list_head *head) {
+    return head->next == head;
+}
+
+#define container_of(ptr, type, member) ({          \
+    const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+    (type *)( (char *)__mptr - offsetof(type, member) );})
+
+#define list_entry(ptr, type, member) \
+    container_of(ptr, type, member)
+
+#define list_for_each(pos, head) \
     for (pos = (head)->next; pos != (head); pos = pos->next)
 
-// Iterate safely over list nodes (allows deletion during iteration)
-#define LIST_FOR_EACH_SAFE(pos, n, head) \
-    for (pos = (head)->next, n = pos->next; pos != (head); pos = n, n = pos->next)
+#define list_for_each_entry(pos, head, member)              \
+    for (pos = list_entry((head)->next, typeof(*pos), member);  \
+         &pos->member != (head);                    \
+         pos = list_entry(pos->member.next, typeof(*pos), member))
 
-// Iterate over entries in the list
-#define LIST_FOR_EACH_ENTRY(pos, head, member) \
-    for (pos = LIST_ENTRY((head)->next, typeof(*pos), member); \
-         &pos->member != (head); \
-         pos = LIST_ENTRY(pos->member.next, typeof(*pos), member))
-
-#endif // LIST_H
+#endif /* KERNEL_LIST_H */
