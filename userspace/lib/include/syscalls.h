@@ -5,6 +5,7 @@
 #define SYSCALL_DEBUG_NO 0
 #define SYSCALL_EXIT_NO 1
 #define SYSCALL_GET_PID_NO 2
+#define SYSCALL_YIELD_NO 3
 #define SYSCALL_OPEN_NO 4
 #define SYSCALL_CLOSE_NO 5
 #define SYSCALL_FORK_NO 6
@@ -78,7 +79,7 @@ void syscall_debug(const char *str, uint32_t len);
 
 uint32_t getpid(void);
 int fork(void);
-
+int yield(void);
 
 
 

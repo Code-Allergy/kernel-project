@@ -9,6 +9,10 @@ uint32_t getpid(void) {
     return syscall_0(SYSCALL_GET_PID_NO);
 }
 
+int yield() {
+    return syscall_0(SYSCALL_YIELD_NO);
+}
+
 int fork(void) {
     return syscall_0(SYSCALL_FORK_NO);
 }

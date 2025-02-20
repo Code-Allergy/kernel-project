@@ -39,7 +39,7 @@ int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
 
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
-    process_t* child = clone_process(current_process);
+    process_t* child = _create_process(NULL, current_process);
     child->stack_top[0] = child->pid; // return value of fork in child is the pid
     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
 

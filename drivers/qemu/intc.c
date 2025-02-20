@@ -25,10 +25,12 @@ void handle_irq_c(uint32_t process_stack) {
         current_process->stack_top = (uint32_t*)process_stack;
     }
 
+
     for(int reg = 0; reg < 3; reg++) {
         pending = INTC->IRQ_PEND[reg];
         while(pending) {
             irq = 32 * reg + __builtin_ctz(pending);
+            // printk("Handling IRQ #%d\n", irq);
             if(irq_handlers[irq].handler) {
                 irq_handlers[irq].handler(irq, irq_handlers[irq].data);
             }

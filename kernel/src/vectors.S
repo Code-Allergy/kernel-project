@@ -76,12 +76,12 @@ undef_handler:
 
 @ TODO: cleanup, don't clobber r12, do 2 steps to save lr
 irq_handler_new:
-    cpsid    I         @ disable all interrupts
-    MRS   R12, SPSR    @ Get SPSR
-
+    cpsid    I                           @ disable all interrupts
+    MRS      R12, SPSR                   @ Get SPSR
     @ Check if we were in user mode before the interrupt
-    TST     R12, #0b11111               @ Mask mode bits
-    BNE     irq_from_kernel             @ If not user mode, store in kernel space
+    AND      R12, R12, #0x1F             @ Mask out everything except mode bits
+    CMP      R12, #0x10                  @ Compare with user mode (0x10)
+    BNE      irq_from_kernel             @ Branch if not user mode
 
     @ ----------------- User mode process -----------------
     CPS   #0x1F                        @ System mode

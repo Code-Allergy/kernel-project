@@ -1,7 +1,7 @@
 data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions.
-multi processes are broken argain, stack page seems empty on second created process when we queue it up.
 elf parsing
 vfs basic operations, other than open()
 ipc to support message passing between processes
 memory allocation apis for processes
 test context switch performance
+interrupts broken in userspace processes

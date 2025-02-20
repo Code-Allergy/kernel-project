@@ -24,7 +24,7 @@
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 5000 // usec
+#define KERNEL_HEARTBEAT_TIMER 80000 // usec
 
 bootloader_t bootloader_info;
 

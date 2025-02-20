@@ -93,10 +93,8 @@ typedef struct {
     int schedule_next;
     process_t* current_process;
 
-
     int num_processes;
     int max_processes;
-
 
     uint32_t current_tick;
 
