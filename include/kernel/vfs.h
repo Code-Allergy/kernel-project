@@ -11,7 +11,7 @@ struct vfs_mount;
 // typedef ssize_t (*read_fn)(struct vfs_node*, void*, size_t, off_t);
 // typedef ssize_t (*write_fn)(struct vfs_node*, const void*, size_t, off_t);
 typedef int (*open_fn)(struct vfs_node*, int flags);
-typedef int (*close_fn)(struct vfs_node*);
+typedef int (*close_fn)(int fd);
 typedef struct vfs_node* (*lookup_fn)(struct vfs_node*, const char* name);
 typedef int (*readdir_fn)(struct vfs_node*, struct dirent*, size_t);
 

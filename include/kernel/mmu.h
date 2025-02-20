@@ -71,9 +71,6 @@
 #define SECTION_INDEX(addr) ((addr) >> 20)
 #define PAGE_INDEX(addr) (((addr) & 0xFFFFF) >> 12)
 
-#define PHYS_TO_VIRT(phys)   ((phys) + KERNEL_VIRTUAL_BASE)
-#define VIRT_TO_PHYS(virt)   ((virt) - KERNEL_VIRTUAL_BASE)
-
 /* TTBCR Masks and Shifts */
 #define TTBCR_N_MASK     0x7
 #define TTBCR_PD0_MASK   (1 << 4)
@@ -296,7 +293,13 @@ typedef struct {
 
     void (*set_l1_table)(uint32_t* l1_table);
     void (*set_l1_with_asid)(uint32_t* table, uint8_t asid);
-    void (*map_hardware_pages)(void);
+
+    // on arm, these do different things. on x86, they are the same.
+    void (*set_kernel_table)(uint32_t* l1_table);
+    void (*set_user_table)(uint32_t* l1_table);
+
+    // checks if the address is in the user space for current_process.
+    int (*is_user_addr)(uint32_t addr, uint32_t n);
 
     // // Domain access control
     // void (*set_domain_access)(uint32_t domain, uint32_t access);
@@ -321,7 +324,7 @@ typedef struct {
     // void* (*get_fault_address)(void);
     // void (*debug_dump)(void)
     //
-
+    void (*map_hardware_pages)(void); // implementation specific function to map hardware pages.
 
     uint32_t kernel_mem; // if the high kernel memory space dram is used, if 0, physical memory is used.
 } mmu_t;

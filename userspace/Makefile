@@ -15,7 +15,7 @@ GCC_LIB_DIR = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 
 # Compiler flags
-CFLAGS = -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I.
+CFLAGS = -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -ffreestanding -I. -Ilib/include
 LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
 LDLIBS = -losc -lgcc
 

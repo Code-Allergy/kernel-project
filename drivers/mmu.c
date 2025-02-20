@@ -2,6 +2,8 @@
 #include "kernel/panic.h"
 #include <stdint.h>
 #include <kernel/mmu.h>
+#include <kernel/mm.h>
+
 #include <kernel/printk.h>
 #include <kernel/boot.h>
 #include <kernel/paging.h>
@@ -204,4 +206,39 @@ void invalidate_all_tlb(void) {
         "isb\n"
         : : "r" (0) : "memory"
     );
+}
+
+static inline uint32_t read_ttbr0(void) {
+    uint32_t ttbr0;
+    __asm__ volatile (
+        "mrc p15, 0, %0, c2, c0, 0\n"
+        : "=r" (ttbr0)
+    );
+    return ttbr0;
+}
+
+int check_if_user_addr(uint32_t vaddr, uint32_t len) {
+    // count how many page boundaries we cross
+    size_t start = (size_t)vaddr;
+    size_t end = (size_t)vaddr + len;
+    size_t start_page = start & ~0xFFF;
+    size_t end_page = (end + 0xFFF) & ~0xFFF;
+    size_t num_pages = (end_page - start_page) / 0x1000;
+
+    // for each page, check if it is in the user space by checking the L1 table
+    uint32_t* ttbr0 = PHYS_TO_KERNEL_VIRT(read_ttbr0());
+    for (size_t i = 0; i < num_pages; i++) {
+        uint32_t* l1_entry = &(ttbr0)[SECTION_INDEX(start_page + i * 0x1000)];
+        l1_entry = PHYS_TO_KERNEL_VIRT((uint32_t)l1_entry);
+        if ((*l1_entry & 0x3) != MMU_PAGE_DESCRIPTOR) {
+            return 0;
+        }
+
+        uint32_t l2_table = (*l1_entry & ~0x3FF);
+        if (l2_table == 0) {
+            return 0;
+        }
+    }
+
+    return 1;
 }

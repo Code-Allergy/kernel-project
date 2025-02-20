@@ -33,6 +33,18 @@ int vfs_default_open(vfs_node_t* node, int flags) {
     return current_process->num_fds++;
 }
 
+int vfs_default_close(int fd) {
+    if (fd < 0 || fd >= current_process->num_fds) {
+        return -EINVAL;
+    }
+
+    kfree(current_process->fd_table[fd]);
+    current_process->fd_table[fd] = NULL;
+
+    current_process->num_fds--;
+    return 0;
+}
+
 vfs_node_t* vfs_create_node(const char* name, uint32_t mode) {
     vfs_node_t* node = (vfs_node_t*)kmalloc(sizeof(vfs_node_t));
     if (!node) return NULL;
@@ -193,6 +205,7 @@ void create_test_directory_structure(vfs_node_t* root) {
 
 vfs_ops_t vfs_ops = {
     .open = vfs_default_open,
+    .close = vfs_default_close,
 };
 
 

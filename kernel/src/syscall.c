@@ -8,14 +8,38 @@
 #include <kernel/heap.h>
 #include <kernel/sched.h>
 #include <kernel/paging.h>
+#include <kernel/panic.h>
+
+#define __user
+
+// here for now, later we can move this
+// copy len bytes to current_process dest from src
+int copy_to_user(uint8_t* __user dest, const uint8_t* src, size_t len) {
+    if (!mmu_driver.is_user_addr((uint32_t) dest, len)) {
+        panic("failed tto check if user addr");
+        return -1;
+    }
+
+    // TODO: any other checks? we don't need to copy to kvirt memory, because of ttbr0/ttbr1
+    memcpy(dest, src, len);
+    return 0;
+}
+
+int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
+    if (!mmu_driver.is_user_addr((uint32_t) src, len)) {
+        panic("failed to check if user addr");
+        return -1;
+    }
+
+    memcpy(dest, src, len);
+    return 0;
+}
 
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = clone_process(current_process);
-    // get physical address of the child's stack page
-    uint32_t stack_offset = (uint32_t)current_process->stack_top - current_process->stack_page_vaddr;
-    uint32_t* child_stack_paddr = (uint32_t*)((uint32_t)mmu_driver.get_physical_address(child->ttbr0, (void*)child->stack_page_vaddr) + stack_offset);
-    child_stack_paddr[0] = child->pid; // return value of fork in child is the pid
+    child->stack_top[0] = child->pid; // return value of fork in child is the pid
+    mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
 
     return 0;
 }
@@ -32,14 +56,18 @@ int sys_yield(void) {
 int sys_open(char* path, int flags, int mode) {
     // for now, just check if we are opening root, but use copy_from_user later
     int res = -1;
-    char* paddr_path = (char*)mmu_driver.get_physical_address(current_process->ttbr0, (void*)path);
-    if (strcmp(paddr_path, "/") == 0) {
+    if (strcmp(path, "/") == 0) {
         res = vfs_root_node->ops->open(vfs_root_node, flags);
     }
 
     return res;
 }
 
+int sys_close(int fd) {
+    int res = vfs_root_node->ops->close(fd);
+
+    return res;
+}
 
 // this should copy memory instead
 int sys_debug(int buf, int len) {
@@ -99,7 +127,8 @@ static const struct {
     [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
     [SYS_YIELD]  = {{.fn0 = sys_yield},  "yield",  0},
     [SYS_OPEN]   = {{.fn3 = sys_open},   "open",   3},
-    [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0}
+    [SYS_CLOSE]  = {{.fn1 = sys_close},  "close",  1},
+    [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0},
 };
 
 static inline void save_kernel_context(void) {

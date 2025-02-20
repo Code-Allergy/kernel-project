@@ -73,7 +73,32 @@ void extract_time(rtc_time_t* time) {
     time->second = (reg_value & SECOND_MASK) >> SECOND_SHIFT;
 }
 
+// PIT register offsets
+#define AW_A10_PIT_COUNT_LO  0xA4
+#define AW_A10_PIT_COUNT_HI  0xA8
+#define AW_A10_PIT_COUNT_CTL 0xA0
+
+#define REG32(addr) (*(volatile uint32_t *)(addr))
+
+uint64_t read_64bit_counter() {
+    // Latch the current count into LO/HI registers
+    REG32(TIMER_BASE + AW_A10_PIT_COUNT_CTL-20) = (1 << 0); // Set RL_EN
+    printk("value: %d\n", REG32(TIMER_BASE + AW_A10_PIT_COUNT_LO));
+
+    // Read LO/HI
+    uint32_t lo = REG32(TIMER_BASE + AW_A10_PIT_COUNT_LO);
+    uint32_t hi = REG32(TIMER_BASE + AW_A10_PIT_COUNT_HI);
+    // return hi;
+    return ((uint64_t)hi << 32) | lo;
+}
+
 void rtc_init() {
+    while (1) {
+      uint64_t cnt = read_64bit_counter();
+      printk("Counter: %u\n", cnt);
+    }
+
+
     panic("unimplemented!");
 }
 

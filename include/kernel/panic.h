@@ -3,10 +3,13 @@
 #include <kernel/printk.h>
 
 #define panic(fmt, ...) do { \
+    __asm__("cpsid i"); \
     printk("PANIC: " fmt, ##__VA_ARGS__); \
     printk(" at %s:%d\n", __FILE__, __LINE__); \
     printk("System halted.\n"); \
-    while(1); \
+    while (1) { \
+        __asm__("wfi");  \
+    } \
 } while(0)
 
 static inline void unimplemented_driver(void) {

@@ -13,6 +13,7 @@
 #include <kernel/vfs.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
+#include <kernel/rtc.h>
 
 #include <stdint.h>
 
@@ -22,7 +23,7 @@
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 10000 // usec
+#define KERNEL_HEARTBEAT_TIMER 5000 // usec
 
 bootloader_t bootloader_info;
 
@@ -39,10 +40,6 @@ void init_kernel_hardware(void) {
     uart_driver.enable_interrupts();
     interrupt_controller.enable_irq(1);
 }
-
-extern void context_restore(void);
-extern void context_switch(struct cpu_regs* current_context, struct cpu_regs* next_context);
-void context_switch_1(struct cpu_regs* next_context);
 
 
 #define PADDR(addr) ((uint32_t)((addr) - KERNEL_START) + DRAM_BASE)

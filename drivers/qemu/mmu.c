@@ -18,6 +18,7 @@ extern void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 extern void unmap_page(void* tbbr0, void* vaddr);
 extern void invalidate_all_tlb(void);
 extern void set_l1_page_table(uint32_t *l1_page_table);
+int check_if_user_addr(uint32_t vaddr, uint32_t len);
 
 #define PADDR(addr) ((void*)((addr) - KERNEL_START) + DRAM_BASE)
 
@@ -170,11 +171,6 @@ void set_ttbr0_with_asid(uint32_t* table, uint8_t asid) {
 
 // this should be done much more dynamically, for now we don't care
 void* get_physical_address(uint32_t* ttbr0, void *vaddr) {
-    // DRAM is mapped 1:1 with physical addresses
-    if ((uint32_t)vaddr >= DRAM_BASE && (uint32_t)vaddr < DRAM_BASE + DRAM_SIZE) {
-        return vaddr;
-    };
-
     uint32_t *l1_entry = &ttbr0[SECTION_INDEX((uint32_t)vaddr)];
     if ((*l1_entry & 0x3) != 0x1) {
         return (void*)(((uint32_t)vaddr - KERNEL_ENTRY) + DRAM_BASE);
@@ -198,6 +194,7 @@ mmu_t mmu_driver = {
     .get_physical_address = get_physical_address,
     .map_hardware_pages = mmu_map_hw_pages,
     .set_l1_with_asid = set_ttbr0_with_asid,
+    .is_user_addr = check_if_user_addr,
     // .disable = mmu_disable,
     // .debug_l1_entry = debug_l1_entry,
     // .debug_l2_entry = debug_l2_entry,

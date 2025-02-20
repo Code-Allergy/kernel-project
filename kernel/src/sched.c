@@ -72,8 +72,8 @@ int scheduler_init(void) {
     }
 
     scheduler_driver.current_tick = 0;
-    spawn_flat_init_process("/bin/null");
-    // process_t* p = spawn_flat_init_process("/bin/testa");
+    // spawn_flat_init_process("/bin/null");
+    process_t* p = spawn_flat_init_process("/bin/open");
     // process_t* p_ = spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
     // spawn_flat_init_process("/bin/testa");
@@ -216,17 +216,18 @@ process_t* clone_process(process_t* original_p) {
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_DATA_BASE, data_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_STACK_BASE, stack_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
     mmu_driver.map_page(p->ttbr0, (void*)MEMORY_USER_HEAP_BASE, heap_page, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE | MMU_TEX_NORMAL);
-    // map kernel mappings
-    copy_kernel_mappings(p->ttbr0);
-
-    memcpy(data_page, (void*)original_p->data_page_paddr, PAGE_SIZE); // TODO COW for data page
-    memcpy(stack_page, (void*)original_p->stack_page_paddr, PAGE_SIZE); // TODO COW for stack page / only copy in use stack
-    memcpy(heap_page, (void*)original_p->heap_page_paddr, PAGE_SIZE); // TODO COW for heap page
 
     p->asid = allocate_asid();
     p->pid = get_next_pid();
     p->ppid = original_p->pid;
     p->priority = original_p->priority;
+
+    // map kernel mappings
+    mmu_driver.set_l1_with_asid(p->ttbr0, p->asid);
+
+    memcpy((void*)MEMORY_USER_DATA_BASE, PHYS_TO_KERNEL_VIRT(original_p->data_page_paddr), PAGE_SIZE); // TODO COW for data page
+    memcpy((void*)MEMORY_USER_STACK_BASE, PHYS_TO_KERNEL_VIRT(original_p->stack_page_paddr), PAGE_SIZE); // TODO COW for stack page / only copy in use stack
+    memcpy((void*)MEMORY_USER_HEAP_BASE, PHYS_TO_KERNEL_VIRT(original_p->heap_page_paddr), PAGE_SIZE); // TODO COW for heap page
 
     p->code_page_vaddr = MEMORY_USER_CODE_BASE;
     p->stack_page_vaddr = MEMORY_USER_STACK_BASE;

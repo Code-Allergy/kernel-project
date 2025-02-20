@@ -42,3 +42,8 @@ void* simple_block_alloc(uint32_t size) {
 void* kmalloc(uint32_t size) {
     return simple_block_alloc(size);
 }
+
+void kfree(void* ptr) {
+    (void)ptr;
+    // Do nothing for now
+}

@@ -16,7 +16,7 @@
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 4
+#define SCHEDULER_PREEMPT_TICKS 10
 
 struct cpu_regs {
     uint32_t r0;  // 0
@@ -64,7 +64,7 @@ typedef struct {
 
     // file management
     file_t* fd_table[MAX_FDS];
-    uint32_t num_fds;
+    int num_fds;
 
     struct cpu_regs context;
     // rest of registers from user mode
