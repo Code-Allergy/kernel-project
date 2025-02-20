@@ -8,6 +8,7 @@
 #define SYSCALL_OPEN_NO 4
 #define SYSCALL_CLOSE_NO 5
 #define SYSCALL_FORK_NO 6
+#define SYSCALL_READDIR_NO 7
 
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;

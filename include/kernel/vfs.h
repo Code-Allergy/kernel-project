@@ -4,13 +4,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define VFS_MAX_FILELEN 256
 
 struct vfs_node;
 struct vfs_mount;
 
 // typedef ssize_t (*read_fn)(struct vfs_node*, void*, size_t, off_t);
 // typedef ssize_t (*write_fn)(struct vfs_node*, const void*, size_t, off_t);
-typedef int (*open_fn)(struct vfs_node*, int flags);
+typedef int (*open_fn)(struct vfs_dirent*, int flags);
 typedef int (*close_fn)(int fd);
 typedef struct vfs_node* (*lookup_fn)(struct vfs_node*, const char* name);
 typedef int (*readdir_fn)(struct vfs_node*, struct dirent*, size_t);
@@ -51,28 +52,56 @@ typedef struct vfs_mount {
     void* fs_data;                  // Filesystem-specific data
 } vfs_mount_t;
 
-// The actual file/directory node
-typedef struct vfs_node {
-    char name[256];                 // Name of file/directory
-    uint32_t mode;                  // Access mode and type
-    uint32_t flags;                 // Status flags
-    size_t size;                    // Size of file
-    uid_t uid;                      // User ID
-    gid_t gid;                      // Group ID
-    time_t atime;                   // Access time
-    time_t mtime;                   // Modification time
-    time_t ctime;                   // Creation time
+// // The actual file/directory node
+// typedef struct vfs_node {
+//     char name[256];                 // Name of file/directory
+//     uint32_t mode;                  // Access mode and type
+//     uint32_t flags;                 // Status flags
+//     size_t size;                    // Size of file
+//     uid_t uid;                      // User ID
+//     gid_t gid;                      // Group ID
+//     time_t atime;                   // Access time
+//     time_t mtime;                   // Modification time
+//     time_t ctime;                   // Creation time
 
-    vfs_ops_t* ops;                // Operations on this node
-    void* private_data;            // Filesystem-specific data
-    struct vfs_mount* mount;       // Mount information
+//     vfs_ops_t* ops;                // Operations on this node
+//     void* private_data;            // Filesystem-specific data
+//     struct vfs_mount* mount;       // Mount information
 
 
-    struct vfs_node* parent;       // Parent directory
-    struct vfs_node* first_child;  // First child in directory
-    struct vfs_node* next_sibling; // Next sibling in parent's directory
-} vfs_node_t;
+//     struct vfs_node* parent;       // Parent directory
+//     struct vfs_node* first_child;  // First child in directory
+//     struct vfs_node* next_sibling; // Next sibling in parent's directory
+// } vfs_node_t;
 
+typedef struct vfs_inode {
+    uint32_t inode_number;         // Unique identifier
+    uint32_t mode;                 // File mode (permissions, type)
+    uint32_t flags;                // Status flags
+    size_t size;                   // File size
+    uid_t uid;                     // Owner user ID
+    gid_t gid;                     // Owner group ID
+    time_t atime, mtime, ctime;     // Timestamps
+
+    struct vfs_mount* mount;        // Mounted filesystem
+    struct vfs_ops* ops;            // Filesystem operations
+    void* private_data;             // Filesystem-specific data
+    uint32_t ref_count;             // Reference count for open files
+} vfs_inode_t;
+
+typedef struct vfs_dentry {
+    char name[VFS_MAX_FILELEN];
+    struct vfs_inode* inode;
+    struct vfs_dentry* parent;
+    struct vfs_dentry* first_child;
+    struct vfs_dentry* next_sibling;
+} vfs_dentry_t;
+
+// userspace dirent structure
+typedef struct dirent {
+    uint32_t d_ino;    // Inode number
+    char d_name[VFS_MAX_FILELEN];  // Filename
+} dirent_t;
 
 // use all linux flags lol
 /* Owner permissions */
@@ -98,8 +127,11 @@ typedef struct vfs_node {
 #define S_ISGID  02000   /* Set group ID on execution */
 #define S_ISVTX  01000   /* Sticky bit (restricted deletion flag) */
 
+#define VFS_DIR 0x4000
+#define S_ISDIR(node) ((node)->mode & VFS_DIR)
+#define S_ISREG(node) (!((node)->mode & VFS_DIR))
 
-extern vfs_node_t* vfs_root_node;
+extern vfs_dentry_t* vfs_root_node;
 
 void vfs_init(void);
 

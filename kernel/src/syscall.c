@@ -9,6 +9,8 @@
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/panic.h>
+#include <kernel/errno.h>
+#include <kernel/file.h>
 
 #define __user
 
@@ -57,16 +59,48 @@ int sys_open(char* path, int flags, int mode) {
     // for now, just check if we are opening root, but use copy_from_user later
     int res = -1;
     if (strcmp(path, "/") == 0) {
-        res = vfs_root_node->ops->open(vfs_root_node, flags);
+        res = vfs_root_node->inode->ops->open(vfs_root_node, flags);
     }
 
     return res;
 }
 
 int sys_close(int fd) {
-    int res = vfs_root_node->ops->close(fd);
+    int res = vfs_root_node->inode->ops->close(fd);
 
     return res;
+}
+
+int sys_readdir(int fd, struct dirent* buf, size_t len) {
+    if (fd < 0 || !buf || len == 0) {
+        return -EINVAL; // Invalid arguments
+    }
+
+    file_t* file = current_process->fd_table[fd];
+    if (!file) {
+        return -EBADF; // Bad file descriptor
+    }
+
+    vfs_dentry_t* dir = file->dirent;
+    if (!(S_ISDIR(dir->inode))) {
+        return -ENOTDIR; // Not a directory
+    }
+
+    vfs_dentry_t* entry = file->offset == 0 ? dir->first_child : file->private_data;
+    size_t num_read = 0;
+    size_t bytes_read = 0;
+
+    while (entry && bytes_read < len) {
+        buf[num_read].d_ino = (ino_t)entry; // Store pointer as inode
+        strncpy(buf[num_read].d_name, entry->name, sizeof(buf[num_read].d_name));
+
+        // Move to the next entry
+        entry = entry->next_sibling;
+        num_read++;
+        bytes_read += sizeof(struct dirent);
+    }
+
+    return num_read;
 }
 
 // this should copy memory instead
@@ -129,6 +163,7 @@ static const struct {
     [SYS_OPEN]   = {{.fn3 = sys_open},   "open",   3},
     [SYS_CLOSE]  = {{.fn1 = sys_close},  "close",  1},
     [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0},
+    [SYS_READDIR]= {{.fn3 = sys_readdir},"readdir",3},
 };
 
 static inline void save_kernel_context(void) {

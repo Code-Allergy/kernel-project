@@ -9,9 +9,10 @@ typedef size_t ino_t;
 
 /* Per–process file descriptor table entry */
 typedef struct file {
-    vfs_node_t *vnode;  /* Pointer to the underlying VFS node */
-    off_t offset;       /* Current file offset */
-    int flags;          /* Open flags (e.g., O_RDONLY, etc.) */
+    vfs_dentry_t *dirent;    /* Pointer to the underlying directory entry */
+    off_t offset;           /* Current file offset */
+    int flags;              /* Open flags (e.g., O_RDONLY, etc.) */
+    void* private_data;  /* Pointer to private data */
 } file_t;
 
 // struct dirent {

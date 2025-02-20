@@ -2,6 +2,7 @@
 #define KERNEL_PANIC_H
 #include <kernel/printk.h>
 
+// TODO - this can be a function and we should dump the stack and registers
 #define panic(fmt, ...) do { \
     __asm__("cpsid i"); \
     printk("PANIC: " fmt, ##__VA_ARGS__); \
