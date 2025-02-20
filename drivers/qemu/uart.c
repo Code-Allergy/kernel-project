@@ -3,6 +3,7 @@
 #include <kernel/uart.h>
 #include <kernel/printk.h>
 #include <kernel/intc.h>
+#include <kernel/panic.h>
 #include "uart.h"
 #include "intc.h"
 
@@ -41,11 +42,11 @@ void uart_init_interrupts(void) {
     UART0->IER_DLH = UART_IER_RX_INT;
 
     interrupt_controller.register_irq(1, uart_handler, NULL);
+    interrupt_controller.enable_irq(1);
 }
 
 void uart_disable_interrupts(void) {
-    printk("Disabling UART interrupts unimplemented\n");
-    while (1);
+    panic("Disabling UART interrupts unimplemented\n");
     // Disable UART
     // UART0->IER_DLH = 0;
 }
@@ -64,12 +65,14 @@ char uart_getc(void) {
 
 // simple handler for cubieboard
 void uart_handler(int irq, void *data) {
+    (void)data;
     char c = UART0->RBR_THR_DLL;  // Read the character (clears interrupt)
     uart_driver.incoming_buffer[uart_driver.incoming_buffer_head++] = c;
     INTC->IRQ_PEND[0] = (irq << 1);
-
-    printk("IRQ %d: UART fired!\n", irq);
+    uart_putc(c); // echo the character for now
 }
+
+
 
 uart_driver_t uart_driver = {
     .init = uart_init,

@@ -40,10 +40,11 @@ int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = _create_process(NULL, current_process);
-    child->stack_top[0] = child->pid; // return value of fork in child is the pid
+    child->forked = 1;
+    child->stack_top[0] = 0; // return value of fork in child is 0
     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
 
-    return 0;
+    return child->pid; // return value of fork in parent is child's pid
 }
 
 int sys_getpid(void) {
@@ -113,6 +114,7 @@ int sys_debug(int buf, int len) {
 }
 
 int sys_exit(int exit_status) {
+    printk("EXIT %d\n", current_process->pid);
     // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr); // Need RCs before we can free this, for now just let it leak
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
     mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);

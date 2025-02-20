@@ -6,6 +6,7 @@
 #include <kernel/mmu.h>
 #include <kernel/boot.h>
 #include <kernel/sched.h>
+#include <kernel/string.h>
 
 #include "intc.h"
 
@@ -63,6 +64,9 @@ static void intc_init(void) {
         "bic r0, r0, #0x80 \n"
         "msr cpsr_c, r0 \n"
     );
+
+    // zero out the interrupt handlers table
+    memset(irq_handlers, 0, sizeof(irq_handlers));
 }
 #else
 static void intc_init(void) {

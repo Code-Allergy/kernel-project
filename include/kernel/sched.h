@@ -17,7 +17,7 @@
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 10
+#define SCHEDULER_PREEMPT_TICKS 5
 
 struct cpu_regs {
     uint32_t r0;  // 0
@@ -80,6 +80,8 @@ typedef struct {
     uint32_t num_heap_pages;
 
     process_page_t* stack_page;
+
+    int forked; // 1 if forked, 0 if not -- DEBUG - remove later
 
     // file management
     file_t* fd_table[MAX_FDS];

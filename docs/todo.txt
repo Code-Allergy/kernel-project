@@ -1,7 +1,11 @@
-data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions.
-elf parsing
+data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions. ? - not sure if still the case
 vfs basic operations, other than open()
 ipc to support message passing between processes
-memory allocation apis for processes
+memory allocation apis for processes - increase heap size, etc
+load dynamic libraries
 test context switch performance
-interrupts broken in userspace processes
+linked list library
+other data structures to make things easier
+cleaning up dead code and refactoring some others
+- pass in addresses from bootloader for l1 and l2 page tables,
+  then copy them and nuke the bss section ? for now just put them in high phys memory

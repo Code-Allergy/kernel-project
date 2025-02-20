@@ -82,6 +82,7 @@ irq_handler_new:
     AND      R12, R12, #0x1F             @ Mask out everything except mode bits
     CMP      R12, #0x10                  @ Compare with user mode (0x10)
     BNE      irq_from_kernel             @ Branch if not user mode
+    MRS      R12, SPSR                   @ Reset SPSR in R12
 
     @ ----------------- User mode process -----------------
     CPS   #0x1F                        @ System mode
@@ -92,8 +93,10 @@ irq_handler_new:
     STR     R12, [SP, #56]              @ Save SPSR at offset 60
     CPS    #0x12                       @ Switch to IRQ mode
     MOV   R12, LR
+    SUB   R12, R12, #4
+
     CPS   #0x1F                        @ System mode
-    STR     R12, [SP, #60]              @ Save user PC (LR contains return address)
+    STR   R12, [SP, #60]              @ Save user PC (LR contains return address)
 
     @ save stack pointer for passing to C handler
     MOV     R0, SP                      @ Get system mode SP

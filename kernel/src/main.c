@@ -18,13 +18,11 @@
 
 #include <stdint.h>
 
-#include "../drivers/qemu/i2c.h"
-
 
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 80000 // usec
+#define KERNEL_HEARTBEAT_TIMER 5000 // usec
 
 bootloader_t bootloader_info;
 
@@ -38,8 +36,8 @@ void init_kernel_hardware(void) {
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
+    interrupt_controller.enable_irq_global();
     uart_driver.enable_interrupts();
-    interrupt_controller.enable_irq(1);
 }
 
 
@@ -89,44 +87,31 @@ void init_stack_canary(void) {
 }
 
 #ifndef BOOTLOADER
-__attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) { // we can pass a different struct once we decide what the bootloader should fully do.
+__attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) {
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i];
-
-    if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!"); // TODO this can't log here!!
+    if (calculate_checksum((void*)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
+    if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     init_kernel_pages();
     setup_stacks();
     init_stack_canary();
-    if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
+
+
 
     printk("Kernel starting - version %s\n", GIT_VERSION);
     printk("Kernel base address %p\n", kernel_main);
     init_kernel_hardware();
     printk("Finished initializing hardware\n");
 
-    // we already have vm from the bootloader, but we should switch to our own tables
-
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
     vfs_init();
 
-
     scheduler_init();
-    interrupt_controller.enable_irq_global();
 
     printk("Kernel initialized at time %d\n", epoch_now());
 
-    struct cubie_twi twi;
-    twi.base = (uint32_t*)TWI0_BASE;
-    printk("TWI base: %p\n", twi.base);
-    // while(1);
-    // rtc_i2c_read(&twi, 0);
-
-
+    // start the system clock, then start the scheduler
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
-
-    // test_elf32();
-    // while(1);
-
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

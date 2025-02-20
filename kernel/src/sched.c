@@ -13,7 +13,7 @@
 
 static uint32_t total_processes;
 static uint32_t curr_pid;
-#define MAX_PROCESSES 16
+#define MAX_PROCESSES 128
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 
 // use a bitmap and struct later for this and other flags
@@ -98,7 +98,8 @@ int scheduler_init(void) {
     memset(process_table, 0, sizeof(process_table));
 
     scheduler_driver.current_tick = 0;
-    process_t* p_ = spawn_flat_init_process("/bin/testa");
+    process_t* nullp = spawn_flat_init_process("/bin/null");
+    process_t* initp = spawn_elf_init_process("/elf/testa.elf");
     return 0;
 }
 
@@ -174,6 +175,12 @@ void __attribute__ ((noreturn)) scheduler(void) {
 
     current_process = next_process;
     scheduler_driver.schedule_next = 0;
+    // TODO: This is a hack to fix the r0 register being written over at some point. this shouldn't be needed.
+    if (current_process->forked) {
+        if (current_process->stack_top[0] != 0) printk("WARNING: Stacked process wasn't set to return 0!\n");
+        current_process->stack_top[0] = 0;
+        current_process->forked = 0;
+    }
 
     // fix the stack from the compiler function prologue
     __asm__ ("add sp, sp, #8\n"); // TODO this is a hack, fix it. this WILL break.

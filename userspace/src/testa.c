@@ -3,21 +3,18 @@
 #include <stdint.h>
 
 int main(void) {
-    fork();
-    fork();
-    // int i = 20000;
-    // uint32_t pid = getpid();
-    // // while(i--) {
-    // //     printf("Hello world pid: %d: %d!\n", pid, i);
-    // // }
-
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         int ret = fork();
         if (ret == 0) {
-            printf("I am the child\n");
+            int i = 1000;
+            uint32_t pid = getpid();
+            while(i--) {
+                printf("Hello world pid: %d: %d!\n", pid, i);
+            }
+            printf("PID %d is done.\n", pid);
             return 0;
         } else {
-            printf("I am the parent\n");
+            printf("I am the parent and i have a child %d\n", ret);
         }
     }
 
