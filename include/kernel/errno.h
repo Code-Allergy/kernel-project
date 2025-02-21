@@ -6,5 +6,6 @@
 #define ENOENT 2
 #define EEXIST 17
 #define EBADF 9
+#define ENOTSUP 95
 
 #endif // KERNEL_ERRNO_H

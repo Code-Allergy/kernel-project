@@ -4,27 +4,27 @@
 #include <kernel/string.h>
 #include <kernel/panic.h>
 
-static ssize_t ones_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
+static ssize_t zero_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
     (void)inode, (void)offset; // Unused parameters
     char* buf = (char*)buffer;
 
-    // Fill the buffer with full 1s
+    // Fill the buffer with 0s
     for (size_t i = 0; i < count; i++) {
-        buf[i] = 0xFF;
+        buf[i] = '\0';
     }
 
-    return count; // Return number of bytes read
+    return count;
 }
 
-static ssize_t ones_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
+static ssize_t zero_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
     (void)inode, (void)buffer, (void)count, (void)offset;
     return -1; // Return error, device is read-only
 }
 
 // Device operations structure
 static vfs_ops_t ones_ops = {
-    .read = ones_read,
-    .write = ones_write,
+    .read = zero_read,
+    .write = zero_write,
     .open = vfs_default_open,     // Use default VFS open
     .close = vfs_default_close,   // Use default VFS close
     .readdir = NULL,              // Not applicable for char devices
@@ -32,7 +32,7 @@ static vfs_ops_t ones_ops = {
 };
 
 // Function to create and register the ones device
-int ones_device_init(void) {
+int zero_device_init(void) {
     vfs_inode_t* inode = (vfs_inode_t*)kmalloc(sizeof(vfs_inode_t));
     if (!inode) {
         return -1;
@@ -51,7 +51,7 @@ int ones_device_init(void) {
     }
 
     memset(dentry, 0, sizeof(vfs_dentry_t));
-    strcpy(dentry->name, "one");
+    strcpy(dentry->name, "zero");
     dentry->inode = inode;
 
     // get the dev directory

@@ -42,6 +42,11 @@ int vfs_default_close(int fd) {
     return 0;
 }
 
+vfs_ops_t vfs_ops = {
+    .open = vfs_default_open,
+    .close = vfs_default_close,
+};
+
 // TODO finish filling dirent with rc
 vfs_dentry_t* vfs_create_dirent(const char* name, uint32_t mode) {
     vfs_inode_t* node = (vfs_inode_t*)kmalloc(sizeof(vfs_inode_t));
@@ -63,7 +68,7 @@ vfs_dentry_t* vfs_create_dirent(const char* name, uint32_t mode) {
     return dentry;
 }
 
-vfs_dentry_t* vfs_init_root() {
+vfs_dentry_t* vfs_init_root(void) {
     vfs_dentry_t* root = vfs_create_dirent("/", VFS_DIR);
     if (!root) panic("Failed to get memory for root vfs node!");
 
@@ -199,6 +204,7 @@ void create_test_directory_structure(vfs_dentry_t* root) {
         if (new_dir) {
             new_dir->inode->uid = 0;  // root user
             new_dir->inode->gid = 0;  // root group
+            new_dir->inode->ops = &vfs_ops;
             vfs_add_child(root, new_dir);
         }
     }
@@ -221,11 +227,6 @@ int vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t max_entries) {
 
     return count; // Return number of entries read
 }
-
-vfs_ops_t vfs_ops = {
-    .open = vfs_default_open,
-    .close = vfs_default_close,
-};
 
 
 void vfs_init() {
@@ -259,6 +260,7 @@ ssize_t default_block_write(vfs_inode_t* inode, const void* buffer, size_t count
     return inode->dev_ops->write_block(inode->dev, buffer, count, block);
 }
 
+// this only does half of tthe job, we need to implement the other half
 vfs_dentry_t* vfs_finddir(const char* path) {
     if (!path || path[0] != '/') {
         return NULL;

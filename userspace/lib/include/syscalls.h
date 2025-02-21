@@ -1,6 +1,7 @@
 #ifndef __LIB__SYSCALL_H__
 #define __LIB__SYSCALL_H__
 #include <stdint.h>
+#include <stddef.h>
 
 #define SYSCALL_DEBUG_NO 0
 #define SYSCALL_EXIT_NO 1
@@ -10,6 +11,9 @@
 #define SYSCALL_CLOSE_NO 5
 #define SYSCALL_FORK_NO 6
 #define SYSCALL_READDIR_NO 7
+#define SYSCALL_READ_NO 8
+#define SYSCALL_WRITE_NO 9
+
 
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;
@@ -81,6 +85,10 @@ uint32_t getpid(void);
 int fork(void);
 int yield(void);
 
+typedef int32_t ssize_t;
+
+ssize_t read(int fd, void *buf, size_t count);
+ssize_t write(int fd, const void *buf, size_t count);
 
 
 

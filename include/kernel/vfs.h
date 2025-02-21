@@ -148,7 +148,13 @@ extern vfs_dentry_t* vfs_root_node;
 extern filesystem_type_t fat32_filesystem_type;
 extern vfs_ops_t fat32_filesystem_ops;
 
-
+int vfs_default_open(vfs_dentry_t* entry, int flags);
+int vfs_default_close(int fd);
 vfs_dentry_t* vfs_finddir(const char* path);
+
+// temp - these should be all one mega init vfs hardware function
+int zero_device_init(void);
+int ones_device_init(void);
+int uart0_vfs_device_init(void);
 
 #endif // KERNEL_VFS_H

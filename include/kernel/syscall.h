@@ -1,8 +1,8 @@
 #ifndef KERNEL_SYSCALL_H
 #define KERNEL_SYSCALL_H
 
+// #define TRACE_SYSCALLS
 
-#define NR_SYSCALLS 8
 // Called by SVC handler in int.c
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int return_address);
 
@@ -20,6 +20,7 @@ typedef union {
     syscall_fn_4 fn4;
 } syscall_fn;
 
+#define NR_SYSCALLS 9
 enum syscall_num {
     SYS_DEBUG = 0,
     SYS_EXIT = 1,
@@ -29,6 +30,8 @@ enum syscall_num {
     SYS_CLOSE = 5,
     SYS_FORK  = 6,
     SYS_READDIR = 7,
+    SYS_READ    = 8,
+    SYS_WRITE   = 9,
 };
 
 

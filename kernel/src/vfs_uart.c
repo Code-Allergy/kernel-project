@@ -3,36 +3,35 @@
 #include <kernel/heap.h>
 #include <kernel/string.h>
 #include <kernel/panic.h>
+#include <kernel/uart.h>
 
-static ssize_t ones_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)offset; // Unused parameters
-    char* buf = (char*)buffer;
+static ssize_t uart0_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
+    panic("unimplemented!\n");
+    // need some kind of process blocking here first
 
-    // Fill the buffer with full 1s
-    for (size_t i = 0; i < count; i++) {
-        buf[i] = 0xFF;
-    }
-
-    return count; // Return number of bytes read
+    return count;
 }
 
-static ssize_t ones_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)buffer, (void)count, (void)offset;
-    return -1; // Return error, device is read-only
+static ssize_t uart0_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
+    (void)inode, (void)offset;
+
+    for (size_t i = 0; i < count; i++) uart_driver.putc(((char*)buffer)[i]);
+
+    return count;
 }
 
 // Device operations structure
-static vfs_ops_t ones_ops = {
-    .read = ones_read,
-    .write = ones_write,
-    .open = vfs_default_open,     // Use default VFS open
-    .close = vfs_default_close,   // Use default VFS close
+static vfs_ops_t uart0_vfs_ops = {
+    .read = uart0_read,
+    .write = uart0_write,
+    .open = vfs_default_open,     // TODO: check later on that uart is actually open first
+    .close = vfs_default_close,   // TODO: we could close the uart here
     .readdir = NULL,              // Not applicable for char devices
     .lookup = NULL,               // Not applicable for char devices
 };
 
 // Function to create and register the ones device
-int ones_device_init(void) {
+int uart0_vfs_device_init(void) {
     vfs_inode_t* inode = (vfs_inode_t*)kmalloc(sizeof(vfs_inode_t));
     if (!inode) {
         return -1;
@@ -41,7 +40,7 @@ int ones_device_init(void) {
     // Initialize the inode
     memset(inode, 0, sizeof(vfs_inode_t));
     inode->mode = VFS_CHR | S_IRUSR | S_IWUSR; // Character device with read/write permissions
-    inode->ops = &ones_ops;
+    inode->ops = &uart0_vfs_ops;
 
     // Create dentry for the device
     vfs_dentry_t* dentry = (vfs_dentry_t*)kmalloc(sizeof(vfs_dentry_t));
@@ -51,7 +50,7 @@ int ones_device_init(void) {
     }
 
     memset(dentry, 0, sizeof(vfs_dentry_t));
-    strcpy(dentry->name, "one");
+    strcpy(dentry->name, "uart0");
     dentry->inode = inode;
 
     // get the dev directory

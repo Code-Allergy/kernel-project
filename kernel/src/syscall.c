@@ -61,20 +61,61 @@ int sys_yield(void) {
     return 0;
 }
 
-int sys_open(char* path, int flags, int mode) {
-    // for now, just check if we are opening root, but use copy_from_user later
-    int res = -1;
-    if (strcmp(path, "/") == 0) {
-        res = vfs_root_node->inode->ops->open(vfs_root_node, flags);
+int sys_open(const char* path, int flags, int mode) {
+    if (!path) return -EINVAL;
+
+    // vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
+    vfs_dentry_t* dentry = vfs_finddir(path);
+    if (!dentry) {
+        return -ENOENT; // No such file or directory
     }
 
-    return res;
+    // check if the inode has operations and an open function
+    if (!dentry->inode || !dentry->inode->ops || !dentry->inode->ops->open) {
+        return -ENOTSUP; // Operation not supported
+    }
+
+    return dentry->inode->ops->open(dentry, flags);
 }
 
 int sys_close(int fd) {
     int res = vfs_root_node->inode->ops->close(fd);
 
     return res;
+}
+
+int sys_read(int fd, char* buff, size_t count) {
+    if (fd < 0 || !buff || count == 0) {
+        return -EINVAL; // Invalid arguments
+    }
+
+    file_t* file = current_process->fd_table[fd];
+    if (!file) {
+        return -EBADF; // Bad file descriptor
+    }
+
+    if (!file->dirent->inode || !file->dirent->inode->ops || !file->dirent->inode->ops->read) {
+        return -ENOTSUP; // Operation not supported
+    }
+
+    return file->dirent->inode->ops->read(file->dirent->inode, buff, count, 0);
+}
+
+int sys_write(int fd, const char* buff, size_t count) {
+    if (fd < 0 || !buff || count == 0) {
+        return -EINVAL; // Invalid arguments
+    }
+
+    file_t* file = current_process->fd_table[fd];
+    if (!file) {
+        return -EBADF; // Bad file descriptor
+    }
+
+    if (!file->dirent->inode || !file->dirent->inode->ops || !file->dirent->inode->ops->write) {
+        return -ENOTSUP; // Operation not supported
+    }
+
+    return file->dirent->inode->ops->write(file->dirent->inode, buff, count, 0);
 }
 
 int sys_readdir(int fd, struct dirent* buf, size_t len) {
@@ -167,14 +208,11 @@ static inline void dump_registers(struct cpu_regs* regs) {
     );
 }
 
-
-
-
 static const struct {
     syscall_fn fn;
     const char *name;
     int num_args;
-} syscall_table[NR_SYSCALLS] = {
+} syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]  = {{.fn2 = sys_debug},  "debug",  2},
     [SYS_EXIT]   = {{.fn1 = sys_exit},   "exit",   1},
     [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
@@ -183,17 +221,9 @@ static const struct {
     [SYS_CLOSE]  = {{.fn1 = sys_close},  "close",  1},
     [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0},
     [SYS_READDIR]= {{.fn3 = sys_readdir},"readdir",3},
+    [SYS_READ]   = {{.fn3 = sys_read},   "read",   3},
+    [SYS_WRITE]  = {{.fn3 = sys_write},  "write",  3},
 };
-
-static inline void save_kernel_context(void) {
-    uint32_t cpsr;
-    __asm__ volatile(
-        "mrs %0, cpsr\n"
-        : "=r" (cpsr)
-    );
-    // Save current mode and state
-    current_process->kernel_cpsr = cpsr;
-}
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {
     // Switch to kernel page table
@@ -214,7 +244,7 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
 #endif
     // printk("Stack pointer: %p\n", stack_pointer);
     int ret = -1;
-    if (num >= 0 && num < NR_SYSCALLS) {
+    if (num >= 0 && num <= NR_SYSCALLS) {
         switch(syscall_table[num].num_args) {
             case 0: ret = syscall_table[num].fn.fn0(); break;
             case 1: ret = syscall_table[num].fn.fn1(arg1); break;

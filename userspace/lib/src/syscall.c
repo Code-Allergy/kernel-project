@@ -21,3 +21,11 @@ void exit(int return_val) {
     _exit(return_val); // actually do the exit (in runtime.c)
     __builtin_unreachable();
 }
+
+ssize_t read(int fd, void *buf, size_t count) {
+    return syscall_3(SYSCALL_READ_NO, fd, (uint32_t) buf, count);
+}
+
+ssize_t write(int fd, const void *buf, size_t count) {
+    return syscall_3(SYSCALL_WRITE_NO, fd, (uint32_t) buf, count);
+}

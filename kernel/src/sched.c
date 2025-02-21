@@ -13,15 +13,16 @@
 #include <kernel/fat32.h>
 #include <kernel/heap.h>
 
-static uint32_t total_processes;
-static uint32_t curr_pid;
-
-static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
+/* Globals */
+process_t process_table[MAX_PROCESSES]; // TODO dynamic processes
 
 process_t* current_process;
 process_t* next_process;
 
-process_t process_table[MAX_PROCESSES]; // TODO dynamic processes
+/* Statics */
+static uint32_t total_processes;
+static uint32_t curr_pid;      // both of these could be kept in the scheduler struct
+static uint8_t asid_bitmap[MAX_ASID + 1] = {0};
 
 process_t* spawn_elf_init_process(const char* file_path) {
     fat32_fs_t sd_card;
@@ -46,16 +47,13 @@ process_t* spawn_elf_init_process(const char* file_path) {
     };
 
     binary_t* init_bin = load_elf32(buffer, userspace_application.file_size);
-    printk("Creating elf bin!\n");
     return _create_process(init_bin, NULL);
 }
 
 static int32_t get_next_pid(void) {
-    printk("Allocating PID: %d\n", total_processes);
     return total_processes++;
 }
 
-// never return
 int scheduler_init(void) {
     current_process = NULL;
     total_processes = 0;
@@ -83,19 +81,6 @@ uint8_t allocate_asid(void) {
     memset(asid_bitmap, 0, sizeof(asid_bitmap));
     asid_bitmap[1] = 1;
     return 1;
-}
-
-void copy_kernel_mappings(uint32_t *ttbr0) {
-    uint32_t *kernel_ttbr0;
-    // Read the current TTBR0 value (Kernel's TTBR0 mapping)
-    __asm__ volatile("mrc p15, 0, %0, c2, c0, 0" : "=r"(kernel_ttbr0));
-
-    // Start at the kernel entry point and copy mappings up to the kernel end
-    for (uint32_t addr = 0x80000000; addr < 0xFFEFFFFF; addr += 0x100000) {
-        // Compute the index into the TTBR0 table
-        uint32_t index = addr / 0x100000;
-        ttbr0[index] = kernel_ttbr0[index];
-    }
 }
 
 // round robin scheduler

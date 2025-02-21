@@ -14,7 +14,6 @@ static vfs_inode_t* vfs_fat32_mount(vfs_mount_t* mount, const char* device) {
         return NULL;
     }
 
-
     panic("unimplemented!\n");
     return NULL;
 }
