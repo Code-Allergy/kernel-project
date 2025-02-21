@@ -13,6 +13,7 @@ uint32_t kernel_heap_start = KHEAP_START;
 uint32_t kernel_heap_end   = KHEAP_START + KHEAP_SIZE;
 uint32_t kernel_heap_curr  = KHEAP_START;
 
+static uint32_t kernel_heap_usage = 0;
 
 int kernel_heap_init(void) {
     for (uint32_t addr = kernel_heap_start; addr < kernel_heap_end; addr += PAGE_SIZE) {
@@ -28,6 +29,14 @@ int kernel_heap_init(void) {
     return 0;
 }
 
+uint32_t kernel_heap_usage_get(void) {
+    return kernel_heap_usage;
+}
+
+uint32_t kernel_heap_total_get(void) {
+    return kernel_heap_end - kernel_heap_start;
+}
+
 void* simple_block_alloc(uint32_t size) {
     uint32_t new_heap = kernel_heap_curr + size;
     if (new_heap > kernel_heap_end) {
@@ -37,6 +46,8 @@ void* simple_block_alloc(uint32_t size) {
 
     void* block = (void*)kernel_heap_curr;
     kernel_heap_curr = new_heap;
+
+    kernel_heap_usage += size;
 
     return block;
 }

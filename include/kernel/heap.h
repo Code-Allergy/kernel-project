@@ -15,4 +15,7 @@ void* kmalloc(uint32_t size);
 void kfree(void* ptr);
 char* strdup(const char* s);
 
+uint32_t kernel_heap_usage_get(void);
+uint32_t kernel_heap_total_get(void);
+
 #endif // KERNEL_HEAP_H

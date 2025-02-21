@@ -149,29 +149,9 @@ int sys_debug(int buf, int len) {
     // syscall_return(&current_process->context, 0);
 }
 
-void free_process_page(process_page_t* process_page) {
-    free_page(&kpage_allocator, process_page->paddr);
-    kfree(process_page);
-}
-
 int sys_exit(int exit_status) {
-
     // iterate through all pages and free them if they are not shared, otherwise decrement the ref count
-    process_page_ref_t* ref, *next;
-    list_for_each_entry_safe(ref, next, &current_process->pages_head, list) {
-        if (ref->page->ref_count == 0) panic("ref_count is 0");
-        else if (ref->page->ref_count == 1) {
-            free_process_page(ref->page);
-        } else {
-            ref->page->ref_count--; // // TODO free pages in l1 table of process:
-            // remove l2 entry and free page
-        }
-
-        list_del(&ref->list);
-        kfree(ref);
-    }
-
-
+    free_process_memory(current_process);
 
     // // TODO free anything else in the process
     // // TODO reassign PID or parents of children

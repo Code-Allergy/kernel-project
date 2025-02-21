@@ -66,6 +66,8 @@ int scheduler_init(void) {
 
     process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
     if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
+    process_t* _initp = spawn_elf_init_process("/elf/testa.elf");
+
     return 0;
 }
 
@@ -381,6 +383,28 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
     return p;
 }
 
+void free_process_page(process_page_t* process_page) {
+    free_page(&kpage_allocator, process_page->paddr);
+    kfree(process_page);
+}
+
+// free specifically only memory from the process
+void free_process_memory(process_t* p) {
+    process_page_ref_t* ref, *next;
+    list_for_each_entry_safe(ref, next, &p->pages_head, list) {
+        if (ref->page->ref_count == 0) panic("ref_count is 0");
+        else if (ref->page->ref_count == 1) {
+            free_process_page(ref->page);
+        } else {
+            ref->page->ref_count--; // // TODO free pages in l1 table of process:
+            // remove l2 entry and free page
+        }
+
+        list_del(&ref->list);
+        kfree(ref);
+    }
+}
+
 
 // TODO clean this up
 __attribute__((naked, noreturn)) void userspace_return(void) {
@@ -405,6 +429,10 @@ __attribute__((naked, noreturn)) void userspace_return(void) {
           [asid_off] "i" (offsetof(process_t, asid)),
           [stack_off] "i" (offsetof(process_t, stack_top))
     );
+}
+
+int swap_process(binary_t* binary, process_t* process) {
+
 }
 
 scheduler_t scheduler_driver = {

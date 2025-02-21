@@ -10,3 +10,11 @@ cleaning up dead code and refactoring some others
   then copy them and nuke the bss section ? for now just put them in high phys memory
 
 - better mmu setup, and using sections and domains. sections for kernel mem mapping and we can setup support for larger page sizes for user space OR sections for heap
+
+- heap allocation (user and kernel both need allocators)
+
+- once we have exec and (even faked) direct vfs to fat32 access, make userspace testing program to check for regressions
+
+distant:
+- commandline arguments for processes
+- signals

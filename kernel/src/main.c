@@ -172,6 +172,8 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
 
     // start the system clock, then start the scheduler
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
+    printk("Heap total usage: %d/%d\n", kernel_heap_usage_get(), kernel_heap_total_get());
+
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");
