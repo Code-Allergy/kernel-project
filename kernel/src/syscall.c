@@ -15,6 +15,9 @@
 
 #define __user
 
+// we will use some macros later to clean up the warnings
+
+
 // here for now, later we can move this
 // copy len bytes to current_process dest from src
 int copy_to_user(uint8_t* __user dest, const uint8_t* src, size_t len) {
@@ -140,6 +143,10 @@ int sys_readdir(int fd, struct dirent* buf, size_t len) {
     return dir->inode->ops->readdir(dir, buf, len);
 }
 
+int sys_exec(char* path) {
+    panic("unimplemented sys_exec");
+}
+
 int sys_debug(int buf, int len) {
     // TODO: we should still copy from user space, or maybe we don't need to?
     // after we have proper domain and ttbr1 setup, we can just use the user space pointer, as long as we check if it's valid
@@ -192,6 +199,7 @@ static const struct {
     [SYS_READDIR]= {{.fn3 = sys_readdir},"readdir",3},
     [SYS_READ]   = {{.fn3 = sys_read},   "read",   3},
     [SYS_WRITE]  = {{.fn3 = sys_write},  "write",  3},
+    [SYS_EXEC]   = {{.fn1 = sys_exec},   "exec",   1},
 };
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {

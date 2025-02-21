@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
-#include "../include/syscalls.h"
+#include <strings.h>
+#include <syscalls.h>
 
 // from include/syyscall.h
 typedef __builtin_va_list va_list;
@@ -146,23 +147,7 @@ int printf(const char *format, ...) {
     return len;
 }
 
-// int fprintf(int fd, const char *format, ...) {
-//     va_list args;
-//     va_start(args, format);
 
-//     int len = vsnprintf(buffer, sizeof(buffer), format, args);
-
-//     va_end(args);
-
-//     if (write(fd, buffer, len) < len) {
-//         syscall_debug("IOFAIL", 6);
-//         exit(-1);
-//     }
-
-//     return len;
-// }
-
-// these 3 should be elsewhere
 int sprintf(char *str, const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -170,26 +155,6 @@ int sprintf(char *str, const char *format, ...) {
     va_end(args);
     return ret;
 }
-
-int strcpy(char *dest, const char *src) {
-    int i = 0;
-    while (src[i] != '\0') {
-        dest[i] = src[i];
-        i++;
-    }
-    dest[i] = '\0';
-    return i;
-}
-
-int strlen(const char *str) {
-    int i = 0;
-    while (str[i] != '\0') {
-        i++;
-    }
-    return i;
-}
-
-
 
 int fprintf(int fd, const char *format, ...) {
     static int red_active = 0;  // Track whether we are inside a red-colored block
