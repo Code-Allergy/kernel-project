@@ -133,21 +133,11 @@ int sys_readdir(int fd, struct dirent* buf, size_t len) {
         return -ENOTDIR; // Not a directory
     }
 
-    vfs_dentry_t* entry = file->offset == 0 ? dir->first_child : file->private_data;
-    size_t num_read = 0;
-    size_t bytes_read = 0;
-
-    while (entry && bytes_read < len) {
-        buf[num_read].d_ino = (ino_t)entry; // Store pointer as inode
-        strncpy(buf[num_read].d_name, entry->name, sizeof(buf[num_read].d_name));
-
-        // Move to the next entry
-        entry = entry->next_sibling;
-        num_read++;
-        bytes_read += sizeof(struct dirent);
+    if (!file->dirent->inode || !file->dirent->inode->ops || !file->dirent->inode->ops->readdir) {
+        return -ENOTSUP; // Operation not supported
     }
 
-    return num_read;
+    return dir->inode->ops->readdir(dir, buf, len);
 }
 
 // this should copy memory instead

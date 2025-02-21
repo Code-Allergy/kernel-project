@@ -149,11 +149,12 @@ int fat32_read(fat32_file_t *file, void *buffer, int size);
 int fat32_close(fat32_file_t *file);
 
 
+// TODO dynamic allocation of listing
+
 /**
  * @brief Lists the contents of a directory.
  *
  * Given a directory path, this function returns an array of directory entries.
- * The caller is responsible for freeing the array when done.
  *
  * @param fs           Mounted FAT32 filesystem pointer.
  * @param path         Null-terminated path to the directory.
@@ -176,6 +177,17 @@ int fat32_list_dir(fat32_fs_t *fs, const char *path,
  * @return           Absolute sector number on the disk.
  */
 uint32_t fat32_cluster_to_sector(fat32_fs_t *fs, uint32_t cluster);
+
+/**
+ * @brief Read a FAT entry to find the next cluster in the chain
+ * @param fs Pointer to mounted FAT32 filesystem
+ * @param cluster Current cluster number
+ * @param next_cluster Pointer to store the next cluster number
+ * @return 0 on success, negative error code on failure
+ */
+int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster);
+
+void fat32_format_name(const char *input, char* formatted_name);
 
 
 extern const fat32_diskio_t mmc_fat32_diskio;

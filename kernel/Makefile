@@ -37,19 +37,19 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -ffreestanding -nostdlib \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
-         -std=gnu99 -g \
+         -std=gnu99 \
          -MMD -MP
 
 # Optimization flags
-# CFLAGS += -O0
+CFLAGS += -g -O0
 # CFLAGS += -fstack-protector-all -fstack-protector-none -O0 -DDEBUG
-CFLAGS += -fno-stack-protector -O2
+# CFLAGS += -fno-stack-protector -O2
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
-ASFLAGS = -mcpu=cortex-a8 -march=armv7-a -g
+ASFLAGS = -mcpu=cortex-a8 -march=armv7-a
 
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
 LDFLAGS = -T kernel.ld -L$(LGCC)

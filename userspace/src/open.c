@@ -19,22 +19,26 @@ typedef struct dirent {
     char d_name[256];  // Filename
 } dirent_t;
 
-dirent_t some[4];
+dirent_t some[8];
 
 int main(void) {
-    int fd = open("/dev/uart0", 0, 0);
+    int fd = open("/mnt", 0, 0);
     if (fd == 0) {
-        printf("READ OK!\n");
+        printf("OPEN OK!\n");
     } else {
-        printf("READ FAIL! %d\n", fd);
+        printf("OPEN FAIL! %d\n", fd);
         return -1;
     }
 
-    if (write(fd, "Hello world! From VFS!\n", 23) != 23) {
-        printf("Error!\n");
-    }
+    // if (write(fd, "Hello world! From VFS!\n", 23) != 23) {
+    //     printf("Error!\n");
+    // }
 
-    // int read_dirs = readdir(fd, some, sizeof(some));
+    int read_dirs = readdir(fd, some, sizeof(some));
+    printf("Read %d entries!\n", read_dirs);
+    for (int i = 0; i < read_dirs; i++) {
+        printf("Entry %d: %s\n", i, some[i].d_name);
+    }
     // if (read_dirs == -ENOTDIR) {
     //     printf("Not a directory! going to read 100 bytes\n");
     //     char buf[100];
@@ -55,10 +59,7 @@ int main(void) {
     //         printf("Null-terminated string: %s\n", buf);
     //     }
     // } else {
-    //     printf("Read %d entries!\n", read_dirs);
-    //     for (int i = 0; i < read_dirs; i++) {
-    //         printf("Entry %d: %s\n", i, some[i].d_name);
-    //     }
+
     // }
 
 

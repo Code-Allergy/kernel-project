@@ -165,6 +165,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     zero_device_init();
     ones_device_init();
     uart0_vfs_device_init();
+    init_mount_fat32();
     scheduler_init();
 
     printk("Kernel initialized at time %d\n", epoch_now());

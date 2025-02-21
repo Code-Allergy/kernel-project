@@ -15,7 +15,7 @@ typedef uint32_t time_t;
 typedef uint32_t dev_t;
 
 typedef struct vfs_inode {
-    uint32_t inode_number;         // Unique identifier
+    // uint32_t inode_number;         // Unique identifier
     uint32_t mode;                 // File mode (permissions, type)
     uint32_t flags;                // Status flags
     size_t size;                   // File size
@@ -27,7 +27,7 @@ typedef struct vfs_inode {
     dev_t dev;                   // Device ID for device files
     struct device_ops* dev_ops;  // Device-specific operations
 
-    struct vfs_mount* mount;        // Mounted filesystem
+    // struct vfs_mount* mount;        // Mounted filesystem -- when we switch to full inode based vfs
     struct vfs_ops* ops;            // Filesystem operations
     void* private_data;             // Filesystem-specific data
     uint32_t ref_count;             // Reference count for open files
@@ -40,6 +40,7 @@ typedef struct vfs_dentry {
     struct vfs_dentry* parent;
     struct vfs_dentry* first_child;
     struct vfs_dentry* next_sibling;
+    struct vfs_mount* mount;        // Mounted filesystem - until we switch to full inode based vfs
 } vfs_dentry_t;
 
 // userspace dirent structure
@@ -56,8 +57,8 @@ typedef int (*open_fn)(vfs_dentry_t*, int flags);
 typedef int (*close_fn)(int fd);
 typedef ssize_t (*read_fn)(vfs_inode_t*, void*, size_t, off_t);
 typedef ssize_t (*write_fn)(vfs_inode_t*, const void*, size_t, off_t);
-typedef int (*readdir_fn)(vfs_inode_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
-typedef vfs_dentry_t* (*lookup_fn)(vfs_inode_t*, const char* name);
+typedef int (*readdir_fn)(vfs_dentry_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
+typedef vfs_dentry_t* (*lookup_fn)(vfs_dentry_t*, const char* name);
 
 // File operations structure
 typedef struct vfs_ops {
@@ -90,8 +91,8 @@ typedef struct filesystem_type {
 
 // Mount point information
 typedef struct vfs_mount {
-    vfs_inode_t* mountpoint;    // Where this fs is mounted
-    vfs_inode_t* root;          // Root of mounted filesystem
+    vfs_dentry_t* mountpoint;       // Where this fs is mounted
+    vfs_dentry_t* root;             // Root of mounted filesystem
     filesystem_type_t* fs_type;     // Type of filesystem
     const char* device;             // Device name (if any)
     void* fs_data;                  // Filesystem-specific data
@@ -156,5 +157,6 @@ vfs_dentry_t* vfs_finddir(const char* path);
 int zero_device_init(void);
 int ones_device_init(void);
 int uart0_vfs_device_init(void);
+void init_mount_fat32(void);
 
 #endif // KERNEL_VFS_H

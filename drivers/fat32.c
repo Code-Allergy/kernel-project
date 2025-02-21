@@ -1,6 +1,7 @@
 #include <kernel/fat32.h>
 #include <kernel/printk.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 #include <stdint.h>
 
 int fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr, uint32_t* next) {
@@ -72,15 +73,9 @@ static int get_cluster_at_index(fat32_fs_t *fs, uint32_t start_cluster, uint32_t
 }
 
 
-/**
- * @brief Read a FAT entry to find the next cluster in the chain
- * @param fs Pointer to mounted FAT32 filesystem
- * @param cluster Current cluster number
- * @param next_cluster Pointer to store the next cluster number
- * @return 0 on success, negative error code on failure
- */
-int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster, uint32_t *next_cluster) {
-    if (!fs || !next_cluster) {
+int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster) {
+    uint32_t next_cluster;
+    if (!fs) {
         return FAT32_ERROR_BAD_PARAMETER;
     }
 
@@ -99,19 +94,20 @@ int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster, uint32_t *next_cluste
     }
 
     // Extract the 32-bit FAT entry
-    memcpy(next_cluster, &buffer[entry_offset], sizeof(uint32_t));
-    *next_cluster &= 0x0FFFFFFF;
+    next_cluster = buffer[entry_offset];
+    next_cluster &= 0x0FFFFFFF;
 
     // Check for special values
-    if (*next_cluster >= 0x0FFFFFF8) {
+    if (next_cluster >= 0x0FFFFFF8) {
+        panic("OK\n");
         // End of chain marker
-        *next_cluster = FAT32_EOC_MARKER;
-    } else if (*next_cluster == 0x0FFFFFF7) {
+        next_cluster = FAT32_EOC_MARKER;
+    } else if (next_cluster == 0x0FFFFFF7) {
         // Bad cluster
         return FAT32_ERROR_IO;
     }
 
-    return 0;
+    return next_cluster;
 }
 
 /**
@@ -119,7 +115,7 @@ int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster, uint32_t *next_cluste
  * @param input Input filename
  * @param output Output buffer (must be at least 11 bytes)
  */
-static void fat32_format_name(const char *input, char *output) {
+void fat32_format_name(const char *input, char *output) {
     size_t name_len = 0;
     size_t ext_len = 0;
     const char *ext_pos = strchr(input, '.');
@@ -150,6 +146,8 @@ static void fat32_format_name(const char *input, char *output) {
         }
     }
 }
+
+
 
 // Function to parse a FAT32 path into components - STATIC
 void parse_fat32_path(const char *path, fat32_path_t *parser) {
@@ -293,10 +291,9 @@ int fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const c
         }
 
         // Read next cluster from FAT
-        uint32_t next_cluster;
-        ret = fat32_read_fat_entry(fs, current_cluster, &next_cluster);
-        if (ret != 0) {
-            return ret;
+        uint32_t next_cluster = fat32_read_fat_entry(fs, current_cluster);
+        if (next_cluster < 0) {
+            return next_cluster;
         }
 
         current_cluster = next_cluster;

@@ -42,9 +42,80 @@ int vfs_default_close(int fd) {
     return 0;
 }
 
+static int vfs_default_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
+    if (!dir || !buffer || buffer_sz == 0) {
+        return -EINVAL; // Invalid arguments
+    }
+
+    // Check if this is actually a directory
+    if (!(dir->inode->mode & VFS_DIR)) {
+        return -ENOTDIR; // Not a directory
+    }
+
+    // Default behavior: traverse in-memory dentries if available
+    vfs_dentry_t* entry = dir->first_child; // Start from first child
+    size_t num_read = 0;
+    size_t bytes_read = 0;
+
+    while (entry && bytes_read < buffer_sz) {
+        // Store pointer as inode and copy the name
+        buffer[num_read].d_ino = (ino_t)entry;
+        strncpy(buffer[num_read].d_name, entry->name, sizeof(buffer[num_read].d_name));
+
+        // Move to the next entry in the directory
+        entry = entry->next_sibling;
+        num_read++;
+        bytes_read += sizeof(dirent_t);
+
+        // Stop if we have filled the buffer or exhausted the entries
+        if (bytes_read >= buffer_sz) {
+            break;
+        }
+    }
+
+    // Return the number of entries read
+    return num_read;
+}
+
+// static int vfs_default_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
+//     if (!dir || !buffer || buffer_sz == 0) {
+//         return -EINVAL; // Invalid arguments
+//     }
+
+//     // Check if this is actually a directory
+//     if (!(dir->inode->mode & VFS_DIR)) {
+//         return -ENOTDIR; // Not a directory
+//     }
+
+//     // If the filesystem has a `readdir` function, delegate to it
+//     if (dir->inode->ops && dir->inode->ops->readdir) {
+//         return dir->inode->ops->readdir(dir, buffer, buffer_sz);
+//     }
+
+//     // Default behavior: traverse in-memory dentries if available
+//     vfs_dentry_t* entry = dir->first_child; // Start from first child
+//     size_t num_read = 0;
+//     size_t bytes_read = 0;
+
+//     while (entry && bytes_read < buffer_sz) {
+//         buffer[num_read].d_ino = (ino_t)entry; // Store pointer as inode
+//         strncpy(buffer[num_read].d_name, entry->name, sizeof(buffer[num_read].d_name));
+
+//         // Move to the next entry
+//         entry = entry->next_sibling;
+//         num_read++;
+//         bytes_read += sizeof(dirent_t);
+//     }
+
+//     return num_read;
+// }
+
+
+
 vfs_ops_t vfs_ops = {
     .open = vfs_default_open,
     .close = vfs_default_close,
+    .readdir = vfs_default_readdir,
 };
 
 // TODO finish filling dirent with rc
@@ -219,7 +290,7 @@ int vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t max_entries) {
     size_t count = 0;
 
     while (entry && count < max_entries) {
-        buffer[count].d_ino = entry->inode->inode_number;
+        // buffer[count].d_ino = entry->inode->inode_number;
         strncpy(buffer[count].d_name, entry->name, sizeof(buffer[count].d_name));
         count++;
         entry = entry->next_sibling;
