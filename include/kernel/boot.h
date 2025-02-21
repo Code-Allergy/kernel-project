@@ -64,11 +64,10 @@ typedef struct {
     uint32_t kernel_end;
     uint32_t total_memory;
     uint32_t reserved_memory; // kernel size, bootloader size already omitted for qemu
-
-
-    // memory map
-
-
+    uint32_t l1_table_base;
+    uint32_t l1_table_size;
+    uint32_t l2_table_base;
+    uint32_t l2_table_size;
 } bootloader_t;
 
 
@@ -91,6 +90,10 @@ typedef struct {
         .kernel_end = DRAM_BASE + (kernel).file_size, \
         .total_memory = DRAM_SIZE,          \
         .reserved_memory = (kernel).file_size, \
+        .l1_table_base = l1_page_table, \
+        .l1_table_size = 0x4000, \
+        .l2_table_base = l2_tables, \
+        .l2_table_size = 0x400000, \
     };\
     fat32_close(&kernel);\
     printk("Kernel size: %d\n", bootloader.kernel_size); \

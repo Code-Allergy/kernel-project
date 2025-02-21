@@ -1,11 +1,12 @@
-data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions. ? - not sure if still the case
+data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions. ? - haven't encountered this in a while now that we disable interrupts during irq handle
 vfs basic operations, other than open()
 ipc to support message passing between processes
 memory allocation apis for processes - increase heap size, etc
 load dynamic libraries
 test context switch performance
-linked list library
 other data structures to make things easier
 cleaning up dead code and refactoring some others
 - pass in addresses from bootloader for l1 and l2 page tables,
   then copy them and nuke the bss section ? for now just put them in high phys memory
+
+- better mmu setup, and using sections and domains. sections for kernel mem mapping and we can setup support for larger page sizes for user space OR sections for heap
