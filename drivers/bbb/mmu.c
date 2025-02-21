@@ -1,5 +1,6 @@
 #include "uart.h"
 #include <kernel/mmu.h>
+#include <kernel/boot.h>
 // drivers/mmu.c
 extern int mmu_init_l1_page_table(void);
 extern void mmu_set_domains(void);
@@ -8,7 +9,6 @@ extern void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags);
 extern void unmap_page(void* tbbr0, void* vaddr);
 extern inline void invalidate_all_tlb(void);
 extern void set_l1_page_table(uint32_t *l1_page_table);
-extern void* get_physical_address(void *vaddr);
 
 #define ALIGN_DOWN(addr, align) ((addr) & ~((align) - 1))
 #define ALIGN_UP(addr, align)   ALIGN_DOWN((addr) + (align) - 1, (align))
@@ -54,11 +54,61 @@ void mmu_map_hw_pages(void) {
             (addr & 0xFFFFF000) | L2_KERNEL_DATA_PAGE; // Non-executable data
     }
 }
+// temp
+#define L1_TABLE_ALIGNMENT 16384 // 16KB-aligned for ARMv7-A
+#define L1_SECTION_DESCRIPTOR(pa, ap, tex, c, b, xn) \
+    ((pa) & 0xFFF00000) | (2 << 0) | /* Section entry */      \
+    ((ap) << 10) |                   /* AP bits (access permissions) */ \
+    (0 << 5) |                       /* Domain 0 */           \
+    ((tex) << 12) | ((c) << 3) | ((b) << 2) | /* TEX, C, B (memory attributes) */ \
+    ((xn) << 4)                     /* XN (execute never) */
+
+// Memory Type Settings
+#define DEVICE_MEMORY     L1_SECTION_DESCRIPTOR(0, 0b11, 0, 0, 0, 1)
+#define NORMAL_MEMORY     L1_SECTION_DESCRIPTOR(0, 0b11, 1, 1, 1, 0)
+// Normal memory (WBWA): TEX=001, C=1, B=1
+#define SECTION_ENTRY_NORMAL (0x2 | (0x3 << 10) | (0x1 << 12) | (1 << 3) | (1 << 2))
+// Device memory: TEX=000, C=0, B=0
+#define SECTION_ENTRY_DEVICE (0x2 | (0x3 << 10) | (0x0 << 12)
+
+void mmu_identity_map_all(void) {
+    // 1. Map entire 4GB as DEVICE (default)
+    for (int i = 0; i < 4096; i++) {
+        l1_page_table[i] = DEVICE_MEMORY | (i << 20);
+    }
+
+    // 2. Remap DRAM (0x80000000-0x9FFFFFFF) as NORMAL (cacheable)
+    for (int i = 0x800; i < 0xA00; i++) { // 512MB DRAM (adjust if different)
+        l1_page_table[i] = NORMAL_MEMORY | (i << 20);
+    }
+
+    // 3. Remap critical regions (e.g., code, SRAM, peripherals)
+    // Example: Map SRAM (0x402F0400-0x40300000) as NORMAL
+    for (int i = 0x402; i <= 0x403; i++) {
+        l1_page_table[i] = NORMAL_MEMORY | (i << 20);
+    }
+
+    // 4. Map UART0 (0x44E09000) as DEVICE (already covered by step 1)
+    // No action needed if already identity-mapped
+}
 
 void mmu_init(void) {
-    mmu_init_l1_page_table(); // Populate L1 table
-    mmu_map_hw_pages();
+    // mmu_init_l1_page_table(); // Populate L1 table
+    // mmu_map_hw_pages();
+    mmu_identity_map_all();
     mmu_set_domains();     // Configure domains
+}
+
+void* get_physical_address(uint32_t* ttbr0, void *vaddr) {
+    uint32_t *l1_entry = &ttbr0[SECTION_INDEX((uint32_t)vaddr)];
+    if ((*l1_entry & 0x3) != 0x1) {
+        return (void*)(((uint32_t)vaddr - KERNEL_ENTRY) + DRAM_BASE);
+    }
+
+    uint32_t *l2_table = (uint32_t*)(*l1_entry & 0xFFFFF000);
+    uint32_t l2_index = ((uint32_t)vaddr >> 12) & 0xFF;
+
+    return (void*)((l2_table[l2_index] & 0xFFFFF000) | ((uint32_t)vaddr & 0xFFF));
 }
 
 mmu_t mmu_driver = {

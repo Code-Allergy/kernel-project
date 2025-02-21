@@ -29,9 +29,6 @@ cat <&3 | tee $LOGFILE | while read -r line; do
         sx -vv --xmodem --crc $FILE >&3 <&3
         RESULT=$?
         echo "Transfer completed with exit code $RESULT"
-
-        sleep 0.5
-
         # Now continue to show the output
         echo "Showing serial output. Press Ctrl+C to exit."
         # Close our file descriptor and reopen to ensure clean state

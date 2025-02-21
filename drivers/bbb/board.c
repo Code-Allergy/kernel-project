@@ -12,7 +12,6 @@ void init_bbb_board_info(void) {
 
     eeprom_init(I2C_SLAVE_ADDR);
     eeprom_read((void*)&raw_board_info, MAX_DATA, 0);
-    printk("Done reading\n");
     for(int i = 0; i < EEPROM_SIZE_BOARD_NAME; i++) {
         board_info.name[i] = raw_board_info.boardName[i];
     }

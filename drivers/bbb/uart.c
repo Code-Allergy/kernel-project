@@ -200,10 +200,9 @@ extern int xmodemReceive(unsigned char *dest, int destsz);
 unsigned int UARTBootCopy(void)
 {
     unsigned int retVal = 1;
-    int32_t read = 0;
     printk("<<<UART_READY>>>\n"); // special character maybe
 
-    if( 0 > xmodemReceive((unsigned char *)DRAM_BASE,
+    if( 0 > xmodemReceive((unsigned char *)0x80000000,
                           BL_UART_MAX_IMAGE_SIZE))
     {
         printk("\nXmodem receive error\n", -1);
@@ -211,12 +210,7 @@ unsigned int UARTBootCopy(void)
     }
 
     printk("\nCopying application image from UART to RAM is  done\n");
-
-    // entryPoint  = 0x80000000; // DDR_START_ADDR;
-
-    /*
-    ** Dummy return.
-    */
+    printk("<<<UART_DONE>>>\n"); // special character maybe
     return retVal;
 }
 

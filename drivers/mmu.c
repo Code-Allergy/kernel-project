@@ -28,6 +28,8 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
     return (uint32_t)addr;
 }
 
+// we only use the one domain, we could use both and give the kernel unrestricted access,
+// but it's safer early on anyway having protections
 void mmu_set_domains(void) {
     // Set domain 0 (kernel) to client access (0x1)
     uint32_t dacr = 0x1;  // Just set domain 0 to client (0x1)
@@ -69,21 +71,25 @@ void mmu_enable(void) {
     );
 
     // Invalidate TLB and caches
-    __asm__ volatile("mcr p15, 0, %0, c8, c7, 0" : : "r"(0)); // Invalidate TLB
-    __asm__ volatile("mcr p15, 0, %0, c7, c5, 0" : : "r"(0)); // Invalidate I-cache
-    __asm__ volatile("mcr p15, 0, %0, c7, c6, 0" : : "r"(0)); // Invalidate data cache
-    __asm__ volatile("mcr p15, 0, %0, c7, c10, 0" : : "r"(0)); // Clean data cache
-    __asm__ volatile("mcr p15, 0, %0, c7, c10, 4" : : "r"(0)); // Drain write buffer
+    __asm__ volatile(
+        "MCR p15, 0, %0, c8, c7, 0 \n" // Invalidate TLBs
+        "MCR p15, 0, %0, c7, c5, 0 \n" // Invalidate I-cache
+        "DSB \n"
+        "ISB \n"
+        :: "r"(0));
 
     // Enable MMU, caches, and branch prediction
     uint32_t sctlr;
-    __asm__ volatile("mrc p15, 0, %0, c1, c0, 0" : "=r"(sctlr));
-    sctlr |= (1 << 0)  // Enable MMU
-           | (1 << 2)  // Enable D-cache
-           | (1 << 12) // Enable I-cache
-           | (1 << 11) // Enable branch prediction
-           ;
-    __asm__ volatile("mcr p15, 0, %0, c1, c0, 0" : : "r"(sctlr));
+    asm volatile (
+        "MRC p15, 0, %0, c1, c0, 0 \n"
+        "ORR %0, %0, #0x1 \n"          // MMU enable
+        "ORR %0, %0, #0x4 \n"          // D-cache
+        "ORR %0, %0, #0x1000 \n"       // I-cache
+        "MCR p15, 0, %0, c1, c0, 0 \n"
+        "DSB \n"
+        "ISB \n"
+        : "=r" (sctlr)
+    );
 }
 
 #ifdef BOOTLOADER

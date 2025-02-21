@@ -21,6 +21,8 @@
           pkgs.minicom
           pkgs.lrzsz
           pkgs.seer
+          pkgs.socat
+          pkgs.screen
         ];
 
 

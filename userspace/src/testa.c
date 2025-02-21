@@ -20,6 +20,12 @@ int main(void) {
     fprintf(stderr, "ERROR! This should be red!\n");
     fprintf(stderr, "And this one too!\n");
 
+    // read kernel memory (0xC0000000)
+    uint32_t *null_ptr = (uint32_t *)0xC0000000;
+    uint32_t value = *null_ptr;
+    printf("Value at 0xC0000000: %d\n", value);
+    fprintf(stderr, "failed to halt when reading kernel memory");
+
 
     return 0;
 }

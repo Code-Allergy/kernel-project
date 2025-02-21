@@ -10,9 +10,12 @@
 #include <kernel/mmu.h>
 #include <kernel/board.h>
 #include <kernel/i2c.h>
+#include <kernel/string.h>
 
 #ifdef PLATFORM_BBB
 unsigned int UARTBootCopy(void);
+#define SECTION_ENTRY_NORMAL (0x2 | (0x3 << 10) | (0x1 << 12) | (1 << 3) | (1 << 2))
+#define SECTION_ENTRY_DEVICE (0x2 | (0x3 << 10) | (0x0 << 12))
 #endif
 
 // no frame allocator setup in the bootloader
@@ -22,15 +25,12 @@ uint32_t kernel_end = DRAM_BASE + DRAM_SIZE;
 uint32_t kernel_end;
 uint32_t kernel_code_end;
 
-void init_scr(void) {
-    uint32_t scr;
-    __asm__ volatile("mrc p15, 0, %0, c1, c1, 0" : "=r"(scr));
-    scr |= (1 << 5) | (1 << 4); // Set AW and FW bits
-    __asm__ volatile("mcr p15, 0, %0, c1, c1, 0" : : "r"(scr));
-}
+
 
 /* bootloader C entry point */
 void loader(void){
+
+    // fat32 driver
     fat32_fs_t boot_fs;
     fat32_file_t kernel;
     int res = 0;
@@ -48,12 +48,35 @@ void loader(void){
     dram_driver.init();
     mmc_driver.init();
     printk("Done on BBB - need working MMU/MMC reads\n");
-#ifdef PLATFORM_BBB
-    UARTBootCopy();
-#endif
 
-#ifndef PLATFORM_BBB
     mmu_driver.init();
+#ifdef PLATFORM_BBB
+    // clear l1 and l2 tables
+    // memset((void*)l1_page_table, 0, 0x4000);
+    // memset((void*)l2_tables, 0, 0x400000);
+
+    // Copy the kernel from the SD card to the DRAM
+    if (UARTBootCopy() != 0) {
+        printk("Failed to copy kernel from UART\n");
+        return;
+    }
+    // Map critical regions
+    for (uint32_t section = 0x800; section < 0x900; section++) {
+        l1_page_table[section] = (section << 20) | SECTION_ENTRY_NORMAL;
+    }
+    l1_page_table[0xC00] = 0x80000000 | SECTION_ENTRY_NORMAL;  // 0xC0000000
+    l1_page_table[0x480] = 0x48000000 | SECTION_ENTRY_DEVICE;  // GPIO
+    l1_page_table[0x44E] = 0x44E00000 | SECTION_ENTRY_DEVICE;  // UART
+    mmu_driver.enable();
+    uint32_t *test_virt = (uint32_t*)0xC0000000; // Mapped to 0x80000000
+    uint32_t *test_phys = (uint32_t*)0x80000000;   // Identity-mapped
+    printk("Virtual: 0x%x | Physical: 0x%x\n", *test_virt, *test_phys);
+
+    // jump to 0xC0000000
+    void (*kernel_entry)(void) = (void (*)(void))(0x80000000);
+    kernel_entry();
+#endif
+#ifdef PLATFORM_QEMU
     // map the rest of the memory into kernel space for the jump to kernel.
     for (uintptr_t i = DRAM_BASE; i < DRAM_BASE + DRAM_SIZE; i += PAGE_SIZE) {
         mmu_driver.map_page(NULL, (void*)(KERNEL_ENTRY + (i - DRAM_BASE)), (void*)i, L2_KERNEL_DATA_PAGE);

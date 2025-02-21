@@ -10,3 +10,9 @@ compile_commands.json
 /team-repo
 qemu.log
 userspace/lib/libosc.a
+
+
+*.a
+*.o
+*.bin
+*.elf
