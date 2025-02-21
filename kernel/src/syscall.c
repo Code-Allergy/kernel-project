@@ -40,7 +40,7 @@ int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
 
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
-    process_t* child = _create_process(NULL, current_process);
+    process_t* child = create_process(NULL, current_process);
     if (!child) {
         return -1;
     }

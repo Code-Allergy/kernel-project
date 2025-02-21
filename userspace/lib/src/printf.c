@@ -137,7 +137,10 @@ int printf(const char *format, ...) {
     va_end(args);
 
     // Output the formatted string (syscall_debug, for example)
-    write(stdout, buffer, len);
+    if (write(stdout, buffer, len) < len) {
+        syscall_debug("IOFAIL", 6);
+        exit(-1);
+    }
 
     return len;
 }

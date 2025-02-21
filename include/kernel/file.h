@@ -12,6 +12,7 @@ typedef struct file {
     vfs_dentry_t *dirent;    /* Pointer to the underlying directory entry */
     off_t offset;           /* Current file offset */
     int flags;              /* Open flags (e.g., O_RDONLY, etc.) */
+    size_t refcount;        /* Reference count */
     void* private_data;  /* Pointer to private data */
 } file_t;
 

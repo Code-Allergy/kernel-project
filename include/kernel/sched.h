@@ -130,7 +130,7 @@ typedef struct {
 extern scheduler_t scheduler_driver;
 
 // this can create or fork a process, based on which parameter is non-NULL
-process_t* _create_process(binary_t* bin, process_t* parent);
+process_t* create_process(binary_t* bin, process_t* parent);
 
 // swap the currently executing code in process with the code in bin, without destroying the process or it's members
 int swap_process(binary_t* bin, process_t* process);

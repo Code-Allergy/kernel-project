@@ -1,5 +1,8 @@
-data abort after context switch (high speed), guessing from clobbered registers or interrupted instructions. ? - haven't encountered this in a while now that we disable interrupts during irq handle
-vfs basic operations, other than open()
+CRITICAL:
+need to handle more accurate timing, right now we have scheduler ticks which are expensive to reduce and still
+not very accurate. I need to be able to get that counter working and then use it to implement sleep() and usleep() among
+other blocking features.
+
 ipc to support message passing between processes
 memory allocation apis for processes - increase heap size, etc
 load dynamic libraries
