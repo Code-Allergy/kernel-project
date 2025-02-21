@@ -1,6 +1,10 @@
 #include <kernel/printk.h>
 
 #include "i2c.h"
+#include "mmc.h"
+#include "hw_control.h"
+#include "hw_mcspi.h"
+#include "cm_per.h"
 
 
 static void I2C0PinMux(void)

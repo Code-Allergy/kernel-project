@@ -11,6 +11,10 @@
 #include <kernel/board.h>
 #include <kernel/i2c.h>
 
+#ifdef PLATFORM_BBB
+unsigned int UARTBootCopy(void);
+#endif
+
 // no frame allocator setup in the bootloader
 uint32_t kernel_end = DRAM_BASE + DRAM_SIZE;
 
@@ -44,6 +48,9 @@ void loader(void){
     dram_driver.init();
     mmc_driver.init();
     printk("Done on BBB - need working MMU/MMC reads\n");
+#ifdef PLATFORM_BBB
+    UARTBootCopy();
+#endif
 
 #ifndef PLATFORM_BBB
     mmu_driver.init();

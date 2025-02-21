@@ -8,6 +8,7 @@
 #include "hw_control.h"
 #include "tps65217.h"
 #include "board.h"
+#include "watchdog.h"
 
 #include <kernel/ccm.h>
 #include <kernel/printk.h>

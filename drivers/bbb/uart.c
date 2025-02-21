@@ -197,7 +197,7 @@ void uart_init_default(void) {
 // TODO: an interface for this, and it probably shouldn't be a driver.. it can be generic.
 extern int xmodemReceive(unsigned char *dest, int destsz);
 #define BL_UART_MAX_IMAGE_SIZE    (128*1024*1024)
-static unsigned int UARTBootCopy(void)
+unsigned int UARTBootCopy(void)
 {
     unsigned int retVal = 1;
     int32_t read = 0;
@@ -224,7 +224,7 @@ char uart_getc(void) {
     return 0;
 }
 
-const uart_driver_t uart_driver = {
+uart_driver_t uart_driver = {
     .init = uart_init_default,
     .putc = uart_putc,
     .getc = uart_getc

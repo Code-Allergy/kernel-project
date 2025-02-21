@@ -119,7 +119,7 @@ int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster, uint32_t *next_cluste
  * @param input Input filename
  * @param output Output buffer (must be at least 11 bytes)
  */
-__attribute__((noinline)) static void fat32_format_name(const char *input, char *output) {
+static void fat32_format_name(const char *input, char *output) {
     size_t name_len = 0;
     size_t ext_len = 0;
     const char *ext_pos = strchr(input, '.');
@@ -151,7 +151,7 @@ __attribute__((noinline)) static void fat32_format_name(const char *input, char 
     }
 }
 
-// Function to parse a FAT32 path into components
+// Function to parse a FAT32 path into components - STATIC
 void parse_fat32_path(const char *path, fat32_path_t *parser) {
     int path_len = strlen(path);
     int start = 0;
@@ -178,12 +178,6 @@ void parse_fat32_path(const char *path, fat32_path_t *parser) {
         }
     }
     parser->num_components = component_idx;
-}
-
-void print_parsed_path(const fat32_path_t *parser) {
-    for (int i = 0; i < parser->num_components; i++) {
-        printk("Component %d: %s\n", i + 1, parser->components[i]);
-    }
 }
 
 
@@ -230,8 +224,7 @@ int fat32_mount(fat32_fs_t *fs, const fat32_diskio_t *io) {
     return 0;
 }
 
-// TODO: look into why this gets optimized out
-int __attribute__((optimize("O0"))) fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const char* name) {
+int fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const char* name) {
     if (!fs || !name) return FAT32_ERROR_BAD_PARAMETER;
 
     int ret;
