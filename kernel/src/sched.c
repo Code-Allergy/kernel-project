@@ -201,6 +201,15 @@ void tick(void) {
     }
 }
 
+process_page_ref_t* create_page_ref(process_page_t* page) {
+    process_page_ref_t* ref = kmalloc(sizeof(process_page_ref_t));
+    if (!ref) return NULL;
+
+    INIT_LIST_HEAD(&ref->list);
+    ref->page = page;
+    return ref;
+}
+
 void mmu_set_l1_with_asid(uint32_t ttbr0, uint32_t asid) {
     mmu_driver.set_l1_with_asid((uint32_t*)ttbr0, asid);
 }
@@ -218,18 +227,27 @@ process_page_t* alloc_process_page(void) {
         return NULL;
     }
 
-    INIT_LIST_HEAD(&page->list);
     return page;
 }
 
 // TODO: This leaks memory, we should goto a cleanup label and free all the pages
 process_t* _create_process(binary_t* bin, process_t* parent) {
+    if (!bin && !parent) {
+        panic("No binary or parent process provided to create_process\n");
+    }
+
     process_t* p = get_available_process();
 
     p->ttbr0 = (uint32_t*) alloc_l1_table(&kpage_allocator);
     if(!p->ttbr0) return NULL;
 
     INIT_LIST_HEAD(&p->pages_head);
+
+    p->asid = allocate_asid();
+    p->pid = get_next_pid();
+    p->ppid = parent ? parent->pid : 0;
+    p->priority = parent ? parent->priority : 0;
+
     // do this better later
     if (bin) {
         if (bin->type == BINARY_TYPE_ELF32) {
@@ -258,11 +276,11 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
                         }
 
                         // // Map page with appropriate permissions
-                        uint32_t prot = MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
+                        uint32_t prot = MMU_NORMAL_MEMORY | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
                         if (is_writable) {
-                            prot |= MMU_AP_RW;
+                            prot |= PAGE_AP_FULL_ACCESS;
                         } else {
-                            prot |= MMU_AP_RO;
+                            prot |= PAGE_AP_USER_RO;
                         }
                         if (is_code) {
                             prot |= MMU_EXECUTE;
@@ -270,12 +288,10 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
 
                         page->flags = prot;
 
-                        mmu_driver.map_page(p->ttbr0,
-                                           page->vaddr,
-                                           page->paddr,
-                                           prot);
+                        // mmu_driver.map_page(p->ttbr0, page->vaddr, page->paddr, prot);
                         page->page_type = is_code ? PROCESS_PAGE_CODE : PROCESS_PAGE_DATA;
-                        list_add(&page->list, &p->pages_head);
+                        process_page_ref_t *ref = create_page_ref(page);
+                        list_add_tail(&ref->list, &p->pages_head);
                         p->num_pages++;
                     }
                 }
@@ -284,24 +300,34 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
             panic("Flat binary not supported yet!\n");
         }
     } else if (parent) {
-        // // Copy parent's memory layout for code and give it a new data page
-        // void* data_page = alloc_page(&kpage_allocator);
-        // if (!data_page) {
-        //     printk("Failed to allocate page for cloned process\n");
-        //     return NULL;
-        // }
+        // panic("Fork not implemented yet with list pages!\n");
+        // copy all the pages from parent
+        process_page_ref_t* current_ref;
+        list_for_each_entry(current_ref, &parent->pages_head, list) {
+            process_page_t* current_page = current_ref->page;
+            if (current_page->page_type == PROCESS_PAGE_CODE) {
+                process_page_ref_t *new_ref = create_page_ref(current_page);
+                list_add_tail(&new_ref->list, &p->pages_head);
+                current_page->ref_count++;
+            } else if (current_page->page_type == PROCESS_PAGE_DATA) {
+                process_page_t* data_page = alloc_process_page();
+                if (!data_page) {
+                    printk("Failed to allocate page for cloned process\n");
+                    return NULL;
+                }
 
-        // mmu_driver.map_page(p->ttbr0, (void*)parent->code_page_vaddr, (void*)parent->code_page_paddr, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RO | MMU_EXECUTE);
-        // if (parent->data_page_paddr) {
-        //     mmu_driver.map_page(p->ttbr0, (void*)parent->data_page_vaddr, data_page, MMU_NORMAL_MEMORY | MMU_CACHEABLE | MMU_SHAREABLE | MMU_AP_RW | MMU_EXECUTE_NEVER);
-        //     memcpy(PHYS_TO_KERNEL_VIRT(data_page), PHYS_TO_KERNEL_VIRT(parent->data_page_paddr), PAGE_SIZE);
-        // }
-        // p->stack_top = parent->stack_top;
+                memcpy(PHYS_TO_KERNEL_VIRT(data_page), PHYS_TO_KERNEL_VIRT(current_page->paddr), PAGE_SIZE);
+                process_page_ref_t *ref = create_page_ref(data_page);
+                list_add_tail(&ref->list, &p->pages_head);
+            }
+        }
+
+        p->stack_top = parent->stack_top;
 
     } else {
         panic("No binary or parent process provided\n"); // panic for now
     }
-
+    // pages are mapped, load rest of the process info
     process_page_t *heap_page = alloc_process_page();
     process_page_t *stack_page = alloc_process_page();
     if (!stack_page || !heap_page) {
@@ -311,31 +337,51 @@ process_t* _create_process(binary_t* bin, process_t* parent) {
     heap_page->vaddr = (void*)MEMORY_USER_HEAP_BASE;
     heap_page->ref_count = 1;
     heap_page->page_type = PROCESS_PAGE_HEAP;
+    heap_page->flags = L2_USER_DATA_PAGE;
+    p->num_pages++;
+    process_page_ref_t *ref = create_page_ref(heap_page);
+    list_add_tail(&ref->list, &p->pages_head);
 
     stack_page->vaddr = (void*)MEMORY_USER_STACK_BASE;
     stack_page->ref_count = 1;
     stack_page->page_type = PROCESS_PAGE_STACK;
+    stack_page->flags     = L2_USER_DATA_PAGE;
+    p->num_pages++;
+    ref = create_page_ref(stack_page);
+    list_add_tail(&ref->list, &p->pages_head);
 
-    mmu_driver.map_page(p->ttbr0, heap_page->vaddr, heap_page->paddr, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
-    mmu_driver.map_page(p->ttbr0, stack_page->vaddr, stack_page->paddr, MMU_NORMAL_MEMORY | MMU_AP_RW | MMU_CACHEABLE | MMU_SHAREABLE);
-    // panic("unimplemented\n");
-    // if (parent) {
-    //     process_page_t* current_page;
-    //     list_for_each_entry(current_page, p->pages_head, list) {
-    //     }
-    //     // TODO here
+    process_page_ref_t* current_ref;
+    list_for_each_entry(current_ref, &p->pages_head, list) {
+        mmu_driver.map_page(p->ttbr0, current_ref->page->vaddr, current_ref->page->paddr, current_ref->page->flags);
+    }
 
-    //     memcpy(PHYS_TO_KERNEL_VIRT(heap_page->paddr), PHYS_TO_KERNEL_VIRT(parent->heap_page_paddr), PAGE_SIZE);
-    //     memcpy(PHYS_TO_KERNEL_VIRT(stack_page), PHYS_TO_KERNEL_VIRT(parent->stack_page_paddr), PAGE_SIZE);
-    // }
+    if (parent) {
+        process_page_t* parent_stack_page;
+        process_page_t* parent_heap_page;
+        process_page_ref_t* current_ref;
 
+        int count = 0;
+        list_for_each_entry(current_ref, &parent->pages_head, list) {
+            if (current_ref->page->page_type == PROCESS_PAGE_HEAP) {
+                parent_heap_page = current_ref->page;
+                count++;
+            } else if (current_ref->page->page_type == PROCESS_PAGE_STACK) {
+                parent_stack_page = current_ref->page;
+                count++;
+            }
+        }
+        if (count > 2) {
+            panic("Parent process does not handle more than 2 currently.\n");
+        }
 
-
-    // pages are mapped, load rest of the process info
-    p->asid = allocate_asid();
-    p->pid = get_next_pid();
-    p->ppid = parent ? parent->pid : 0;
-    p->priority = parent ? parent->priority : 0;
+        list_for_each_entry(current_ref, &p->pages_head, list) {
+            if (current_ref->page->page_type == PROCESS_PAGE_HEAP) {
+                memcpy(PHYS_TO_KERNEL_VIRT(heap_page->paddr), PHYS_TO_KERNEL_VIRT(parent_heap_page->paddr), PAGE_SIZE);
+            } else if (current_ref->page->page_type == PROCESS_PAGE_STACK) {
+                memcpy(PHYS_TO_KERNEL_VIRT(stack_page->paddr), PHYS_TO_KERNEL_VIRT(parent_stack_page->paddr), PAGE_SIZE);
+            }
+        }
+    }
 
     if (bin) {
         p->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));

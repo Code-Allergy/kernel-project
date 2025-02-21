@@ -77,7 +77,6 @@ void init_kernel_pages(void) {
     ttbcr_enable_ttbr0();
     ttbcr_enable_ttbr1();
     mmu_driver.kernel_mem = 1;
-    // mmu_driver.set_l1_table(NULL);
 }
 
 void init_stack_canary(void) {

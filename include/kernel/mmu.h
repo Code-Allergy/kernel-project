@@ -29,12 +29,24 @@
 
 // TODO fix!! shouldn't he << 8, but << 4 and 2 sections.
 // Access Permissions
-#define MMU_AP_RW           (3 << 8)    // Read/write access
-#define MMU_AP_RO           (2 << 8)    // Read-only access
-#define MMU_AP_NO_ACCESS    (0 << 8)    // No access
-// #define MMU_AP_KERNEL_RW    (1 << 8)    // Kernel read/write access
-// #define MMU_AP_KERNEL_RO    (1 << 8 | 1 << )    // Kernel read-only access
-// #define MMU_AP_KERNEL_RW    (1 << 10)   // Kernel read/write access
+// #define MMU_AP_RW           (3 << 8)    // Read/write access
+// #define MMU_AP_RO           (2 << 8)    // Read-only access
+// #define MMU_AP_NO_ACCESS    (0 << 8)    // No access
+// // #define MMU_AP_KERNEL_RW    (1 << 8)    // Kernel read/write access
+// // #define MMU_AP_KERNEL_RO    (1 << 8 | 1 << )    // Kernel read-only access
+// // #define MMU_AP_KERNEL_RW    (1 << 10)   // Kernel read/write access
+
+// Page AP[2] (bit 9)
+#define PAGE_AP2_SHIFT         9
+#define PAGE_AP2_DISABLED      (0x0 << PAGE_AP2_SHIFT)     // AP[2]=0: Use AP[1:0]
+#define PAGE_AP2_ENABLED       (0x1 << PAGE_AP2_SHIFT)     // AP[2]=1: Extended permissions
+
+// Page AP[1:0] (bits 5:4)
+#define PAGE_AP_SHIFT          4
+#define PAGE_AP_NO_ACCESS      (0x0 << PAGE_AP_SHIFT)      // AP[1:0]=00: No access
+#define PAGE_AP_PRIV_ONLY      (0x1 << PAGE_AP_SHIFT)      // AP[1:0]=01: Privileged access only
+#define PAGE_AP_USER_RO        (0x2 << PAGE_AP_SHIFT)      // AP[1:0]=10: User read-only, privileged read/write
+#define PAGE_AP_FULL_ACCESS    (0x3 << PAGE_AP_SHIFT)      // AP[1:0]=11: Full access (user and privileged)
 
 // Memory Type
 #define MMU_CACHEABLE       (1 << 3)     // Enable caching
@@ -52,9 +64,12 @@
 #define MMU_NORMAL_MEMORY   (MMU_CACHEABLE | MMU_BUFFERABLE)
 #define MMU_DEVICE_SHARED   (MMU_DEVICE_MEMORY | MMU_SHAREABLE)
 #define MMU_DEVICE_NON_SHARED (MMU_DEVICE_MEMORY)
-#define L2_DEVICE_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
-#define L2_KERNEL_CODE_PAGE (L2_SMALL_PAGE | MMU_AP_RO | MMU_CACHEABLE | MMU_BUFFERABLE)
-#define L2_KERNEL_DATA_PAGE (L2_SMALL_PAGE | MMU_AP_RW | MMU_CACHEABLE | MMU_BUFFERABLE)
+
+#define L2_DEVICE_PAGE (L2_SMALL_PAGE | PAGE_AP_PRIV_ONLY | PAGE_AP2_DISABLED | MMU_DEVICE_MEMORY | MMU_SHAREABLE)
+#define L2_KERNEL_CODE_PAGE (L2_SMALL_PAGE | PAGE_AP_PRIV_ONLY | PAGE_AP2_ENABLED | MMU_CACHEABLE | MMU_BUFFERABLE) // READ ONLY with AP2 enabled
+#define L2_KERNEL_DATA_PAGE (L2_SMALL_PAGE | PAGE_AP_PRIV_ONLY | PAGE_AP2_DISABLED | MMU_CACHEABLE | MMU_BUFFERABLE)
+#define L2_USER_CODE_PAGE (L2_SMALL_PAGE | PAGE_AP_USER_RO | PAGE_AP2_DISABLED | MMU_CACHEABLE | MMU_BUFFERABLE | MMU_EXECUTE)
+#define L2_USER_DATA_PAGE (L2_SMALL_PAGE | PAGE_AP_FULL_ACCESS | PAGE_AP2_DISABLED | MMU_CACHEABLE | MMU_BUFFERABLE | MMU_EXECUTE_NEVER)
 
 // TEX[2:0] Memory Type Extensions
 #define MMU_TEX(x)          ((x) << 12)  // TEX bits

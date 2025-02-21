@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <kernel/vfs.h>
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
@@ -40,6 +41,10 @@ int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
 // doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
 int sys_fork(void) {
     process_t* child = _create_process(NULL, current_process);
+    if (!child) {
+        return -1;
+    }
+
     child->forked = 1;
     child->stack_top[0] = 0; // return value of fork in child is 0
     mmu_driver.set_l1_with_asid(current_process->ttbr0, current_process->asid);
@@ -113,28 +118,38 @@ int sys_debug(int buf, int len) {
     // syscall_return(&current_process->context, 0);
 }
 
+void free_process_page(process_page_t* process_page) {
+    free_page(&kpage_allocator, process_page->paddr);
+    kfree(process_page);
+}
+
 int sys_exit(int exit_status) {
-    printk("EXIT %d\n", current_process->pid);
-    panic("unimplementted");
-    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->code_page_vaddr); // Need RCs before we can free this, for now just let it leak
-    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->data_page_vaddr);
-    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->stack_page_vaddr);
-    // mmu_driver.unmap_page((void*)current_process->ttbr0, (void*)current_process->heap_page_vaddr);
-    // // free_page(&kpage_allocator, (void*)current_process->code_page_paddr); // Need RCs before we can free this, for now just let it leak
-    // free_page(&kpage_allocator, (void*)current_process->data_page_paddr);
-    // free_page(&kpage_allocator, (void*)current_process->stack_page_paddr);
-    // free_page(&kpage_allocator, (void*)current_process->heap_page_paddr);
+
+    // iterate through all pages and free them if they are not shared, otherwise decrement the ref count
+    process_page_ref_t* ref, *next;
+    list_for_each_entry_safe(ref, next, &current_process->pages_head, list) {
+        if (ref->page->ref_count == 0) panic("ref_count is 0");
+        else if (ref->page->ref_count == 1) {
+            free_process_page(ref->page);
+        } else {
+            ref->page->ref_count--; // // TODO free pages in l1 table of process:
+            // remove l2 entry and free page
+        }
+
+        list_del(&ref->list);
+        kfree(ref);
+    }
 
 
-    // // TODO free pages in l1 table of process:
+
     // // TODO free anything else in the process
     // // TODO reassign PID or parents of children
     // // TODO clean up any open files
-    // free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
-    // memset(current_process, 0, sizeof(process_t));
-    // current_process->state = PROCESS_NONE;
-    // current_process = NULL;
-    // scheduler_driver.schedule_next = 1;
+    free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
+    memset(current_process, 0, sizeof(process_t));
+    current_process->state = PROCESS_NONE;
+    current_process = NULL;
+    scheduler_driver.schedule_next = 1;
     return 0;
 }
 

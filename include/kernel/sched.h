@@ -12,7 +12,7 @@
 #define MAX_PROCESSES 128
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 #define NULL_PROCESS_FILE "/elf/null.elf"
-#define INIT_PROCESS_FILE "/elf/while.elf"
+#define INIT_PROCESS_FILE "/elf/testa.elf"
 
 /* Process state definitions */
 #define PROCESS_RUNNING  1
@@ -51,6 +51,11 @@ enum process_page_type {
     PROCESS_PAGE_OTHER
 };
 
+typedef struct process_page_ref {
+    struct list_head list;
+    struct process_page* page;
+} process_page_ref_t;
+
 typedef struct process_page {
     void* vaddr;           // Virtual address of the page
     void* paddr;           // Physical address of the page
@@ -58,7 +63,6 @@ typedef struct process_page {
     uint32_t flags;        // Page flags (read/write/execute etc)
 
     enum process_page_type page_type;   // Type of page (code, data, stack etc)
-    struct list_head list;
     // size_t size;           // Size of the page (all 4k for now)
     // uint32_t last_access;  // Timestamp of last page access
 } process_page_t;
