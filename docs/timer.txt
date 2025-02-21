@@ -1,1 +1,2 @@
 timer 0 is used for scheduling and kernel ticking, experiment with the quantum.
+timer 1 is used to count global ticks

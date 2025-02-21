@@ -82,7 +82,7 @@ void extract_time(rtc_time_t* time) {
 
 uint64_t read_64bit_counter() {
     // Latch the current count into LO/HI registers
-    REG32(TIMER_BASE + AW_A10_PIT_COUNT_CTL-20) = (1 << 0); // Set RL_EN
+    REG32(TIMER_BASE + AW_A10_PIT_COUNT_CTL) = (1 << 0); // Set RL_EN
     printk("value: %d\n", REG32(TIMER_BASE + AW_A10_PIT_COUNT_LO));
 
     // Read LO/HI

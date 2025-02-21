@@ -7,6 +7,8 @@
 typedef void (*timer_callback_t)(void);
 
 typedef struct {
+    uint64_t global_ticks; // NEVER READ THIS DIRECTLY! it is updated by interrupt. Current tick count since uptime
+
     uint32_t available;
     uint32_t total;
     uint32_t initialized;
@@ -27,6 +29,14 @@ typedef struct {
 
     // Start a timer idx with usec delay, then call the callback once and unregister the timer
     void (*init_idx_oneshot)(uint32_t idx, uint32_t usec, timer_callback_t callback);
+
+    // get global ticks
+    uint64_t (*get_ticks)(void);
+
+    // get global ticks as nanoseconds
+    uint64_t (*ticks_to_ns)(uint64_t ticks);
+    uint64_t (*ns_to_ticks)(uint64_t ticks);
+
 } timer_t;
 
 extern timer_t clock_timer;

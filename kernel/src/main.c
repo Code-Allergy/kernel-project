@@ -133,6 +133,16 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
     printk("Heap total usage: %d/%d\n", kernel_heap_usage_get(), kernel_heap_total_get());
 
+    // rtc_driver.init();
+
+    for (int i = 0; i < 100000000; i++) {
+        uint64_t ticks = clock_timer.get_ticks();
+        uint64_t ns = clock_timer.ticks_to_ns(ticks);
+        uint64_t ms = ns / 1000000;
+        printk("Current ns %u %u\n", (uint32_t)(ms >> 32), (uint32_t)ms);
+
+    }
+
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <kernel/boot.h>
 
+#define TIMER_FREQ 24000000ULL
+
 typedef struct {
     // Global registers (0x00-0x0C)
     volatile uint32_t irq_enable;    // 0x00
@@ -34,6 +36,7 @@ typedef struct {
 #define TIMER_BASE (0x01C20C00 + IO_KERNEL_OFFSET)
 #define TIMER0 ((AW_Timer *)TIMER_BASE)
 
+
 enum {
     TIMER0_IDX = 0,
     TIMER1_IDX = 1,
@@ -62,10 +65,23 @@ static inline uint32_t get_timer_idx_from_irq(uint32_t irq_idx) {
 }
 
 // Control register bits
-#define TIMER_ENABLE    (1 << 0)
-#define TIMER_RELOAD    (1 << 1)
-#define TIMER_ONESHOT   (1 << 7)
-#define TIMER_IRQ_EN    (1 << 4)
+#define TIMER_ENABLE         (1 << 0)
+#define TIMER_RELOAD         (1 << 1)
+#define TIMER_CLK_SRC_LOSC   (0 << 2)
+#define TIMER_CLK_SRC_OSC24M (1 << 2)
+#define TIMER_CLK_SRC_PLL6   (2 << 2)
+
+#define TIMER_CLK_DIV_1      (0 << 4)
+#define TIMER_CLK_DIV_2      (1 << 4)
+#define TIMER_CLK_DIV_4      (2 << 4)
+#define TIMER_CLK_DIV_8      (3 << 4)
+#define TIMER_CLK_DIV_16     (4 << 4)
+#define TIMER_CLK_DIV_32     (5 << 4)
+#define TIMER_CLK_DIV_64     (6 << 4)
+#define TIMER_CLK_DIV_128    (7 << 4)
+
+#define TIMER_CONTINUOUS     (0 << 7)
+#define TIMER_ONESHOT        (1 << 7)
 
 // Timer selection (use timer 1 for general purpose)
 #define TIMER_SELECT 1
