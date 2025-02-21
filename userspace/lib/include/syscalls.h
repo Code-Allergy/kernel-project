@@ -87,6 +87,7 @@ int yield(void);
 
 typedef int32_t ssize_t;
 
+int open(const char *pathname, int flags, int mode);
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 

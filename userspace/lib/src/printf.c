@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdio.h>
 #include "../include/syscalls.h"
 
 // from include/syyscall.h
@@ -136,7 +137,7 @@ int printf(const char *format, ...) {
     va_end(args);
 
     // Output the formatted string (syscall_debug, for example)
-    syscall_debug(buffer, len);
+    write(stdout, buffer, len);
 
     return len;
 }

@@ -22,23 +22,25 @@ typedef struct dirent {
 dirent_t some[8];
 
 int main(void) {
-    int fd = open("/mnt", 0, 0);
-    if (fd == 0) {
-        printf("OPEN OK!\n");
-    } else {
-        printf("OPEN FAIL! %d\n", fd);
-        return -1;
-    }
+    printf("Hello World!\n");
+    printf("Hello World over through user VFS over UART0!\n");
+    // int fd = open("/mnt", 0, 0);
+    // if (fd == 0) {
+    //     printf("OPEN OK!\n");
+    // } else {
+    //     printf("OPEN FAIL! %d\n", fd);
+    //     return -1;
+    // }
 
     // if (write(fd, "Hello world! From VFS!\n", 23) != 23) {
     //     printf("Error!\n");
     // }
 
-    int read_dirs = readdir(fd, some, sizeof(some));
-    printf("Read %d entries!\n", read_dirs);
-    for (int i = 0; i < read_dirs; i++) {
-        printf("Entry %d: %s\n", i, some[i].d_name);
-    }
+    // int read_dirs = readdir(fd, some, sizeof(some));
+    // printf("Read %d entries!\n", read_dirs);
+    // for (int i = 0; i < read_dirs; i++) {
+    //     printf("Entry %d: %s\n", i, some[i].d_name);
+    // }
     // if (read_dirs == -ENOTDIR) {
     //     printf("Not a directory! going to read 100 bytes\n");
     //     char buf[100];
@@ -63,12 +65,12 @@ int main(void) {
     // }
 
 
-    int res = close(fd);
-    if (res == 0) {
-        printf("CLOSE OK!");
-    } else {
-        printf("CLOSE FAIL! %d", res);
-    }
+    // int res = close(fd);
+    // if (res == 0) {
+    //     printf("CLOSE OK!");
+    // } else {
+    //     printf("CLOSE FAIL! %d", res);
+    // }
 
     // if (fork() == 0) {
     //     printf("I am the child\n");

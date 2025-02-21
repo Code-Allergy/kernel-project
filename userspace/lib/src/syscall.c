@@ -22,6 +22,10 @@ void exit(int return_val) {
     __builtin_unreachable();
 }
 
+int open(const char *path, int flags, int mode) {
+    return syscall_3(SYSCALL_OPEN_NO, (uint32_t) path, flags, mode);
+}
+
 ssize_t read(int fd, void *buf, size_t count) {
     return syscall_3(SYSCALL_READ_NO, fd, (uint32_t) buf, count);
 }
