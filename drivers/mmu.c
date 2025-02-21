@@ -29,8 +29,8 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
 }
 
 void mmu_set_domains(void) {
-    // Set domain 0 (kernel) to manager access (0x3)
-    uint32_t dacr = 0x3;  // Just set domain 0 to manager (0x3)
+    // Set domain 0 (kernel) to client access (0x1)
+    uint32_t dacr = 0x1;  // Just set domain 0 to client (0x1)
     __asm__ volatile("mcr p15, 0, %0, c3, c0, 0" : : "r"(dacr));
 }
 
