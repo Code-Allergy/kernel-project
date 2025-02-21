@@ -9,9 +9,12 @@ typedef __builtin_va_list va_list;
 #define va_arg(ap, type)   __builtin_va_arg(ap, type)
 #define va_end(ap)         __builtin_va_end(ap)
 
+#define ANSI_RED "\033[31m"
+#define ANSI_RESET "\033[0m"
 
 #define BUFFER_SIZE 1024
 
+static char colored_buffer[2048];
 static char buffer[BUFFER_SIZE];  // Static buffer of 1024 bytes
 
 // Helper function to convert an integer to a string in base 10
@@ -131,15 +134,105 @@ int printf(const char *format, ...) {
     va_list args;
     va_start(args, format);
 
-    // Call vsnprintf to format the string
     int len = vsnprintf(buffer, sizeof(buffer), format, args);
 
     va_end(args);
 
-    // Output the formatted string (syscall_debug, for example)
     if (write(stdout, buffer, len) < len) {
         syscall_debug("IOFAIL", 6);
         exit(-1);
+    }
+
+    return len;
+}
+
+// int fprintf(int fd, const char *format, ...) {
+//     va_list args;
+//     va_start(args, format);
+
+//     int len = vsnprintf(buffer, sizeof(buffer), format, args);
+
+//     va_end(args);
+
+//     if (write(fd, buffer, len) < len) {
+//         syscall_debug("IOFAIL", 6);
+//         exit(-1);
+//     }
+
+//     return len;
+// }
+
+// these 3 should be elsewhere
+int sprintf(char *str, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int ret = vsnprintf(str, 1024, format, args);
+    va_end(args);
+    return ret;
+}
+
+int strcpy(char *dest, const char *src) {
+    int i = 0;
+    while (src[i] != '\0') {
+        dest[i] = src[i];
+        i++;
+    }
+    dest[i] = '\0';
+    return i;
+}
+
+int strlen(const char *str) {
+    int i = 0;
+    while (str[i] != '\0') {
+        i++;
+    }
+    return i;
+}
+
+
+
+int fprintf(int fd, const char *format, ...) {
+    static int red_active = 0;  // Track whether we are inside a red-colored block
+    char buffer[1024];
+
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    if (fd == 2) {  // Apply ANSI red color if writing to stderr
+        char colored_buffer[2048];  // Ensure we have space for added escape codes
+        char *out = colored_buffer;
+        const char *in = buffer;
+
+        if (!red_active) {
+            out += sprintf(out, "%s", ANSI_RED);
+            red_active = 1;
+        }
+
+        while (*in) {
+            *out++ = *in;
+            if (*in == '\n') {
+                strcpy(out, ANSI_RESET ANSI_RED);
+                out += strlen(ANSI_RESET ANSI_RED);
+            }
+            in++;
+        }
+
+        strcpy(out, ANSI_RESET);
+        out += strlen(ANSI_RESET);
+        red_active = 0;  // Reset after each write
+
+        len = out - colored_buffer;
+        if (write(fd, colored_buffer, len) < len) {
+            syscall_debug("IOFAIL", 6);
+            exit(-1);
+        }
+    } else {
+        if (write(fd, buffer, len) < len) {
+            syscall_debug("IOFAIL", 6);
+            exit(-1);
+        }
     }
 
     return len;

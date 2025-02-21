@@ -140,7 +140,6 @@ int sys_readdir(int fd, struct dirent* buf, size_t len) {
     return dir->inode->ops->readdir(dir, buf, len);
 }
 
-// this should copy memory instead
 int sys_debug(int buf, int len) {
     // TODO: we should still copy from user space, or maybe we don't need to?
     // after we have proper domain and ttbr1 setup, we can just use the user space pointer, as long as we check if it's valid
