@@ -243,3 +243,49 @@ void vfs_init() {
     // List the directories
     list_directories(vfs_root_node);
 }
+
+// TODO block device
+ssize_t default_block_read(vfs_inode_t* inode, void* buffer, size_t count, uint64_t block) {
+    if (!S_ISBLK(inode) || !inode->dev_ops) {
+        return -EINVAL;
+    }
+    return inode->dev_ops->read_block(inode->dev, buffer, count, block);
+}
+
+ssize_t default_block_write(vfs_inode_t* inode, const void* buffer, size_t count, uint64_t block) {
+    if (!S_ISBLK(inode) || !inode->dev_ops) {
+        return -EINVAL;
+    }
+    return inode->dev_ops->write_block(inode->dev, buffer, count, block);
+}
+
+vfs_dentry_t* vfs_finddir(const char* path) {
+    if (!path || path[0] != '/') {
+        return NULL;
+    }
+
+    vfs_dentry_t* current = vfs_root_node;
+    char* path_copy = strdup(path);
+    char* token = strtok(path_copy, "/");
+    while (token) {
+        current = vfs_find_child(current, token);
+        if (!current) {
+            break;
+        }
+        token = strtok(NULL, "/");
+    }
+    kfree(path_copy);
+    return current;
+}
+
+// int register_block_device(const char* name, device_ops_t* ops, dev_t dev_id) {
+//     vfs_inode_t* inode = create_inode();
+//     if (!inode) return -1;
+
+//     inode->mode = VFS_BLK | S_IRUSR | S_IWUSR;
+//     inode->dev = dev_id;
+//     inode->dev_ops = ops;
+
+//     // Create device file in /dev
+//     return create_device_node("/dev", name, inode);
+// }

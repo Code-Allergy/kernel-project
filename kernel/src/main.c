@@ -140,6 +140,7 @@ void copy_and_remap_page_tables(uint32_t old_l1_base, uint32_t old_l2_base) {
     asm volatile("isb");
 }
 
+int ones_device_init(void);
 
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) {
@@ -163,6 +164,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
     vfs_init();
+    ones_device_init();
 
     scheduler_init();
 

@@ -6,6 +6,7 @@
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/mmu.h>
+#include <kernel/string.h>
 
 
 uint32_t kernel_heap_start = KHEAP_START;
@@ -20,6 +21,7 @@ int kernel_heap_init(void) {
             printk("Failed to allocate page for kernel heap\n");
             return -1;
         }
+        mmu_driver.map_page(NULL, (void*)addr, page, L2_KERNEL_DATA_PAGE);
         l2_tables[SECTION_INDEX(addr)][PAGE_INDEX(addr)] = (uint32_t)page | L2_KERNEL_DATA_PAGE;
     }
 
@@ -39,11 +41,27 @@ void* simple_block_alloc(uint32_t size) {
     return block;
 }
 
+// returns a 4 byte aligned address in the heap
 void* kmalloc(uint32_t size) {
-    return simple_block_alloc(size);
+    // Round up size to multiple of 4 bytes
+    size = (size + 3) & ~3;
+
+    // Ensure returned address is 4-byte aligned
+    void* ptr = simple_block_alloc(size);
+    return (void*)(((uintptr_t)ptr + 3) & ~3);
 }
 
 void kfree(void* ptr) {
     (void)ptr;
     // Do nothing for now
+}
+
+char* strdup(const char* s) {
+    size_t len = strlen(s) + 1;
+    char* p = kmalloc(len);
+    if (p) {
+        memcpy(p, s, len);
+    }
+    p[len] = '\0';
+    return p;
 }

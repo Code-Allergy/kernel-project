@@ -86,6 +86,38 @@ char* strncpy(char* dest, const char* src, unsigned int n) {
     return start;
 }
 
+// char* strchr(const char* str, int c) {
+//     while (*str != '\0') {
+//         if (*str == c) {
+//             return (char*)str;
+//         }
+//         str++;
+//     }
+//     return NULL;
+// }
+
+// char* strtok(char* str, const char* delim) {
+//     static char* buffer = NULL;
+//     if (str != NULL) {
+//         buffer = str;
+//     }
+//     if (buffer == NULL) {
+//         return NULL;
+//     }
+//     char* start = buffer;
+//     char* end = buffer;
+//     while (*end != '\0') {
+//         if (strchr(delim, *end) != NULL) {
+//             *end = '\0';
+//             buffer = end + 1;
+//             return start;
+//         }
+//         end++;
+//     }
+//     buffer = NULL;
+//     return start;
+// }
+
 char* strchr(const char* str, int c) {
     while (*str != '\0') {
         if (*str == c) {
@@ -93,28 +125,48 @@ char* strchr(const char* str, int c) {
         }
         str++;
     }
+    if (c == '\0') {  // Handle null terminator case
+        return (char*)str;
+    }
     return NULL;
 }
 
 char* strtok(char* str, const char* delim) {
     static char* buffer = NULL;
+
+    // Handle initial case or explicit new string
     if (str != NULL) {
         buffer = str;
     }
+
+    // Return NULL if we've reached the end or have invalid input
     if (buffer == NULL) {
         return NULL;
     }
-    char* start = buffer;
-    char* end = buffer;
-    while (*end != '\0') {
-        if (strchr(delim, *end) != NULL) {
-            *end = '\0';
-            buffer = end + 1;
-            return start;
-        }
-        end++;
+
+    // Skip leading delimiters
+    while (*buffer && strchr(delim, *buffer) != NULL) {
+        buffer++;
     }
-    buffer = NULL;
+
+    // If we've reached the end after skipping delimiters
+    if (*buffer == '\0') {
+        return NULL;
+    }
+
+    // Find start of token
+    char* start = buffer;
+
+    // Find end of token
+    while (*buffer && strchr(delim, *buffer) == NULL) {
+        buffer++;
+    }
+
+    if (*buffer) {
+        *buffer = '\0';
+        buffer++;
+    }
+
     return start;
 }
 

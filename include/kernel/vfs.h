@@ -6,55 +6,13 @@
 
 #define VFS_MAX_FILELEN 256
 
-struct vfs_node;
+struct vfs_ops;
 struct vfs_mount;
 
 typedef uint32_t uid_t;
 typedef uint32_t gid_t;
 typedef uint32_t time_t;
-
-// File system operations
-typedef struct filesystem_ops {
-    struct vfs_node* (*mount)(struct vfs_mount*, const char* device);
-    int (*unmount)(struct vfs_mount*);
-} filesystem_ops_t;
-
-// Filesystem type (like ext2, fat32, etc.)
-typedef struct filesystem_type {
-    const char* name;
-    filesystem_ops_t ops;
-} filesystem_type_t;
-
-// Mount point information
-typedef struct vfs_mount {
-    struct vfs_node* mountpoint;    // Where this fs is mounted
-    struct vfs_node* root;          // Root of mounted filesystem
-    filesystem_type_t* fs_type;     // Type of filesystem
-    const char* device;             // Device name (if any)
-    void* fs_data;                  // Filesystem-specific data
-} vfs_mount_t;
-
-// // The actual file/directory node
-// typedef struct vfs_node {
-//     char name[256];                 // Name of file/directory
-//     uint32_t mode;                  // Access mode and type
-//     uint32_t flags;                 // Status flags
-//     size_t size;                    // Size of file
-//     uid_t uid;                      // User ID
-//     gid_t gid;                      // Group ID
-//     time_t atime;                   // Access time
-//     time_t mtime;                   // Modification time
-//     time_t ctime;                   // Creation time
-
-//     vfs_ops_t* ops;                // Operations on this node
-//     void* private_data;            // Filesystem-specific data
-//     struct vfs_mount* mount;       // Mount information
-
-
-//     struct vfs_node* parent;       // Parent directory
-//     struct vfs_node* first_child;  // First child in directory
-//     struct vfs_node* next_sibling; // Next sibling in parent's directory
-// } vfs_node_t;
+typedef uint32_t dev_t;
 
 typedef struct vfs_inode {
     uint32_t inode_number;         // Unique identifier
@@ -65,11 +23,16 @@ typedef struct vfs_inode {
     gid_t gid;                     // Owner group ID
     time_t atime, mtime, ctime;     // Timestamps
 
+    // device-specific data
+    dev_t dev;                   // Device ID for device files
+    struct device_ops* dev_ops;  // Device-specific operations
+
     struct vfs_mount* mount;        // Mounted filesystem
     struct vfs_ops* ops;            // Filesystem operations
     void* private_data;             // Filesystem-specific data
     uint32_t ref_count;             // Reference count for open files
 } vfs_inode_t;
+
 
 typedef struct vfs_dentry {
     char name[VFS_MAX_FILELEN];
@@ -84,6 +47,76 @@ typedef struct dirent {
     uint32_t d_ino;    // Inode number
     char d_name[VFS_MAX_FILELEN];  // Filename
 } dirent_t;
+
+typedef int32_t ssize_t;
+typedef size_t off_t;
+
+
+typedef int (*open_fn)(vfs_dentry_t*, int flags);
+typedef int (*close_fn)(int fd);
+typedef ssize_t (*read_fn)(vfs_inode_t*, void*, size_t, off_t);
+typedef ssize_t (*write_fn)(vfs_inode_t*, const void*, size_t, off_t);
+typedef int (*readdir_fn)(vfs_inode_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
+typedef vfs_dentry_t* (*lookup_fn)(vfs_inode_t*, const char* name);
+
+// File operations structure
+typedef struct vfs_ops {
+    open_fn open;
+    close_fn close;
+    read_fn read;
+    write_fn write;
+    readdir_fn readdir;
+    lookup_fn lookup;
+
+    // todo - block device
+    ssize_t (*read_block)(vfs_inode_t* inode, void* buffer, size_t count, uint64_t block);
+    ssize_t (*write_block)(vfs_inode_t* inode, const void* buffer, size_t count, uint64_t block);
+
+} vfs_ops_t;
+
+void vfs_init(void);
+
+// File system operations
+typedef struct filesystem_ops {
+    vfs_inode_t* (*mount)(struct vfs_mount*, const char* device);
+    int (*unmount)(struct vfs_mount*);
+} filesystem_ops_t;
+
+// Filesystem type (like ext2, fat32, etc.)
+typedef struct filesystem_type {
+    const char* name;
+    filesystem_ops_t ops;
+} filesystem_type_t;
+
+// Mount point information
+typedef struct vfs_mount {
+    vfs_inode_t* mountpoint;    // Where this fs is mounted
+    vfs_inode_t* root;          // Root of mounted filesystem
+    filesystem_type_t* fs_type;     // Type of filesystem
+    const char* device;             // Device name (if any)
+    void* fs_data;                  // Filesystem-specific data
+} vfs_mount_t;
+
+typedef struct device_ops {
+    /* Block device operations */
+    ssize_t (*read_block)(dev_t dev, void* buffer, size_t count, uint64_t block_num);
+    ssize_t (*write_block)(dev_t dev, const void* buffer, size_t count, uint64_t block_num);
+    size_t block_size;   // Size of each block
+
+    /* TODO - device-specific control operations */
+    // int (*ioctl)(dev_t dev, unsigned int cmd, unsigned long arg);
+} device_ops_t;
+
+// File types
+#define VFS_DIR 0x4000
+#define VFS_REG 0x8000
+#define VFS_CHR 0x2000
+#define VFS_BLK 0x6000
+
+#define S_ISBLK(node) (((node)->mode & VFS_BLK) == VFS_BLK)
+#define S_ISCHR(node) (((node)->mode & VFS_CHR) == VFS_CHR)
+#define S_ISDIR(node) (((node)->mode & VFS_DIR) == VFS_DIR)
+#define S_ISREG(node) (((node)->mode & VFS_REG) == VFS_REG)
 
 // use all linux flags lol
 /* Owner permissions */
@@ -109,32 +142,13 @@ typedef struct dirent {
 #define S_ISGID  02000   /* Set group ID on execution */
 #define S_ISVTX  01000   /* Sticky bit (restricted deletion flag) */
 
-#define VFS_DIR 0x4000
-#define S_ISDIR(node) ((node)->mode & VFS_DIR)
-#define S_ISREG(node) (!((node)->mode & VFS_DIR))
-
 extern vfs_dentry_t* vfs_root_node;
 
-// typedef ssize_t (*read_fn)(struct vfs_node*, void*, size_t, off_t);
-// typedef ssize_t (*write_fn)(struct vfs_node*, const void*, size_t, off_t);
-typedef int (*open_fn)(vfs_dentry_t*, int flags);
-typedef int (*close_fn)(int fd);
-typedef struct vfs_node* (*lookup_fn)(struct vfs_node*, const char* name);
-typedef int (*readdir_fn)(struct vfs_node*, struct dirent*, size_t);
+// FAT32 filesystem
+extern filesystem_type_t fat32_filesystem_type;
+extern vfs_ops_t fat32_filesystem_ops;
 
 
-
-
-// File operations structure
-typedef struct vfs_ops {
-    // read_fn read;
-    // write_fn write;
-    open_fn open;
-    close_fn close;
-    lookup_fn lookup;
-    readdir_fn readdir;
-} vfs_ops_t;
-
-void vfs_init(void);
+vfs_dentry_t* vfs_finddir(const char* path);
 
 #endif // KERNEL_VFS_H
