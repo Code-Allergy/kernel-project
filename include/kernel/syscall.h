@@ -46,4 +46,32 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4);
 const char* syscall_get_name(int num);
 int syscall_get_num_args(int num);
 
+
+// define macros to get around compiler warnings
+#define END_SYSCALL }
+#define DEFINE_SYSCALL0(name) \
+    int sys_##name(void) {
+
+#define DEFINE_SYSCALL1(name, t1, n1) \
+    int sys_##name(int a1) { \
+        t1 n1 = (t1)(uintptr_t)a1; (void)n1;
+
+#define DEFINE_SYSCALL2(name, t1, n1, t2, n2) \
+    int sys_##name(int a1, int a2) { \
+        t1 n1 = (t1)(uintptr_t)a1; \
+        t2 n2 = (t2)a2; (void)n1; (void)n2;
+
+#define DEFINE_SYSCALL3(name, t1, n1, t2, n2, t3, n3) \
+    int sys_##name(int a1, int a2, int a3) { \
+        t1 n1 = (t1)(uintptr_t)a1; \
+        t2 n2 = (t2)a2; \
+        t3 n3 = (t3)a3; (void)n1; (void)n2; (void)n3;
+
+#define DEFINE_SYSCALL4(name, t1, n1, t2, n2, t3, n3, t4, n4) \
+    int sys_##name(int a1, int a2, int a3, int a4) { \
+        t1 n1 = (t1)(uintptr_t)a1; \
+        t2 n2 = (t2)a2; \
+        t3 n3 = (t3)a3; \
+        t4 n4 = (t4)a4; (void)n1; (void)n2; (void)n3; (void)n4;
+
 #endif

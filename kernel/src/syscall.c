@@ -43,8 +43,7 @@ int copy_from_user(uint8_t* dest, const uint8_t* __user src, size_t len) {
     return 0;
 }
 
-// doesn't work, clone_process does not function properly and switching to a second process breaks this version of the kernel
-int sys_fork(void) {
+DEFINE_SYSCALL0(fork) {
     process_t* child = create_process(NULL, current_process);
     if (!child) {
         return -1;
@@ -56,18 +55,22 @@ int sys_fork(void) {
 
     return child->pid; // return value of fork in parent is child's pid
 }
+END_SYSCALL
 
-int sys_getpid(void) {
+DEFINE_SYSCALL0(getpid) {
     return current_process->pid;
 }
+END_SYSCALL
 
-int sys_yield(void) {
+DEFINE_SYSCALL0(yield) {
     scheduler_driver.schedule_next = 1;
     current_process->state = PROCESS_READY;
     return 0;
 }
+END_SYSCALL
 
-int sys_open(const char* path, int flags, int mode) {
+// will be syscall4 later
+DEFINE_SYSCALL3(open, const char*, path, int, flags, int, mode) {
     if (!path) return -EINVAL;
 
     // vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
@@ -83,14 +86,16 @@ int sys_open(const char* path, int flags, int mode) {
 
     return dentry->inode->ops->open(dentry, flags);
 }
+END_SYSCALL
 
-int sys_close(int fd) {
+DEFINE_SYSCALL1(close, int, fd) {
     int res = vfs_root_node->inode->ops->close(fd);
 
     return res;
 }
+END_SYSCALL
 
-int sys_read(int fd, char* buff, size_t count) {
+DEFINE_SYSCALL3(read, int, fd, char*, buff, size_t, count) {
     if (fd < 0 || !buff || count == 0) {
         return -EINVAL; // Invalid arguments
     }
@@ -106,8 +111,9 @@ int sys_read(int fd, char* buff, size_t count) {
 
     return file->dirent->inode->ops->read(file->dirent->inode, buff, count, 0);
 }
+END_SYSCALL
 
-int sys_write(int fd, const char* buff, size_t count) {
+DEFINE_SYSCALL3(write, int, fd, const char*, buff, size_t, count) {
     if (fd < 0 || !buff || count == 0) {
         return -EINVAL; // Invalid arguments
     }
@@ -123,8 +129,10 @@ int sys_write(int fd, const char* buff, size_t count) {
 
     return file->dirent->inode->ops->write(file->dirent->inode, buff, count, 0);
 }
+END_SYSCALL
 
-int sys_readdir(int fd, struct dirent* buf, size_t len) {
+
+DEFINE_SYSCALL3(readdir, int, fd, struct dirent*, buf, size_t, len) {
     if (fd < 0 || !buf || len == 0) {
         return -EINVAL; // Invalid arguments
     }
@@ -145,21 +153,25 @@ int sys_readdir(int fd, struct dirent* buf, size_t len) {
 
     return dir->inode->ops->readdir(dir, buf, len);
 }
+END_SYSCALL
 
-int sys_exec(char* path) {
+DEFINE_SYSCALL1(exec, char*, path) {
     panic("unimplemented sys_exec");
 }
+END_SYSCALL
 
-int sys_debug(int buf, int len) {
+
+DEFINE_SYSCALL2(debug, const char*, buf, int, len) {
     // TODO: we should still copy from user space, or maybe we don't need to?
     // after we have proper domain and ttbr1 setup, we can just use the user space pointer, as long as we check if it's valid
     printk("[SYS_DEBUG]: %s", buf);
     return 0;
     // syscall_return(&current_process->context, 0);
 }
+END_SYSCALL
 
 // should put exit status in process and not fully free the process, just the memory and mark process as dead
-int sys_exit(int exit_status) {
+DEFINE_SYSCALL1(exit, int, exit_status) {
     // iterate through all pages and free them if they are not shared, otherwise decrement the ref count
     free_process_memory(current_process);
 
@@ -173,32 +185,28 @@ int sys_exit(int exit_status) {
     scheduler_driver.schedule_next = 1;
     return 0;
 }
+END_SYSCALL
 
 // TODO - verify pointer is valid
-int sys_time(int ptr) {
-    if (ptr == 0) return -1;
+DEFINE_SYSCALL1(time, uint64_t*, ptr) {
+    if (ptr == NULL) return -1;
     epoch_t* time = (epoch_t*)ptr;
     *time = epoch_now();
     return 0;
 }
+END_SYSCALL
 
 // TODO - verify pointer is valid
-int sys_gettimeofday(int tvptr, int tzptr) {
-    timeval_t* tv = (timeval_t*)tvptr;
-    timezone_t* tz = (timezone_t*)tzptr;
-
-    if (tv) {
-        tv_now(tv);
-    }
-
-    if (tz) {
-        fill_tz(tz);
-    }
+DEFINE_SYSCALL2(gettimeofday, timeval_t*, tv, timezone_t*, tz) {
+    if (tv) tv_now(tv);
+    if (tz) fill_tz(tz);
 
     return 0;
 }
+END_SYSCALL
 
-int sys_usleep(int us_high, int us_low) {
+
+DEFINE_SYSCALL2(usleep, uint32_t, us_high, uint32_t, us_low) {
     uint64_t us = ((uint64_t) us_high << 32) | (uint64_t) us_low;
 
     current_process->wake_ticks = clock_timer.get_ticks() + clock_timer.us_to_ticks(us);
@@ -214,20 +222,7 @@ int sys_usleep(int us_high, int us_low) {
     scheduler_driver.schedule_next = 1;
     return 0;
 }
-
-static inline void dump_registers(struct cpu_regs* regs) {
-    __asm__ volatile(
-        "stmia %0, {r0-r12}\n"       // Save R0-R12 at offsets 0-48
-        "str sp, [%0, #52]\n"        // Save SP
-        "str lr, [%0, #56]\n"        // Save LR
-        "mrs r1, cpsr\n"             // Get CPSR
-        "str r1, [%0, #60]\n"        // Save CPSR
-        "str lr, [%0, #64]\n"        // Save PC as LR (return address)
-        :
-        : "r"(regs)
-        : "r1", "memory"             // Clobber r1 and inform about memory changes
-    );
-}
+END_SYSCALL
 
 const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
