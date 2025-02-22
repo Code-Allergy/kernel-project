@@ -5,6 +5,7 @@
 #include <kernel/syscall.h>
 #include <kernel/sched.h>
 #include <kernel/intc.h>
+#include <kernel/log.h>
 
 #include <kernel/boot.h>
 #include <kernel/mmu.h>
@@ -16,7 +17,8 @@ void handle_svc_c(
     uint32_t svc_number,  // SVC number (extracted from instruction)
     uint32_t* sp) {
     current_process->stack_top = sp;
-    handle_syscall(svc_number, sp[0], sp[1], sp[2], sp[3], (uint32_t)sp);
+    LOG_SYSCALL(svc_number);
+    handle_syscall(svc_number, sp[0], sp[1], sp[2], sp[3]);
 }
 
 void data_abort_handler(uint32_t lr) {

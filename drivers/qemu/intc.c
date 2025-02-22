@@ -11,14 +11,13 @@
 
 #include "intc.h"
 
-/* Initial vector table for ARM, memory is pointed to here in VBAR register */
+struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 
-#ifndef BOOTLOADER
+#ifndef BOOTLOADER // bootloader doesn't handle interrupts, we might want to do this in the future
+/* Initial vector table for ARM, memory is pointed to here in VBAR register */
 extern uint32_t _vectors[];
 #endif
 
-
-struct irq_entry irq_handlers[MAX_IRQ_HANDLERS] = {0};
 void handle_irq_c(uint32_t process_stack) {
     uint32_t pending, irq;
 
@@ -41,8 +40,7 @@ void handle_irq_c(uint32_t process_stack) {
     }
 }
 
-
-#ifndef BOOTLOADER // bootloader doesn't handle interrupts, we might want to do this in the future
+#ifndef BOOTLOADER
 static void intc_init(void) {
     uint32_t vbar_addr = (uint32_t)_vectors;
     if(vbar_addr & 0x1F) {

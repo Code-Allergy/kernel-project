@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 #include <kernel/list.h>
-#include "kernel/panic.h"
+#include <kernel/panic.h>
 #include <kernel/boot.h>
 #include <kernel/mm.h>
 #include <kernel/mmu.h>
@@ -437,6 +437,7 @@ process_t* create_process(binary_t* bin, process_t* parent) {
     }
 
     p->state = PROCESS_READY;
+    p->ppid = parent ? parent->pid : 0;
     return p;
 }
 
@@ -489,8 +490,11 @@ __attribute__((naked, noreturn)) void userspace_return(void) {
     );
 }
 
+// for exec* syscalls
 int swap_process(binary_t* binary, process_t* process) {
-
+    (void)binary, (void)process;
+    panic("unimplemented!");
+    return 0;
 }
 
 scheduler_t scheduler_driver = {

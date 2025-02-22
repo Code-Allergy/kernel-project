@@ -1,4 +1,3 @@
-#include "kernel/list.h"
 #include <kernel/vfs.h>
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
@@ -229,11 +228,7 @@ static inline void dump_registers(struct cpu_regs* regs) {
     );
 }
 
-static const struct {
-    syscall_fn fn;
-    const char *name;
-    int num_args;
-} syscall_table[NR_SYSCALLS + 1] = {
+const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
     [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
     [SYS_GETPID]       = {{.fn0 = sys_getpid},        "getpid",        0},
@@ -250,24 +245,22 @@ static const struct {
     [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
 };
 
-int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {
-    // Switch to kernel page table
-    // uint32_t kernel_l1_table = ((uint32_t)l1_page_table - KERNEL_ENTRY) + DRAM_BASE;
-    // uint32_t process_table = (uint32_t)current_process->ttbr0;
-    // mmu_driver.set_l1_table((uint32_t*)kernel_l1_table);
-
-    // printk("Syscall num: %d, stackp: %p\n", num, arg1);
-
-    // log the syscall
-#ifdef TRACE_SYSCALLS
-    switch (syscall_table[num].num_args) {
-        case 0: printk("Syscall: %s()\n", syscall_table[num].name); break;
-        case 1: printk("Syscall: %s(%d (%p))\n", syscall_table[num].name, arg1, arg1); break;
-        case 2: printk("Syscall: %s(%d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2); break;
-        case 3: printk("Syscall: %s(%d (%p), %d (%p), %d (%p))\n", syscall_table[num].name, arg1, arg1, arg2, arg2, arg3, arg3); break;
+const char* syscall_get_name(int num) {
+    if (num >= 0 && num <= NR_SYSCALLS) {
+        return syscall_table[num].name;
     }
-#endif
-    // printk("Stack pointer: %p\n", stack_pointer);
+    return "unknown";
+}
+
+int syscall_get_num_args(int num) {
+    if (num >= 0 && num <= NR_SYSCALLS) {
+        return syscall_table[num].num_args;
+    }
+    return -1;
+}
+
+
+int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4) {
     int ret = -1;
     if (num >= 0 && num <= NR_SYSCALLS) {
         switch(syscall_table[num].num_args) {
@@ -275,15 +268,11 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_po
             case 1: ret = syscall_table[num].fn.fn1(arg1); break;
             case 2: ret = syscall_table[num].fn.fn2(arg1, arg2); break;
             case 3: ret = syscall_table[num].fn.fn3(arg1, arg2, arg3); break;
+            case 4: ret = syscall_table[num].fn.fn4(arg1, arg2, arg3, arg4); break;
         }
     }
 
-    // Return to process page table
-    // mmu_driver.set_l1_table((uint32_t*)process_table);
-    // set up return value at r0
-
-
-    // process doesn't necessarily exist anymore, so check for it first
+    // process doesn't necessarily exist as runnable anymore, so check for it first
     if (current_process) current_process->stack_top[0] = ret;
     return ret;
 }

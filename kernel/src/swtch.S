@@ -105,6 +105,7 @@ syscall_return:
 @ TODO this shouldn't clobber any of r0-r12
 @ r0 is the stack pointer of the current context, with all registers saved
 .global user_context_return
+.type user_context_return, %function
 user_context_return:
     cps    #0x1F                @ Switch to System mode
 

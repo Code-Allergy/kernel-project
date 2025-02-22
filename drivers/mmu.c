@@ -1,5 +1,4 @@
 // universal functions for bbb/qemu
-#include "kernel/panic.h"
 #include <stdint.h>
 #include <kernel/mmu.h>
 #include <kernel/mm.h>
@@ -8,6 +7,7 @@
 #include <kernel/boot.h>
 #include <kernel/paging.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 
 
 
@@ -18,6 +18,7 @@ uint32_t read_dacr(void) {
     return dacr;
 }
 
+#ifndef BOOTLOADER
 uint32_t alloc_l1_table(struct page_allocator *alloc) {
     // Allocate 4 contiguous 4KB pages (16KB total)
     void *addr = alloc_aligned_pages(alloc, 4);
@@ -27,6 +28,7 @@ uint32_t alloc_l1_table(struct page_allocator *alloc) {
     memset(PHYS_TO_KERNEL_VIRT(addr), 0, 16*1024);
     return (uint32_t)addr;
 }
+#endif
 
 // we only use the one domain, we could use both and give the kernel unrestricted access,
 // but it's safer early on anyway having protections

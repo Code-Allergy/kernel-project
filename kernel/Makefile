@@ -44,6 +44,7 @@ CFLAGS := -Wall -Wextra -Wpedantic \
 CFLAGS += -g -O0
 # CFLAGS += -fstack-protector-all -fstack-protector-none -O0 -DDEBUG
 # CFLAGS += -fno-stack-protector -O2
+CFLAGS += -Wbuiltin-declaration-mismatch
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
@@ -68,7 +69,7 @@ DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFO
 BASE_DRIVER_OBJS   = $(patsubst $(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
 # ALL team repo objects
-ALL_OBJS = $(KERNEL_OBJS) $(KERNEL_ASM_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS)
+ALL_OBJS = $(KERNEL_ASM_OBJS) $(KERNEL_OBJS) $(DRIVER_OBJS) $(BASE_DRIVER_OBJS)
 DEP_FILES = $(ALL_OBJS:.o=.d)
 
 # Define build rules
@@ -98,12 +99,12 @@ $(OUTPUT_IMG): $(OUTPUT_BIN)
 ################################################################################################
 # kernel Compilation rules
 ################################################################################################
-$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)/kernel
 	@echo "[CC] Kernel: $<"
 	@$(MKDIR) $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
+$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)/kernel
 	@echo "Kernel ASM: $<"
 	$(CC) $(IFLAGS) $(CFLAGS) -E $< -o $(BUILD_DIR)/kernel/$*.i
 	$(AS) $(ASFLAGS) $(BUILD_DIR)/kernel/$*.i -o $@
@@ -127,6 +128,8 @@ $(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE)/%.c | $(BUILD_DIR)
 $(BUILD_DIR):
 	@$(MKDIR) $@
 
+$(BUILD_DIR)/kernel:
+	@$(MKDIR) $@
 
 ################################################################################################
 # Dependency inclusion
