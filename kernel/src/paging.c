@@ -2,6 +2,7 @@
 #include <kernel/paging.h>
 #include <kernel/boot.h>
 #include <kernel/printk.h>
+#include <kernel/log.h>
 
 // #ifndef BOOTLOADER
 extern uint32_t kernel_end; // Defined in linker script, end of kernel memory space
@@ -32,9 +33,10 @@ void init_page_allocator(struct page_allocator *alloc) {
     }
 
     // Debug prints
-    printk("Total pages: %d (%dKB)\n", alloc->total_pages, alloc->total_pages * PAGE_SIZE / 1024);
-    printk("Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
-    printk("Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE / 1024);
+    LOG(INFO, "Page allocator initialized\n");
+    LOG(INFO, "Total pages: %d (%dKB)\n", alloc->total_pages, alloc->total_pages * PAGE_SIZE / 1024);
+    LOG(INFO, "Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
+    LOG(INFO, "Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE / 1024);
 }
 
 

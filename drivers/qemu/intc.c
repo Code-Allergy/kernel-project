@@ -7,6 +7,7 @@
 #include <kernel/boot.h>
 #include <kernel/sched.h>
 #include <kernel/string.h>
+#include <kernel/log.h>
 
 #include "intc.h"
 

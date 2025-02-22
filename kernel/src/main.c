@@ -28,12 +28,13 @@ bootloader_t bootloader_info;
 
 
 void init_kernel_hardware(void) {
+
     interrupt_controller.init();
+    init_kernel_time();
 
     // these 2 can be combined when we rewrite drivers
     interrupt_controller.enable_irq_global();
     uart_driver.enable_interrupts();
-    init_kernel_time();
 }
 
 
@@ -44,27 +45,22 @@ void init_kernel_hardware(void) {
 void init_kernel_pages(void) {
     extern uint32_t kernel_code_end;
     extern uint32_t kernel_end;
-
     mmu_driver.init();
 
-    const uint32_t dram_offset = KERNEL_VIRTUAL_DRAM - DRAM_BASE;
-    // map all dram into kernel space (KERNEL_VIRTUAL_DRAM)
     // TODO - we can use section mapping for this, it will be faster.
+    // map all dram into kernel space (KERNEL_VIRTUAL_DRAM)
     for (uint32_t vaddr = KERNEL_VIRTUAL_DRAM; vaddr < (KERNEL_VIRTUAL_DRAM + DRAM_SIZE); vaddr += PAGE_SIZE) {
-        mmu_driver.unmap_page(NULL, (void*)vaddr);
-        mmu_driver.map_page(NULL, (void*)vaddr, (void*)(vaddr - dram_offset), L2_KERNEL_DATA_PAGE);
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)(vaddr - (KERNEL_VIRTUAL_DRAM - DRAM_BASE)), L2_KERNEL_DATA_PAGE);
     }
 
     // map kernel code pages, 4k aligned
     for (uint32_t vaddr = KERNEL_START; vaddr < (uint32_t)&kernel_code_end; vaddr += PAGE_SIZE) {
-        uint32_t paddr = PADDR(vaddr);
-        mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_CODE_PAGE);
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)PADDR(vaddr), L2_KERNEL_CODE_PAGE);
     }
 
     // map kernel data pages
     for (uint32_t vaddr = (uint32_t)&kernel_code_end; vaddr < (uint32_t)&kernel_end; vaddr += PAGE_SIZE) {
-        uint32_t paddr = DRAM_BASE + (vaddr - KERNEL_ENTRY);
-        mmu_driver.map_page(NULL, (void*)vaddr, (void*)paddr, L2_KERNEL_DATA_PAGE);
+        mmu_driver.map_page(NULL, (void*)vaddr, (void*)PADDR(vaddr), L2_KERNEL_DATA_PAGE);
     }
 
     mmu_driver.flush_tlb();
@@ -81,58 +77,48 @@ void init_stack_canary(void) {
    canary_value_start = STACK_CANARY_VALUE;
 }
 
-void clear_bss(void) {
-    uint32_t* l1_page_table_end = l1_page_table + 0x4000;
+__attribute__((noreturn))void enter_userspace(void) {
+    uint64_t ticks;
+    uint32_t s,ms;
 
-    // clear BSS but skip page table regions
-    uint32_t *bss = &__bss_start;
-    printk("Would clear from %p to %p\n", &__bss_start, &__bss_end);
-    // while (bss < &__bss_end) {
-    //     if (!((bss >= l1_page_table && bss < l1_page_table_end) ||
-    //           (bss >= &l2_tables_start && bss < &l2_tables_end))) {
-    //         *bss = 0;
-    //     }
-    //     bss++;
-    // }
+    LOG(INFO, "Starting userspace\n");
+    scheduler_init();
+    ticks = clock_timer.get_ticks();
+    ms = clock_timer.ticks_to_ms(ticks);
+    s = ms / 1000;
+    ms %= 1000;
+    LOG(INFO, "Kernel ready after %u.%04u seconds!\n", s, ms);
+    LOG(INFO, "Jumping to PID 0\n");
+    log_consume(); // flush the log buffer
+    scheduler();
+
+    panic("Reached end of start_userspace, something bad happened in scheduler!");
+    __builtin_unreachable();
 }
 
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) {
-    init_kernel_pages();
-    clear_bss();
     setup_stacks();
+    init_kernel_pages();
 
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i]; // copy bootloader into memory controlled by the kernel
-    // if (calculate_checksum((void*)(intptr_t)kernel_main, bootloader_info.kernel_size) != bootloader_info.kernel_checksum) panic("Checksum check failed!");
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     init_stack_canary();
 
+    init_kernel_hardware(); // initialize the most basic hardware
+    LOG(INFO, "Kernel starting - version %s\n", GIT_VERSION);
+    LOG(INFO, "Kernel base address %p\n", kernel_main);
+    LOG(INFO, "Finished initializing critical hardware\n");
 
-
-    printk("Kernel starting - version %s\n", GIT_VERSION);
-    printk("Kernel base address %p\n", kernel_main);
-    init_kernel_hardware();
-    printk("Finished initializing hardware\n");
-
+    // kernel memory
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
+    // setup dynamic managed stacks better
+
+    // setup vfs
     vfs_init();
-    zero_device_init();
-    ones_device_init();
-    uart0_vfs_device_init();
-    init_mount_fat32();
-    scheduler_init();
 
-    printk("Kernel ready at time %llu\n", epoch_now());
-    LOG(DEBUG, "Hello from logging function!\n");
-    LOG(INFO, "Hello from logging function!\n");
-    LOG(WARN, "Hello from logging function!\n");
-    LOG(ERROR, "Hello from logging function!\n");
-    LOG(FATAL, "Hello from logging function!\n");
-
-    scheduler();
-
-    panic("Reached end of kernel_main, something bad happened");
-    __builtin_unreachable();
+    // make the jump to starting the scheduler and starting our init process
+    enter_userspace();
 }
 #endif

@@ -45,7 +45,7 @@ struct log_msg {
 
 // we can make this ring buffer generic later on, for now we only use it for logging
 struct ring_buffer {
-    struct log_msg* buffer[LOG_MAX_BUFFER_LENGTH];
+    struct log_msg buffer[LOG_MAX_BUFFER_LENGTH];
     size_t head;               // Write position
     size_t tail;               // Read position
     spinlock_t lock;
@@ -69,13 +69,13 @@ int ring_buffer_write(struct ring_buffer *rb, struct log_msg* data) {
         return 1;
     }
 
-    rb->buffer[rb->head] = data;
+    memcpy(&rb->buffer[rb->head], data, sizeof(struct log_msg));
     rb->head = next_head;
     spinlock_release(&rb->lock);
     return 0;
 }
 
-int ring_buffer_read(struct ring_buffer *rb, struct log_msg** data) {
+int ring_buffer_read(struct ring_buffer *rb, struct log_msg* data) {
     spinlock_acquire(&rb->lock);
 
     if (rb->tail == rb->head) {
@@ -84,7 +84,8 @@ int ring_buffer_read(struct ring_buffer *rb, struct log_msg** data) {
         return 1;
     }
 
-    *data = rb->buffer[rb->tail];
+    memcpy(data, &rb->buffer[rb->tail], sizeof(struct log_msg));
+
     rb->tail = (rb->tail + 1) % LOG_MAX_BUFFER_LENGTH;
     spinlock_release(&rb->lock);
     return 0;
@@ -136,7 +137,7 @@ void format_log_message(
     uint32_t sec = all_usec / 1000000;
     uint32_t usec = all_usec % 1000000;
 
-    written = snprintf(buf, remaining, "[%u.%06u] ", sec, usec);
+    written = snprintf(buf, remaining, "[%u.%07u] ", sec, usec);
     buf += written;
     remaining -= written;
     #endif
@@ -189,30 +190,25 @@ void format_log_message(
 void log_commit(int level, const char *file, const char *func, int line, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    struct log_msg* msg = (struct log_msg*) kmalloc(sizeof(struct log_msg));
-    if (msg == NULL) {
-        va_end(args);
-        return; // we can direct serial output here, we're probably out of memory or fucked the heap
-    }
-    msg->timestamp = clock_timer.get_ticks();
-    msg->level = level;
-    msg->file = file;
-    msg->line = line;
-    msg->func = func;
+    struct log_msg msg;
+    msg.timestamp = clock_timer.get_ticks();
+    msg.level = level;
+    msg.file = file;
+    msg.line = line;
+    msg.func = func;
 
-    format_log_message(msg, fmt, args);
+    format_log_message(&msg, fmt, args);
     va_end(args);
 
-    ring_buffer_write(&log_buffer, msg);
+    ring_buffer_write(&log_buffer, &msg);
 }
 
 
 void log_consume(void) {
     while (!ring_buffer_empty(&log_buffer)) {
-        struct log_msg* msg;
+        struct log_msg msg;
         ring_buffer_read(&log_buffer, &msg);
         // for now, just print the message over uart
-        printk("%s", msg->message);
-        kfree(msg);
+        printk("%s", msg.message);
     }
 }

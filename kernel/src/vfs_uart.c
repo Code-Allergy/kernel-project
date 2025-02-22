@@ -63,5 +63,6 @@ int uart0_vfs_device_init(void) {
         dev_directory->first_child = dentry;
     }
 
+    LOG(INFO, "Mounted virtual char device 'uart0' at /dev/uart0\n");
     return 0;
 }

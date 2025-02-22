@@ -64,5 +64,6 @@ int zero_device_init(void) {
         dev_directory->first_child = dentry;
     }
 
+    LOG(INFO, "Mounted virtual char device 'zero' at /dev/zero\n");
     return 0;
 }

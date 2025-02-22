@@ -300,7 +300,7 @@ int vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t max_entries) {
 }
 
 
-void vfs_init() {
+void vfs_init(void) {
     // Initialize the root directory
     vfs_root_node = vfs_init_root();
     if (!vfs_root_node) panic("Failed to initialize root directory!");
@@ -308,12 +308,15 @@ void vfs_init() {
 
     // Create a test directory structure
     create_test_directory_structure(vfs_root_node);
-    printk("RootOK\n");
+    LOG(INFO, "Created VFS root directory structure\n");
 
     // get directories of our fat32 filesystem, and mount them in.
 
-    // List the directories
-    list_directories(vfs_root_node);
+    // add other devices that we need
+    zero_device_init();
+    ones_device_init();
+    uart0_vfs_device_init();
+    init_mount_fat32();
 }
 
 // TODO block device

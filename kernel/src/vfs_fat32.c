@@ -209,5 +209,5 @@ void init_mount_fat32(void) {
 
     vfs_inode_t* node = vfs_fat32_mount(mount, NULL);
 
-
+    LOG(INFO, "Mounting FAT32 filesystem at /mnt (WIP)\n");
 }

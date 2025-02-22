@@ -56,22 +56,23 @@ process_t* spawn_elf_init_process(const char* file_path) {
 }
 
 static int32_t get_next_pid(void) {
-    return total_processes++;
+    return curr_pid++;
 }
 
 int scheduler_init(void) {
+    scheduler_driver.current_tick = 0;
     current_process = NULL;
     total_processes = 0;
     curr_pid = 0;
     memset(process_table, 0, sizeof(process_table));
 
-    scheduler_driver.current_tick = 0;
+
     process_t* nullp = spawn_elf_init_process(NULL_PROCESS_FILE);
     if (!nullp) panic("Failed to start " NULL_PROCESS_FILE);
 
-    // process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
-    // if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
-    process_t* _initp = spawn_elf_init_process("/elf/testa.elf");
+    process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
+    if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
+    LOG(INFO, "Created init process\n");
 
     return 0;
 }
