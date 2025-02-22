@@ -1,12 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
 
 int main() {
-    pid_t pid;
-
     // Initialize signal handling
     // signal(SIGCHLD, SIG_IGN);
 

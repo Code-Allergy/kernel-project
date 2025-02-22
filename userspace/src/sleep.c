@@ -19,12 +19,13 @@ int main(void) {
         printf("[SLEEP TEST]: Parent done!\n");
     }
 
-    // count 1 - 10 using sleeping children processes
-    for (int i = 1; i <= 10; i++) {
+    // count 1 - 100 using sleeping children processes
+    // count backwards so we can make sure it's not just the order of the processes being scheduled
+    for (int i = 1; i <= 100; i++) {
         if (fork() == 0) {
             printf("[SLEEP TEST]: Child %d\n", i);
-            usleep(1000000 * i);
-            printf("#%d finished, PID: %d\n", i, getpid());
+            usleep(100000 * (100-i));
+            printf("#%d finished, PID: %d\n", (100-i), getpid());
             return 0;
         }
     }

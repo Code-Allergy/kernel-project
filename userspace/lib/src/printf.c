@@ -16,7 +16,7 @@ typedef __builtin_va_list va_list;
 #define BUFFER_SIZE 1024
 #define MAX_NUMBER_LEN 32
 
-static char colored_buffer[2048];
+// static char colored_buffer[2048];
 static char buffer[BUFFER_SIZE];  // Static buffer of 1024 bytes
 
 // Helper function to convert an integer to a string in base 10

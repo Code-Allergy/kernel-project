@@ -23,7 +23,7 @@
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 20
+#define SCHEDULER_PREEMPT_TICKS 5
 
 struct cpu_regs {
     uint32_t r0;  // 0
