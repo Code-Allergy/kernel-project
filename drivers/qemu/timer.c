@@ -6,12 +6,6 @@
 #include <kernel/panic.h>
 
 #include "timer.h"
-#include "intc.h"
-
-
-#define SLEEP_TIMER 5
-
-volatile uint64_t sleep_until = 0;
 
 void handle_irq(int irq, void* data) {
     if (TIMER0->irq_status & (1 << 0)) {
@@ -23,12 +17,8 @@ void handle_irq(int irq, void* data) {
 static void system_tick_clock(int idx) {
     TIMER0->irq_enable = (1 << idx);
     TIMER0->timer[idx].interval = 0xFFFFFFFF; // Max interval (32-bit)
-    // TIMER0->timer[idx].control = (1 << 7) | // Auto-reload
-    //                     (0 << 4) | // Prescaler = 1 (24 MHz clock)
-    //                     TIMER_RELOAD | // Start timer
-    //                     TIMER_ENABLE | (1 << 2);  // Enable timer
 
-    TIMER0->timer[idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2);
+    TIMER0->timer[idx].control = TIMER_ENABLE | TIMER_RELOAD | TIMER_CLK_SRC_OSC24M;
 
     interrupt_controller.register_irq(get_timer_irq_idx(idx), handle_irq, NULL);
     interrupt_controller.enable_irq(get_timer_irq_idx(idx));
@@ -37,27 +27,9 @@ static void system_tick_clock(int idx) {
 static void timer_init(void) {
     clock_timer.global_ticks = 0;
     clock_timer.initialized = 1;
-    system_tick_clock(TIMER1_IDX);
-
-    // whatever else at runtime
+    system_tick_clock(TIMER1_IDX); // TODO this should be a high IDX
 }
 
-__attribute__((noreturn)) void system_clock(int irq, void* data);
-
-void timer_start(int timer_idx, uint32_t interval_us) {
-    AW_Timer *t = (AW_Timer*) TIMER_BASE;
-
-    t->irq_enable = 0x3F; // Enable timer 1 and 2 interrupts
-    t->timer[timer_idx].control = 0; // Disable first
-    t->timer[timer_idx].interval = interval_us * 24; // 24MHz
-
-    // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
-    t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2);
-
-    /* setup interrupt handler */
-    interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), system_clock, NULL);
-    interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
-}
 
 void handle_callback(int irq, void* __attribute__((unused)) data) {
     uint32_t timer_idx = get_timer_idx_from_irq(irq);
@@ -71,16 +43,22 @@ void handle_callback(int irq, void* __attribute__((unused)) data) {
     clock_timer.callbacks[timer_idx]();
 }
 
-void timer_start_callback(int timer_idx, uint32_t interval_us, void (*callback)(void)) {
+void handle_oneshot_callback(int irq, void* data) {
+    handle_callback(irq, data);
+    clock_timer.callbacks[get_timer_idx_from_irq(irq)] = NULL;
+    clock_timer.available++;
+}
+
+void timer_start_callback(uint32_t timer_idx, uint32_t interval_us, timer_callback_t callback) {
     AW_Timer *t = (AW_Timer*) TIMER_BASE;
-    if (timer_idx >= (int)clock_timer.total) panic("Timer index out of bounds\n");
+    if (timer_idx >= clock_timer.total) panic("Timer index out of bounds\n");
 
     t->irq_enable = (1 << timer_idx);
     t->timer[timer_idx].control = 0;
     t->timer[timer_idx].interval = interval_us * 24; // 24MHz clock selected
 
     // Control: Enable + Reload + 24MHz clock (bits 2-3 = 0b01) + IRQ
-    t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | (1 << 2);
+    t->timer[timer_idx].control = TIMER_ENABLE | TIMER_RELOAD | TIMER_CLK_SRC_OSC24M;
 
     clock_timer.callbacks[timer_idx] = callback;
     clock_timer.available--;
@@ -88,12 +66,6 @@ void timer_start_callback(int timer_idx, uint32_t interval_us, void (*callback)(
     /* setup interrupt handler */
     interrupt_controller.register_irq(get_timer_irq_idx(timer_idx), handle_callback, NULL);
     interrupt_controller.enable_irq(get_timer_irq_idx(timer_idx));
-}
-
-
-
-void handle_oneshot_callback(int timer_idx, void (*callback)(void)) {
-    // todo
 }
 
 uint64_t get_ticks(void) {
@@ -115,12 +87,41 @@ uint64_t ticks_to_ns(uint64_t ticks) {
     return (seconds * 1000000000ULL) + ((remainder_ticks * 1000000000ULL) / TIMER_FREQ);
 }
 
+uint64_t ns_to_ticks(uint64_t ns) {
+    uint64_t seconds = ns / 1000000000ULL;
+    uint64_t remainder_ns = ns % 1000000000ULL;
+    return (seconds * TIMER_FREQ) + ((remainder_ns * TIMER_FREQ) / 1000000000ULL);
+}
+
+uint64_t ticks_to_us(uint64_t ticks) {
+    return (ticks * 1000000ULL) / TIMER_FREQ;
+}
+
+uint64_t us_to_ticks(uint64_t us) {
+    return (us * TIMER_FREQ) / 1000000ULL;
+}
+
+uint64_t ticks_to_ms(uint64_t ticks) {
+    return (ticks * 1000ULL) / TIMER_FREQ;
+}
+
+uint64_t ms_to_ticks(uint64_t ms) {
+    return (ms * TIMER_FREQ) / 1000ULL;
+}
+
 timer_t clock_timer = {
-    .available = 6,
-    .total = 6,
+    .available = 5,    // there are 6, but one is reserved for clock and never exported
+    .total = 5,        // there are 6, but one is reserved for clock and never exported
     .init = timer_init,
-    .start_idx = timer_start, // todo fix
-    .start_idx_callback = timer_start_callback, // todo fix
+    // .start_idx = timer_start,
+    .start_idx_callback = timer_start_callback,
     .get_ticks = get_ticks,
+
+
     .ticks_to_ns = ticks_to_ns,
+    .ns_to_ticks = ns_to_ticks,
+    .ticks_to_us = ticks_to_us,
+    .us_to_ticks = us_to_ticks,
+    .ticks_to_ms = ticks_to_ms,
+    .ms_to_ticks = ms_to_ticks,
 };

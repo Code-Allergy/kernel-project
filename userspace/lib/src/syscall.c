@@ -1,5 +1,6 @@
 #include "runtime.h"
 #include <syscalls.h>
+#include <time.h>
 
 void syscall_debug(const char *str, uint32_t len) {
     syscall_2(SYSCALL_DEBUG_NO, (uint32_t) str, len);
@@ -32,4 +33,14 @@ ssize_t read(int fd, void *buf, size_t count) {
 
 ssize_t write(int fd, const void *buf, size_t count) {
     return syscall_3(SYSCALL_WRITE_NO, fd, (uint32_t) buf, count);
+}
+
+uint64_t time(void) {
+    uint64_t epoch;
+    if (syscall_1(SYSCALL_TIME_NO, (uint32_t) &epoch) != 0) return 0;
+    return epoch;
+}
+
+int gettimeofday(struct timeval *tv, struct timezone *tz) {
+    return syscall_2(SYSCALL_GETTIMEOFDAY_NO, (uint32_t) tv, (uint32_t) tz);
 }

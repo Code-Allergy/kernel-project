@@ -14,6 +14,7 @@ typedef __builtin_va_list va_list;
 #define ANSI_RESET "\033[0m"
 
 #define BUFFER_SIZE 1024
+#define MAX_NUMBER_LEN 32
 
 static char colored_buffer[2048];
 static char buffer[BUFFER_SIZE];  // Static buffer of 1024 bytes
@@ -63,7 +64,6 @@ static int itoa(int num, char *str, int base) {
     return i;
 }
 
-// Basic vsnprintf implementation for embedded systems
 int vsnprintf(char *str, size_t size, const char *format, va_list args) {
     int i = 0;
     const char *ptr;

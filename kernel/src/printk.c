@@ -1,7 +1,7 @@
 #include <kernel/stdarg.h>
 #include <kernel/uart.h>
 
-#define MAX_NUMBER_LEN 16
+#define MAX_NUMBER_LEN 21 // int64_t + sign
 
 static void print_char(char c) {
     uart_driver.putc(c);
@@ -83,6 +83,48 @@ static void print_decimal(int num) {
     while (--i >= 0) print_char(buf[i]);
 }
 
+// won't need this until we turn on NEON for floating point
+static void print_float(double num, int precision) {
+    if (num < 0) {
+        print_char('-');
+        num = -num;
+    }
+
+    int integer = (int)num;
+    print_decimal(integer);
+    print_char('.');
+
+    double fraction = num - integer;
+    for (int i = 0; i < precision; i++) {
+        fraction *= 10;
+        print_char('0' + (int)fraction);
+        fraction -= (int)fraction;
+    }
+}
+
+static void print_decimal_64(int64_t num) {
+    char buf[MAX_NUMBER_LEN];
+    int i = 0;
+    int is_negative = 0;
+
+    if (num < 0) {
+        is_negative = 1;
+        num = -num; // Works for INT64_MIN via 2's complement
+    }
+
+    // Handle 64-bit numbers
+    uint64_t unum = (uint64_t)num;
+    do {
+        buf[i++] = (unum % 10) + '0';
+        unum /= 10;
+    } while (unum > 0);
+
+    if (is_negative) buf[i++] = '-';
+
+    while (--i >= 0) print_char(buf[i]);
+}
+
+
 
 static void print_unsigned_decimal(unsigned int num) {
     char buf[MAX_NUMBER_LEN];
@@ -96,6 +138,17 @@ static void print_unsigned_decimal(unsigned int num) {
     while (--i >= 0) print_char(buf[i]);
 }
 
+static void print_unsigned_decimal_64(uint64_t num) {
+    char buf[MAX_NUMBER_LEN];
+    int i = 0;
+
+    do {
+        buf[i++] = (num % 10) + '0';
+        num /= 10;
+    } while (num > 0);
+
+    while (--i >= 0) print_char(buf[i]);
+}
 
 void vprintk(const char *fmt, va_list args) {
     for (; *fmt; fmt++) {
@@ -107,16 +160,17 @@ void vprintk(const char *fmt, va_list args) {
         const char *spec_start = fmt;
         fmt++;
 
-        int pad_zero = 0;
         int width = 0;
         int precision = -1;
+        int long_long = 0;
+        int pad_zero = 0;
 
         if (*fmt == '0') {
             pad_zero = 1;
             fmt++;
         }
 
-        // Parse width
+        // Parse field width
         while (*fmt >= '0' && *fmt <= '9') {
             width = width * 10 + (*fmt - '0');
             fmt++;
@@ -132,6 +186,15 @@ void vprintk(const char *fmt, va_list args) {
             }
         }
 
+        // Parse length modifiers
+        if (*fmt == 'l') {
+            fmt++;
+            if (*fmt == 'l') {
+                long_long = 1;
+                fmt++;
+            }
+        }
+
         if (*fmt == '\0') {
             print_char('%');
             break;
@@ -139,13 +202,23 @@ void vprintk(const char *fmt, va_list args) {
 
         switch (*fmt) {
             case 'd': {
-                print_decimal(va_arg(args, int));
+                if (long_long) {
+                    print_decimal_64(va_arg(args, int64_t));
+                } else {
+                    print_decimal(va_arg(args, int));
+                }
                 break;
             }
             case 'u': {
-                print_unsigned_decimal(va_arg(args, unsigned int));
+                if (long_long) {
+                    // On ARM32, va_arg directly supports 64-bit values
+                    print_unsigned_decimal_64(va_arg(args, uint64_t));
+                } else {
+                    print_unsigned_decimal(va_arg(args, unsigned int));
+                }
                 break;
             }
+
             case 'x': {
                 print_hex(va_arg(args, unsigned int), pad_zero);
                 break;
@@ -160,6 +233,9 @@ void vprintk(const char *fmt, va_list args) {
                 break;
             case 'b':
                 print_binary(va_arg(args, unsigned int));
+                break;
+            case 'f':
+                print_float(va_arg(args, double), precision);
                 break;
             case 's': {
                 const char *s = va_arg(args, char*);

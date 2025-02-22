@@ -1,12 +1,11 @@
 CRITICAL:
-need to handle more accurate timing, right now we have scheduler ticks which are expensive to reduce and still
-not very accurate. I need to be able to get that counter working and then use it to implement sleep() and usleep() among
-other blocking features.
-
+blocking processes
+macro for syscall creation
 kernel logging framework, along with being able to use that functionality to create character devices for userspace
 
 
 general:
+managed stacks for all kernel modes instead of static (system, irq, svc, abt, und)
 ipc to support message passing between processes
 memory allocation apis for processes - increase heap size, etc
 load dynamic libraries

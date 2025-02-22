@@ -2,7 +2,9 @@
 #define KERNEL_TIMER_H
 #include <stdint.h>
 
-#define MAX_TIMERS 256
+
+#define KERNEL_HEARTBEAT_TIMER 2000 // should be in USEC and should be universal for all platforms
+#define MAX_TIMERS 16
 
 typedef void (*timer_callback_t)(void);
 
@@ -36,9 +38,16 @@ typedef struct {
     // get global ticks as nanoseconds
     uint64_t (*ticks_to_ns)(uint64_t ticks);
     uint64_t (*ns_to_ticks)(uint64_t ticks);
-
+    uint64_t (*ticks_to_us)(uint64_t ticks);
+    uint64_t (*us_to_ticks)(uint64_t us);
+    uint64_t (*ticks_to_ms)(uint64_t ticks);
+    uint64_t (*ms_to_ticks)(uint64_t ms);
 } timer_t;
 
 extern timer_t clock_timer;
+
+// outer interface
+void start_kernel_clocks(void); // timer.c
+
 
 #endif

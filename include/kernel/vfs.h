@@ -11,7 +11,7 @@ struct vfs_mount;
 
 typedef uint32_t uid_t;
 typedef uint32_t gid_t;
-typedef uint32_t time_t;
+typedef uint64_t time_t;
 typedef uint32_t dev_t;
 
 typedef struct vfs_inode {

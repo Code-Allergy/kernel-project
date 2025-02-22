@@ -12,6 +12,7 @@
 #include <kernel/panic.h>
 #include <kernel/errno.h>
 #include <kernel/file.h>
+#include <kernel/time.h>
 
 #define __user
 
@@ -170,6 +171,31 @@ int sys_exit(int exit_status) {
     return 0;
 }
 
+// TODO - verify pointer is valid
+int sys_time(int ptr) {
+    if (ptr == 0) return -1;
+    epoch_t* time = (epoch_t*)ptr;
+    *time = epoch_now();
+    return 0;
+}
+
+// TODO - verify pointer is valid
+int sys_gettimeofday(int tvptr, int tzptr) {
+    timeval_t* tv = (timeval_t*)tvptr;
+    timezone_t* tz = (timezone_t*)tzptr;
+
+    if (tv) {
+        tv_now(tv);
+    }
+
+    if (tz) {
+        fill_tz(tz);
+    }
+
+
+    return 0;
+}
+
 static inline void dump_registers(struct cpu_regs* regs) {
     __asm__ volatile(
         "stmia %0, {r0-r12}\n"       // Save R0-R12 at offsets 0-48
@@ -189,17 +215,19 @@ static const struct {
     const char *name;
     int num_args;
 } syscall_table[NR_SYSCALLS + 1] = {
-    [SYS_DEBUG]  = {{.fn2 = sys_debug},  "debug",  2},
-    [SYS_EXIT]   = {{.fn1 = sys_exit},   "exit",   1},
-    [SYS_GETPID] = {{.fn0 = sys_getpid}, "getpid", 0},
-    [SYS_YIELD]  = {{.fn0 = sys_yield},  "yield",  0},
-    [SYS_OPEN]   = {{.fn3 = sys_open},   "open",   3},
-    [SYS_CLOSE]  = {{.fn1 = sys_close},  "close",  1},
-    [SYS_FORK]   = {{.fn0 = sys_fork},   "fork",   0},
-    [SYS_READDIR]= {{.fn3 = sys_readdir},"readdir",3},
-    [SYS_READ]   = {{.fn3 = sys_read},   "read",   3},
-    [SYS_WRITE]  = {{.fn3 = sys_write},  "write",  3},
-    [SYS_EXEC]   = {{.fn1 = sys_exec},   "exec",   1},
+    [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
+    [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
+    [SYS_GETPID]       = {{.fn0 = sys_getpid},        "getpid",        0},
+    [SYS_YIELD]        = {{.fn0 = sys_yield},          "yield",        0},
+    [SYS_OPEN]         = {{.fn3 = sys_open},           "open",         3},
+    [SYS_CLOSE]        = {{.fn1 = sys_close},          "close",        1},
+    [SYS_FORK]         = {{.fn0 = sys_fork},           "fork",         0},
+    [SYS_READDIR]      = {{.fn3 = sys_readdir},        "readdir",      3},
+    [SYS_READ]         = {{.fn3 = sys_read},           "read",         3},
+    [SYS_WRITE]        = {{.fn3 = sys_write},          "write",        3},
+    [SYS_EXEC]         = {{.fn1 = sys_exec},           "exec",         1},
+    [SYS_TIME]         = {{.fn1 = sys_time},           "time",         1},
+    [SYS_GETTIMEOFDAY] = {{.fn2 = sys_gettimeofday},  "gettimeofday",  2},
 };
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {

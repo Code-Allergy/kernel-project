@@ -33,7 +33,7 @@ LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 # Set flags
 CFLAGS := -Wall -Wextra -Wpedantic \
-         -mcpu=cortex-a8 -marm \
+         -mcpu=cortex-a8 -march=armv7-a -marm \
          -ffreestanding -nostdlib \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \

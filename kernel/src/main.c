@@ -22,22 +22,17 @@
 extern uint32_t __bss_start;
 extern uint32_t __bss_end;
 
-#define KERNEL_HEARTBEAT_TIMER 2000 // usec
-
 bootloader_t bootloader_info;
 
-// system clock
-void system_clock() {
-    scheduler_driver.tick();
-}
+
 
 void init_kernel_hardware(void) {
-    clock_timer.init();
     interrupt_controller.init();
 
     // these 2 can be combined when we rewrite drivers
     interrupt_controller.enable_irq_global();
     uart_driver.enable_interrupts();
+    init_kernel_time();
 }
 
 
@@ -127,22 +122,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     init_mount_fat32();
     scheduler_init();
 
-    printk("Kernel initialized at time %d\n", epoch_now());
-
-    // start the system clock, then start the scheduler
-    clock_timer.start_idx_callback(0, KERNEL_HEARTBEAT_TIMER, system_clock);
-    printk("Heap total usage: %d/%d\n", kernel_heap_usage_get(), kernel_heap_total_get());
-
-    // rtc_driver.init();
-
-    for (int i = 0; i < 100000000; i++) {
-        uint64_t ticks = clock_timer.get_ticks();
-        uint64_t ns = clock_timer.ticks_to_ns(ticks);
-        uint64_t ms = ns / 1000000;
-        printk("Current ns %u %u\n", (uint32_t)(ms >> 32), (uint32_t)ms);
-
-    }
-
+    printk("Kernel ready at time %llu\n", epoch_now());
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

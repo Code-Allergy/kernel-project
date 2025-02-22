@@ -18,6 +18,7 @@
 #define PROCESS_RUNNING  1
 #define PROCESS_KILLED   2
 #define PROCESS_READY    3
+#define PROCESS_BLOCKED  4
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
