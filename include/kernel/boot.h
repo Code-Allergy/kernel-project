@@ -81,7 +81,7 @@ typedef struct {
     bootloader_t bootloader = {   \
         .magic = 0xFEEDFACE,      \
         .build_time = "Build: " BUILD_DATE,    \
-        .kernel_version = '\0',                \
+        .kernel_version = "",                \
         \
         .kernel_size = (kernel).file_size,\
         .kernel_entry = KERNEL_ENTRY, \
@@ -90,9 +90,9 @@ typedef struct {
         .kernel_end = DRAM_BASE + (kernel).file_size, \
         .total_memory = DRAM_SIZE,          \
         .reserved_memory = (kernel).file_size, \
-        .l1_table_base = l1_page_table, \
+        .l1_table_base = (uint32_t)(uintptr_t)l1_page_table, \
         .l1_table_size = 0x4000, \
-        .l2_table_base = l2_tables, \
+        .l2_table_base = (uint32_t)(uintptr_t)l2_tables, \
         .l2_table_size = 0x400000, \
     };\
     fat32_close(&kernel);\
