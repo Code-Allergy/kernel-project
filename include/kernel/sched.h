@@ -77,7 +77,9 @@ typedef struct {
     uint32_t priority;
     uint32_t state;
 
-    uint64_t wake_ticks; // sleep state wake time
+    uint64_t wake_ticks;   // sleep state wake time
+    struct list_head list; // for wait queue
+    void* blocked_on;      // pointer to the object the process is blocked on
 
     // Memory management
     uint32_t* ttbr0;      // Physical address of translation table base
