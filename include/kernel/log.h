@@ -10,9 +10,9 @@
 #define LOG_MAX_BUFFER_LENGTH 1024
 
 #define LOG_TIME
-#define LOG_LINE_NUM
-#define LOG_FUNC_NAME
-#define LOG_FILE_NAME
+// #define LOG_LINE_NUM
+// #define LOG_FUNC_NAME
+// #define LOG_FILE_NAME
 
 #define USE_ASCII_COLOR
 

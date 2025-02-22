@@ -14,11 +14,11 @@
 #include <kernel/timer.h>
 
 static const char* log_level_strings[] = {
-    "DEBUG",
-    "INFO",
-    "WARN",
-    "ERROR",
-    "FATAL"
+    "[DEBUG]",
+    "[INFO]",
+    "[WARN]",
+    "[ERROR]",
+    "[FATAL]"
 };
 
 static const char* log_level_colors[] = {
@@ -126,7 +126,7 @@ void format_log_message(
     remaining -= written;
 
     // Add log level
-    written = snprintf(buf, remaining, "[%s] ", log_level_strings[msg->level]);
+    written = snprintf(buf, remaining, "%-7s ", log_level_strings[msg->level]);
     buf += written;
     remaining -= written;
 
