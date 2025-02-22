@@ -93,7 +93,6 @@ uint8_t allocate_asid(void) {
 process_t* get_next_process(void) {
     uint32_t start;
     if (current_process == NULL) {
-        printk("Current process is NULL\n");
         start = 0;
     } else {
         start = (current_process->pid + 1) % MAX_PROCESSES;
@@ -113,10 +112,12 @@ void __attribute__((noreturn, naked)) user_context_return(uint32_t stack_ptr);
 void __attribute__ ((noreturn)) scheduler(void) {
     // wake up sleeping processes if necessary
     check_sleep_expiry();
+    // how do we decied on an order for waking sleep or blocked?
+    // wake up a blocked process if necessary
 
     next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
-        panic("No more processes to run, halting!\n");
+        panic("No more processes to run, halting!\n"); // this should never happen, so we panic
     }
 
     // printk("Starting process pid %u\n", next_process->pid);
@@ -138,15 +139,17 @@ void __attribute__ ((noreturn)) scheduler(void) {
     current_process = next_process;
     current_process->state = PROCESS_RUNNING;
     scheduler_driver.schedule_next = 0;
+
     // TODO: This is a hack to fix the r0 register being written over at some point. this shouldn't be needed.
     if (current_process->forked) {
-        if (current_process->stack_top[0] != 0) printk("WARNING: Stacked process wasn't set to return 0!\n");
+        // if (current_process->stack_top[0] != 0) printk("WARNING: Stacked process wasn't set to return 0!\n");
         current_process->stack_top[0] = 0;
         current_process->forked = 0;
     }
 
+    // TODO this is a hack, fix it. this WILL break.
     // fix the stack from the compiler function prologue
-    __asm__ ("add sp, sp, #8\n"); // TODO this is a hack, fix it. this WILL break.
+    __asm__ ("add sp, sp, #8\n");
     // TO fix, we should have the scheduler setup in another function and return then pass to asm
     // this way we won't have to deal with the compiler's prologue
 

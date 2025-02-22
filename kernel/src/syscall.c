@@ -204,10 +204,11 @@ int sys_usleep(int us_high, int us_low) {
     current_process->wake_ticks = clock_timer.get_ticks() + clock_timer.us_to_ticks(us);
     current_process->state = PROCESS_SLEEPING;
 
-    if (sleep_queue.count < MAX_SLEEPING_PROCS) {
+    if (sleep_queue.count < MAX_PROCESSES) {
         sleep_queue.procs[sleep_queue.count++] = current_process;
     } else {
-        panic("Unable to sleep! too many sleeping processes!\n");
+        // this should never be able to happen
+        panic("Unable to sleep! sleep_queue.count > MAX_PROCESSES!\n");
     }
 
     scheduler_driver.schedule_next = 1;

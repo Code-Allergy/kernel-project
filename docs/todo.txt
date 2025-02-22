@@ -1,7 +1,9 @@
 CRITICAL:
-blocking processes
+blocking processes on events - for ipc, hardware
+ - need per process kernel stacks to make sure we return to where we were in the kernel
+
 macro for syscall creation
-kernel logging framework, along with being able to use that functionality to create character devices for userspace
+kernel logging framework, along with being able to use that functionality to create custom character devices for userspace
 
 
 general:
@@ -12,8 +14,6 @@ load dynamic libraries
 test context switch performance
 other data structures to make things easier
 cleaning up dead code and refactoring some others
-- pass in addresses from bootloader for l1 and l2 page tables,
-  then copy them and nuke the bss section ? for now just put them in high phys memory
 
 - better mmu setup, and using sections and domains. sections for kernel mem mapping and we can setup support for larger page sizes for user space OR sections for heap
 

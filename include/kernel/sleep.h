@@ -4,10 +4,8 @@
 #include <stdint.h>
 #include <kernel/sched.h>
 
-#define MAX_SLEEPING_PROCS 64
-
 typedef struct sleep_queue {
-    process_t* procs[MAX_SLEEPING_PROCS];
+    process_t* procs[MAX_PROCESSES];
     uint32_t count;
 } sleep_queue_t;
 
