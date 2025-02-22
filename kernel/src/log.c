@@ -1,4 +1,4 @@
-#include <kernel/stdarg.h>
+#include <stdarg.h>
 
 #include <stdint.h>
 #include <stddef.h>
@@ -32,7 +32,7 @@ static const char* log_level_colors[] = {
 static const char* log_level_reset_color = "\033[0m";
 
 // default log level for now dynamically is always DEBUG
-enum LOG_LEVEL current_log_level = INFO;
+enum LOG_LEVEL current_log_level = DEBUG;
 
 struct log_msg {
   uint64_t timestamp; // as TICKS
@@ -104,11 +104,85 @@ void format_log_message(
     char user_msg[LOG_MAX_MESSAGE_SIZE];
     va_list args_copy;
     va_copy(args_copy, args);
-    // vsnprintf(user_msg, sizeof(user_msg), fmt, args_copy);
+    vsnprintf(user_msg, sizeof(user_msg), fmt, args_copy);
     va_end(args_copy);
 
-    strncpy(msg->message, user_msg, LOG_MAX_MESSAGE_SIZE-1);
+    #ifdef USE_ASCII_COLOR // use ascii escape codes for color
+    const char* color = log_level_colors[msg->level];
+    const char* reset = log_level_reset_color;
+    #else
+    const char* color = "";
+    const char* reset = "";
+    #endif
 
+    // Start building the formatted message
+    char *buf = msg->message;
+    size_t remaining = LOG_MAX_MESSAGE_SIZE;
+    int written = 0;
+
+    // Add color prefix
+    written = snprintf(buf, remaining, "%s", color);
+    buf += written;
+    remaining -= written;
+
+    // Add log level
+    written = snprintf(buf, remaining, "[%s] ", log_level_strings[msg->level]);
+    buf += written;
+    remaining -= written;
+
+    // Add timestamp (if enabled)
+    #ifdef LOG_TIME
+    uint64_t all_usec = clock_timer.ticks_to_us(msg->timestamp);
+    uint32_t sec = all_usec / 1000000;
+    uint32_t usec = all_usec % 1000000;
+
+    written = snprintf(buf, remaining, "[%u.%06u] ", sec, usec);
+    buf += written;
+    remaining -= written;
+    #endif
+
+    // Add file and line information
+    #if defined(LOG_FILE_NAME) || defined(LOG_LINE_NUM)
+    written = snprintf(buf, remaining, "[");
+    buf += written;
+    remaining -= written;
+
+    #ifdef LOG_FILE_NAME
+    written = snprintf(buf, remaining, "%s", msg->file);
+    buf += written;
+    remaining -= written;
+    #endif
+
+    #ifdef LOG_LINE_NUM
+    #ifdef LOG_FILE_NAME
+    written = snprintf(buf, remaining, ":");
+    buf += written;
+    remaining -= written;
+    #endif
+    written = snprintf(buf, remaining, "%d", msg->line);
+    buf += written;
+    remaining -= written;
+    #endif
+
+    written = snprintf(buf, remaining, "] ");
+    buf += written;
+    remaining -= written;
+    #endif
+
+    // Add function name if enabled
+    #ifdef LOG_FUNC_NAME
+    written = snprintf(buf, remaining, "[%s] ", msg->func);
+    buf += written;
+    remaining -= written;
+    #endif
+
+    // Add user message
+    written = snprintf(buf, remaining, "%s%s", user_msg, reset);
+    buf += written;
+    remaining -= written;
+
+    // Ensure null-termination
+    msg->message[LOG_MAX_MESSAGE_SIZE - 1] = '\0';
 }
 
 
@@ -137,7 +211,7 @@ void log_consume(void) {
     while (!ring_buffer_empty(&log_buffer)) {
         struct log_msg* msg;
         ring_buffer_read(&log_buffer, &msg);
-        // for now, just print the message out
+        // for now, just print the message over uart
         printk("%s", msg->message);
         kfree(msg);
     }

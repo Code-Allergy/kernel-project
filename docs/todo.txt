@@ -2,8 +2,9 @@ CRITICAL:
 blocking processes on events - for ipc, hardware
  - need per process kernel stacks to make sure we return to where we were in the kernel
 
+nonblocking file io so we can start on making a basic shell
 macro for syscall creation
-kernel logging framework, along with being able to use that functionality to create custom character devices for userspace
+
 
 debug elf loading - data section access error? loading unknown address
 

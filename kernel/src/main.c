@@ -124,7 +124,12 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     scheduler_init();
 
     printk("Kernel ready at time %llu\n", epoch_now());
+    LOG(DEBUG, "Hello from logging function!\n");
     LOG(INFO, "Hello from logging function!\n");
+    LOG(WARN, "Hello from logging function!\n");
+    LOG(ERROR, "Hello from logging function!\n");
+    LOG(FATAL, "Hello from logging function!\n");
+
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

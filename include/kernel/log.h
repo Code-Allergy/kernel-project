@@ -29,7 +29,7 @@ extern enum LOG_LEVEL current_log_level;
 
 #define LOG(level, fmt, ...) \
   if (level >= CONFIG_LOG_LEVEL && level >= current_log_level) \
-    log_commit(level, __FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
+    log_commit(level, __FILE__, __FUNCTION__,  __LINE__, fmt, ##__VA_ARGS__)
 
 
 void log_commit(int level, const char* file, const char* func, int line, const char* fmt, ...);

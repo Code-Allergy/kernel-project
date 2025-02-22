@@ -1,5 +1,7 @@
 #ifndef KERNEL_STRING_H
 #define KERNEL_STRING_H
+#include <stdarg.h>
+#include <stddef.h>
 
 char* strtok(char* str, const char* delimiters);
 unsigned int strlen(const char* str);
@@ -11,5 +13,9 @@ void* memset(void* ptr, int value, unsigned long num);
 int memcmp(const void* ptr1, const void* ptr2, unsigned long num);
 void* memcpy(void* dest, const void* src, unsigned long size);
 int strcmp(const char* str1, const char* str2);
+
+// string.c
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
+int snprintf(char *buf, size_t size, const char *fmt, ...);
 
 #endif

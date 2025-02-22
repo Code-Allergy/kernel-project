@@ -1,6 +1,6 @@
 #include <kernel/spinlock.h>
 
-inline void spinlock_init(spinlock_t *lock) {
+void spinlock_init(spinlock_t *lock) {
     lock->lock = 0;
     lock->cpsr = 0;
 }

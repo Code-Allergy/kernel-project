@@ -1,8 +1,10 @@
 #ifndef KERNEL_PANIC_H
 #define KERNEL_PANIC_H
+#include <kernel/log.h>
 #include <kernel/printk.h>
 
 // TODO - this can be a function and we should dump the stack and registers
+// we could use log here, we would just need to dump the log buffer to the console before halting
 #define panic(fmt, ...) do { \
     __asm__("cpsid i"); \
     printk("PANIC: " fmt, ##__VA_ARGS__); \

@@ -1,4 +1,4 @@
-#include <kernel/stdarg.h>
+#include <stdarg.h>
 #include <kernel/uart.h>
 
 #define MAX_NUMBER_LEN 21 // int64_t + sign

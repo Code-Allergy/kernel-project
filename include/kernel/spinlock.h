@@ -12,7 +12,7 @@ typedef struct {
 // initial value that a spinlock should have
 #define SPINLOCK_INIT { .lock = 0, .cpsr = 0 }
 
-inline void spinlock_init(spinlock_t *lock);
+void spinlock_init(spinlock_t *lock);
 void spinlock_acquire(spinlock_t *lock);
 void spinlock_release(spinlock_t *lock);
 
