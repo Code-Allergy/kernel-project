@@ -3,6 +3,7 @@
 
 #define ENOMEM 12
 #define EINVAL 22
+#define ENOSYS 38
 #define ENOTDIR 20
 #define ENOENT 2
 #define EEXIST 17

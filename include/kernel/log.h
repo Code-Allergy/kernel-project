@@ -19,7 +19,8 @@
 #define LOG_PID
 #define LOG_PPID
 
-#define TRACE_SYSCALLS     // turn this into tracing of syscalls later
+#define TRACE_SYSCALLS         // turn this into tracing of syscalls later
+#define LOG_SYSCALL_LEVEL DEBUG // the level that the syscall log messages will be logged at
 #define USE_ASCII_COLOR
 
 

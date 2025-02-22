@@ -9,6 +9,8 @@
 
 #include <kernel/boot.h>
 #include <kernel/mmu.h>
+#include <kernel/errno.h>
+#include <kernel/panic.h>
 
 // handle interrupts here
 uint32_t svc_handlers[NR_SYSCALLS] = {0};
@@ -18,6 +20,11 @@ void handle_svc_c(
     uint32_t* sp) {
     current_process->stack_top = sp;
     LOG_SYSCALL(svc_number);
+    if (svc_number > NR_SYSCALLS) {
+        sp[0] = -ENOSYS;
+        return;
+    }
+
     handle_syscall(svc_number, sp[0], sp[1], sp[2], sp[3]);
 }
 
@@ -63,15 +70,16 @@ void data_abort_handler(uint32_t lr) {
     printk("Returning to LR: %p\n", lr);
 
     // Kernel panic or recovery logic
-    while (1) __asm__ volatile("wfi");
+    panic("Stopping");
 }
 
-void prefetch_abort_c() {
+
+
+void prefetch_abort_c(void) {
     uint32_t ifar, ifsr;
     asm volatile("mrc p15, 0, %0, c6, c0, 2" : "=r"(ifar)); // IFAR
     asm volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
-    printk("Prefetch abort! Addr: %p, Status: %p\n", ifar, ifsr);
-    while (1); // Halt
+    panic("Prefetch abort! Addr: %p, Status: %p\n", ifar, ifsr);
 }
 
 void handle_undefined(uint32_t esr, process_t* p) {

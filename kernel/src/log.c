@@ -219,8 +219,15 @@ static inline void add_syscall_message(
     size_t* remaining,
     uint32_t syscall_num
 ) {
-    uint32_t* user_stack = current_process->stack_top;
     int written;
+    if(syscall_num > NR_SYSCALLS) {
+        written = snprintf(*buf, *remaining, "[INVALID_SYSCALL:%d]", syscall_num);
+        *buf += written;
+        *remaining -= written;
+        return;
+    }
+    uint32_t* user_stack = current_process->stack_top;
+
     switch (syscall_table[syscall_num].num_args) {
         case 0: written = snprintf(*buf, *remaining, "%s()", syscall_table[syscall_num].name); break;
         case 1: written = snprintf(*buf, *remaining, "%s(%d)", syscall_table[syscall_num].name, user_stack[0]); break;
@@ -316,7 +323,7 @@ void log_syscall_commit(uint32_t syscall) {
     struct log_msg msg;
     msg.current_pid = current_process ? current_process->pid : -1;
     msg.timestamp = clock_timer.get_ticks();
-    msg.level = INFO; // unused field?
+    msg.level = LOG_SYSCALL_LEVEL;
     msg.file = "";
     msg.line = 0;
     msg.func = "";

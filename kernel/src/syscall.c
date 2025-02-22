@@ -158,6 +158,7 @@ int sys_debug(int buf, int len) {
     // syscall_return(&current_process->context, 0);
 }
 
+// should put exit status in process and not fully free the process, just the memory and mark process as dead
 int sys_exit(int exit_status) {
     // iterate through all pages and free them if they are not shared, otherwise decrement the ref count
     free_process_memory(current_process);
@@ -244,20 +245,6 @@ const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_GETTIMEOFDAY] = {{.fn2 = sys_gettimeofday},  "gettimeofday",  2},
     [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
 };
-
-const char* syscall_get_name(int num) {
-    if (num >= 0 && num <= NR_SYSCALLS) {
-        return syscall_table[num].name;
-    }
-    return "unknown";
-}
-
-int syscall_get_num_args(int num) {
-    if (num >= 0 && num <= NR_SYSCALLS) {
-        return syscall_table[num].num_args;
-    }
-    return -1;
-}
 
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4) {
