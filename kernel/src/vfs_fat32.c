@@ -1,5 +1,5 @@
 // this can be moved into fat32.c file later after we port.
-#include "kernel/sched.h"
+#include <kernel/sched.h>
 #include <kernel/fat32.h>
 #include <kernel/vfs.h>
 #include <kernel/panic.h>
@@ -7,7 +7,6 @@
 #include <kernel/mmc.h>
 #include <kernel/file.h>
 #include <stdbool.h>
-#include <string.h>
 
 struct fat32_inode_private {
     fat32_fs_t* fs;         // Pointer to the mounted FAT32 filesystem

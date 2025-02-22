@@ -23,7 +23,7 @@
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 5
+#define SCHEDULER_PREEMPT_TICKS 8 // should be a power of 2 ideally for faster modulo
 
 struct cpu_regs {
     uint32_t r0;  // 0

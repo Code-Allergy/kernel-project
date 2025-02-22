@@ -5,6 +5,7 @@ blocking processes on events - for ipc, hardware
 macro for syscall creation
 kernel logging framework, along with being able to use that functionality to create custom character devices for userspace
 
+debug elf loading - data section access error? loading unknown address
 
 general:
 managed stacks for all kernel modes instead of static (system, irq, svc, abt, und)

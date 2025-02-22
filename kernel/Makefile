@@ -33,8 +33,8 @@ LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 # Set flags
 CFLAGS := -Wall -Wextra -Wpedantic \
-         -mcpu=cortex-a8 -march=armv7-a -marm \
-         -ffreestanding -nostdlib \
+         -mcpu=cortex-a8 -marm \
+         -ffreestanding -nostdlib -nostdinc \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
          -std=gnu99 \
@@ -49,7 +49,7 @@ CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
-ASFLAGS = -mcpu=cortex-a8 -march=armv7-a
+ASFLAGS = -mcpu=cortex-a8
 
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
 LDFLAGS = -T kernel.ld -L$(LGCC)

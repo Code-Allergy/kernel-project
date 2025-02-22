@@ -14,6 +14,7 @@
 #include <kernel/string.h>
 #include <kernel/time.h>
 #include <kernel/rtc.h>
+#include <kernel/log.h>
 #include <elf32.h>
 
 #include <stdint.h>
@@ -123,6 +124,7 @@ __attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloa
     scheduler_init();
 
     printk("Kernel ready at time %llu\n", epoch_now());
+    LOG(INFO, "Hello from logging function!\n");
     scheduler();
 
     panic("Reached end of kernel_main, something bad happened");

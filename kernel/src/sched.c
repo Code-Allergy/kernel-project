@@ -15,6 +15,7 @@
 #include <kernel/heap.h>
 #include <kernel/errno.h>
 #include <kernel/sleep.h>
+#include <kernel/log.h>
 
 
 /* Globals */
@@ -194,9 +195,14 @@ void get_kernel_regs(struct cpu_regs* regs) {
 }
 
 void tick(void) {
-    if (scheduler_driver.current_tick++ % SCHEDULER_PREEMPT_TICKS == 0) {
+    scheduler_driver.current_tick++; // increment the tick count
+    if (scheduler_driver.current_tick % SCHEDULER_PREEMPT_TICKS == 0) {
         scheduler_driver.schedule_next = 1;
         if (current_process) current_process->state = PROCESS_READY;
+    }
+
+    if (scheduler_driver.current_tick % LOG_CONSUME_TICKS) {
+        log_consume();
     }
 }
 
