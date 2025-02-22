@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 
-#define KERNEL_HEARTBEAT_TIMER 2000 // should be in USEC and should be universal for all platforms
+#define KERNEL_HEARTBEAT_TIMER 10000 // should be in USEC and should be universal for all platforms
 #define MAX_TIMERS 16
 
 typedef void (*timer_callback_t)(void);

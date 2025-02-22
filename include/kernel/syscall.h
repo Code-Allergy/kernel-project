@@ -20,7 +20,7 @@ typedef union {
     syscall_fn_4 fn4;
 } syscall_fn;
 
-#define NR_SYSCALLS 12
+#define NR_SYSCALLS 13
 enum syscall_num {
     SYS_DEBUG = 0,
     SYS_EXIT = 1,
@@ -35,6 +35,7 @@ enum syscall_num {
     SYS_EXEC    = 10,
     SYS_TIME    = 11,
     SYS_GETTIMEOFDAY = 12,
+    SYS_USLEEP = 13,
 };
 
 

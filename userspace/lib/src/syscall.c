@@ -44,3 +44,7 @@ uint64_t time(void) {
 int gettimeofday(struct timeval *tv, struct timezone *tz) {
     return syscall_2(SYSCALL_GETTIMEOFDAY_NO, (uint32_t) tv, (uint32_t) tz);
 }
+
+int usleep(uint64_t usec) {
+    return syscall_2(SYSCALL_USLEEP_NO, (uint32_t)(usec >> 32), (uint32_t)usec);
+}

@@ -13,6 +13,8 @@
 #include <kernel/errno.h>
 #include <kernel/file.h>
 #include <kernel/time.h>
+#include <kernel/timer.h>
+#include <kernel/sleep.h>
 
 #define __user
 
@@ -62,6 +64,7 @@ int sys_getpid(void) {
 
 int sys_yield(void) {
     scheduler_driver.schedule_next = 1;
+    current_process->state = PROCESS_READY;
     return 0;
 }
 
@@ -192,7 +195,22 @@ int sys_gettimeofday(int tvptr, int tzptr) {
         fill_tz(tz);
     }
 
+    return 0;
+}
 
+int sys_usleep(int us_high, int us_low) {
+    uint64_t us = ((uint64_t) us_high << 32) | (uint64_t) us_low;
+
+    current_process->wake_ticks = clock_timer.get_ticks() + clock_timer.us_to_ticks(us);
+    current_process->state = PROCESS_SLEEPING;
+
+    if (sleep_queue.count < MAX_SLEEPING_PROCS) {
+        sleep_queue.procs[sleep_queue.count++] = current_process;
+    } else {
+        panic("Unable to sleep! too many sleeping processes!\n");
+    }
+
+    scheduler_driver.schedule_next = 1;
     return 0;
 }
 
@@ -228,6 +246,7 @@ static const struct {
     [SYS_EXEC]         = {{.fn1 = sys_exec},           "exec",         1},
     [SYS_TIME]         = {{.fn1 = sys_time},           "time",         1},
     [SYS_GETTIMEOFDAY] = {{.fn2 = sys_gettimeofday},  "gettimeofday",  2},
+    [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
 };
 
 int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4, int stack_pointer) {

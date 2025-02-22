@@ -14,6 +14,7 @@
 #include <kernel/fat32.h>
 #include <kernel/heap.h>
 #include <kernel/errno.h>
+#include <kernel/sleep.h>
 
 
 /* Globals */
@@ -67,8 +68,8 @@ int scheduler_init(void) {
     process_t* nullp = spawn_elf_init_process(NULL_PROCESS_FILE);
     if (!nullp) panic("Failed to start " NULL_PROCESS_FILE);
 
-    process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
-    if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
+    // process_t* initp = spawn_elf_init_process(INIT_PROCESS_FILE);
+    // if (!initp) panic("Failed to start " INIT_PROCESS_FILE);
     process_t* _initp = spawn_elf_init_process("/elf/testa.elf");
 
     return 0;
@@ -110,6 +111,9 @@ process_t* get_next_process(void) {
 void __attribute__((noreturn, naked)) user_context_return(uint32_t stack_ptr);
 
 void __attribute__ ((noreturn)) scheduler(void) {
+    // wake up sleeping processes if necessary
+    check_sleep_expiry();
+
     next_process = get_next_process();
     if (next_process == NULL || next_process->state == PROCESS_NONE) {
         panic("No more processes to run, halting!\n");
@@ -132,6 +136,7 @@ void __attribute__ ((noreturn)) scheduler(void) {
     );
 
     current_process = next_process;
+    current_process->state = PROCESS_RUNNING;
     scheduler_driver.schedule_next = 0;
     // TODO: This is a hack to fix the r0 register being written over at some point. this shouldn't be needed.
     if (current_process->forked) {
@@ -188,6 +193,7 @@ void get_kernel_regs(struct cpu_regs* regs) {
 void tick(void) {
     if (scheduler_driver.current_tick++ % SCHEDULER_PREEMPT_TICKS == 0) {
         scheduler_driver.schedule_next = 1;
+        if (current_process) current_process->state = PROCESS_READY;
     }
 }
 

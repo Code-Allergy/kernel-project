@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_PROCESSES 128
+#define MAX_PROCESSES 8
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 #define NULL_PROCESS_FILE "/elf/null.elf"
 #define INIT_PROCESS_FILE "/elf/open.elf"
@@ -19,10 +19,11 @@
 #define PROCESS_KILLED   2
 #define PROCESS_READY    3
 #define PROCESS_BLOCKED  4
+#define PROCESS_SLEEPING 5
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 5
+#define SCHEDULER_PREEMPT_TICKS 20
 
 struct cpu_regs {
     uint32_t r0;  // 0
@@ -76,21 +77,14 @@ typedef struct {
     uint32_t priority;
     uint32_t state;
 
+    uint64_t wake_ticks; // sleep state wake time
+
     // Memory management
     uint32_t* ttbr0;      // Physical address of translation table base
     uint32_t asid;        // Address Space ID
-    uint32_t kernel_cpsr;
 
     uint32_t code_size;
     uint32_t code_entry;
-    // uint32_t code_page_paddr;
-    // uint32_t code_page_vaddr;
-    // uint32_t data_page_paddr;
-    // uint32_t data_page_vaddr;
-    // uint32_t stack_page_paddr;
-    // uint32_t stack_page_vaddr;
-    // uint32_t heap_page_paddr;
-    // uint32_t heap_page_vaddr;
 
     struct list_head pages_head;
     uint32_t num_pages;
