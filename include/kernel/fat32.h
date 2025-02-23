@@ -66,6 +66,7 @@ typedef struct {
     uint32_t cluster_size;         /* Sectors per cluster * bytes per sector */
     uint32_t total_clusters;
     uint32_t total_sectors;
+    uint32_t fsinfo_sector;
 
     uint32_t first_data_sector;    /* The first sector of the data region */
     uint32_t fat_start_sector;     /* The first FAT's starting sector */
@@ -78,6 +79,7 @@ typedef struct {
  */
 typedef struct {
     fat32_fs_t *fs;            /* Reference to the mounted filesystem */
+    char formatted_name[11];   /* 8.3 formatted name */
     uint32_t start_cluster;    /* Starting cluster number from the directory entry */
     uint32_t current_cluster;  /* Current cluster number while reading */
     uint32_t current_cluster_index;  /* Index of last cluster */
@@ -286,5 +288,20 @@ typedef struct __attribute__((packed)) {
     uint16_t cluster;    // Zero for LFN
     uint16_t name3[2];  // Final 2 characters
 } Fat32LFNDirectoryEntry;
+
+typedef struct __attribute__((packed)) {
+    uint8_t  boot_flag;
+    uint8_t  start_chs[3];
+    uint8_t  partition_type;
+    uint8_t  end_chs[3];
+    uint32_t start_sector;
+    uint32_t total_sectors;
+} MBRPartitionEntry;
+
+typedef struct __attribute__((packed)) {
+    uint8_t           bootstrap[446];
+    MBRPartitionEntry partitions[4];
+    uint16_t          signature;
+} MBR;
 
 #endif

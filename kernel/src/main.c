@@ -130,7 +130,7 @@ void kernel_main(bootloader_t* _bootloader_info) {
     printk("Done!\n");
 
     int bytes;
-    if ((bytes = fat32_write(&file, "Hello World!\n", 13, 0)) < 0) {
+    if ((bytes = fat32_write(&file, "Hello W!\n", 9, 0)) < 0) {
         LOG(ERROR, "Failed to write to file!\n");
     };
     printk("Done #2, wrote %d bytes\n", bytes);
