@@ -11,6 +11,12 @@
 // Global root node, this is the root of the virtual filesystem at / (root)
 vfs_dentry_t* vfs_root_node = NULL;
 
+#define OPEN_MODE_READ      0x01
+#define OPEN_MODE_WRITE     0x02
+#define OPEN_MODE_APPEND    0x04
+#define OPEN_MODE_CREATE    0x08
+#define OPEN_MODE_TRUNCATE  0x10
+#define OPEN_MODE_DIRECTORY 0x20
 
 
 int vfs_default_open(vfs_dentry_t* entry, int flags) {
@@ -18,9 +24,15 @@ int vfs_default_open(vfs_dentry_t* entry, int flags) {
         return -EINVAL;
     }
 
+    // verify that mode flags are valid, for now we assume it is
     // create an open file structure for the node
     file_t* file = (file_t*)kmalloc(sizeof(file_t));
-    file->dirent = entry;
+    if (entry->mount) {
+        file->dirent = entry->mount->root;
+    } else {
+        file->dirent = entry;
+    }
+
     file->offset = 0;
     file->flags = flags; // TODO - flags should be handled
 
@@ -110,12 +122,113 @@ static int vfs_default_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffe
 //     return num_read;
 // }
 
+// Find a child node by name in a directory
+vfs_dentry_t* vfs_find_child(vfs_dentry_t* dir, const char* name) {
+    if (!dir || !S_ISDIR(dir->inode)) {
+        return NULL;
+    }
+
+    vfs_dentry_t* child = dir->first_child;
+    while (child != NULL) {
+        if (strcmp(child->name, name) == 0) {
+            return child;
+        }
+        child = child->next_sibling;
+    }
+
+    return NULL;
+}
+
+// vfs_dentry_t* vfs_default_lookup(vfs_dentry_t* entry, const char* name) {
+//     if (!name || name[0] != '/') {
+//         return NULL;
+//     }
+
+//     vfs_dentry_t* current = entry;
+//     char* path_copy = strdup(name);
+//     char* token = strtok(path_copy, "/");
+//     // uint32_t pos = strlen(token) + 1;
+//     while (token) {
+//         current = vfs_find_child(current, token);
+//         if (!current) {
+//             break;
+//         }
+
+//         // if the current node is a mount point, we need to traverse the mount point instead
+//         if (current->mount) {
+//             return current->mount->root->inode->ops->lookup(current->mount->root, name);
+//         }
+
+//         token = strtok(NULL, "/");
+//         // pos += strlen(token) + 1;
+//     }
+//     kfree(path_copy);
+//     return current;
+// }
+
+
+vfs_dentry_t* vfs_default_lookup(vfs_dentry_t* entry, const char* path) {
+    if (!path || path[0] != '/') {
+        return NULL; // Handle absolute paths only for simplicity
+    }
+
+    vfs_dentry_t* current = entry;
+    const char* current_pos = path;
+
+    // Skip leading '/'
+    current_pos++;
+
+    while (*current_pos != '\0') {
+        // Extract the next path component (e.g., "mnt", "fs", "file.txt")
+        const char* component_end = current_pos;
+        while (*component_end != '/' && *component_end != '\0') {
+            component_end++;
+        }
+        size_t component_len = component_end - current_pos;
+
+        // Copy the component into a buffer (e.g., "mnt")
+        char component[VFS_MAX_FILELEN + 1];
+        strncpy(component, current_pos, component_len);
+        component[component_len] = '\0';
+
+        // Find the child dentry for this component
+        current = vfs_find_child(current, component);
+        if (!current) {
+            return NULL; // Component not found
+        }
+
+        // Check if this dentry is a mount point
+        if (current->mount) {
+            // Calculate the remaining path after this component (e.g., "/file.txt" → "file.txt")
+            const char* remaining_path = component_end;
+            while (*remaining_path == '/') {
+                remaining_path++; // Skip slashes
+            }
+            if (*remaining_path == '\0') {
+                remaining_path = "/"; // Root of the mounted filesystem
+            }
+            // Delegate lookup to the mounted filesystem's root
+            return current->mount->root->inode->ops->lookup(current->mount->root, remaining_path);
+        }
+
+        // Advance to the next component
+        current_pos = component_end;
+        while (*current_pos == '/') {
+            current_pos++; // Skip slashes between components
+        }
+    }
+
+    return current; // Final dentry after traversal
+}
+
 
 
 vfs_ops_t vfs_ops = {
     .open = vfs_default_open,
     .close = vfs_default_close,
     .readdir = vfs_default_readdir,
+    .lookup = vfs_default_lookup,
+
 };
 
 // TODO finish filling dirent with rc
@@ -199,22 +312,7 @@ int vfs_remove_child(vfs_dentry_t* parent, vfs_dentry_t* child) {
     return 0;
 }
 
-// Find a child node by name in a directory
-vfs_dentry_t* vfs_find_child(vfs_dentry_t* dir, const char* name) {
-    if (!dir || !S_ISDIR(dir->inode)) {
-        return NULL;
-    }
 
-    vfs_dentry_t* child = dir->first_child;
-    while (child != NULL) {
-        if (strcmp(child->name, name) == 0) {
-            return child;
-        }
-        child = child->next_sibling;
-    }
-
-    return NULL;
-}
 
 void list_directories(vfs_dentry_t* dir) {
     if (!dir || !S_ISDIR(dir->inode)) {

@@ -23,6 +23,10 @@ void exit(int return_val) {
     __builtin_unreachable();
 }
 
+// int readdir(int fd, void *buf, size_t len) {
+//     return syscall_3(SYSCALL_READDIR_NO, fd, (uint32_t) buf, len);
+// }
+
 int open(const char *path, int flags, int mode) {
     return syscall_3(SYSCALL_OPEN_NO, (uint32_t) path, flags, mode);
 }

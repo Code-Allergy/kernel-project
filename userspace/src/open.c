@@ -3,14 +3,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <syscalls.h>
-#include <errno.h>
+#include <string.h>
 
 
 #define open(path, flags, mode) syscall_3(SYSCALL_OPEN_NO, (uint32_t)path, flags, mode)
 #define close(fd) syscall_1(SYSCALL_CLOSE_NO, fd)
 #define fork() syscall_0(SYSCALL_FORK_NO)
 #define readdir(fd, buf, len) syscall_3(SYSCALL_READDIR_NO, fd, buf, len);
-
 
 
 // userspace dirent structure
@@ -24,53 +23,49 @@ dirent_t some[8];
 int main(void) {
     printf("Hello World!\n");
     printf("Hello World over through user VFS over UART0!\n");
-    // int fd = open("/mnt", 0, 0);
-    // if (fd == 0) {
-    //     printf("OPEN OK!\n");
-    // } else {
-    //     printf("OPEN FAIL! %d\n", fd);
-    //     return -1;
-    // }
+    int fd = open("/mnt/elf", 0, 0);
+    if (fd < 0) {
+        printf("Error opening file! %d\n", fd);
+    } else {
+        printf("Opened file! %d\n", fd);
+    }
+
+
 
     // if (write(fd, "Hello world! From VFS!\n", 23) != 23) {
     //     printf("Error!\n");
     // }
 
-    // int read_dirs = readdir(fd, some, sizeof(some));
-    // printf("Read %d entries!\n", read_dirs);
-    // for (int i = 0; i < read_dirs; i++) {
-    //     printf("Entry %d: %s\n", i, some[i].d_name);
-    // }
-    // if (read_dirs == -ENOTDIR) {
-    //     printf("Not a directory! going to read 100 bytes\n");
-    //     char buf[100];
-    //     if (read(fd, buf, 100) != 100) {
-    //         printf("Read failed!\n");
-    //     } else {
-    //         // Ensure the last byte is null-terminated
-    //         buf[99] = '\0';
+    int read_dirs = readdir(fd, (uint32_t)some, sizeof(some));
+    printf("Reading dir /mnt/bin:\n", read_dirs);
+    for (int i = 0; i < read_dirs; i++) {
+        printf("Entry %d: %s\n", i, some[i].d_name);
+    }
 
-    //         // Print out raw data as hex to show that 100 bytes were read (0x00 in this case)
-    //         printf("Read 100 bytes: ");
-    //         for (int i = 0; i < 100; ++i) {
-    //             printf("%c ", (unsigned char)buf[i]);
-    //         }
-    //         printf("\n");
+    printf("Trying to open null.elf\n");
+    int fd2 = open("/mnt/elf/null.elf", 0, 0);
+    if (fd2 < 0) {
+        printf("Error opening file! %d\n", fd2);
+    } else {
+        printf("Opened file! %d\n", fd2);
+    }
 
-    //         // Optionally print out the null-terminated string if applicable (in case it's printable)
-    //         printf("Null-terminated string: %s\n", buf);
-    //     }
-    // } else {
-
-    // }
+    printf("Reading first bytes\n");
+    char elf_header[4];
+    int read_bytes = read(fd2, elf_header, 4);
+    if (read_bytes != 4) {
+        printf("Error reading file! %d\n", read_bytes);
+    } else {
+        printf("Read bytes: %c%c%c%c\n", elf_header[0], elf_header[1], elf_header[2], elf_header[3]);
+    }
 
 
-    // int res = close(fd);
-    // if (res == 0) {
-    //     printf("CLOSE OK!");
-    // } else {
-    //     printf("CLOSE FAIL! %d", res);
-    // }
+    int res = close(fd);
+    if (res == 0) {
+        printf("CLOSE OK!");
+    } else {
+        printf("CLOSE FAIL! %d", res);
+    }
 
     // if (fork() == 0) {
     //     printf("I am the child\n");

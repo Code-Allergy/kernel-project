@@ -27,7 +27,6 @@ typedef struct vfs_inode {
     dev_t dev;                   // Device ID for device files
     struct device_ops* dev_ops;  // Device-specific operations
 
-    // struct vfs_mount* mount;        // Mounted filesystem -- when we switch to full inode based vfs
     struct vfs_ops* ops;            // Filesystem operations
     void* private_data;             // Filesystem-specific data
     uint32_t ref_count;             // Reference count for open files
@@ -40,7 +39,7 @@ typedef struct vfs_dentry {
     struct vfs_dentry* parent;
     struct vfs_dentry* first_child;
     struct vfs_dentry* next_sibling;
-    struct vfs_mount* mount;        // Mounted filesystem - until we switch to full inode based vfs
+    struct vfs_mount* mount;        // Mounted filesystem
 } vfs_dentry_t;
 
 // userspace dirent structure
@@ -49,7 +48,7 @@ typedef struct dirent {
     char d_name[VFS_MAX_FILELEN];  // Filename
 } dirent_t;
 
-typedef int32_t ssize_t;
+
 typedef size_t off_t;
 
 
@@ -68,14 +67,7 @@ typedef struct vfs_ops {
     write_fn write;
     readdir_fn readdir;
     lookup_fn lookup;
-
-    // todo - block device
-    ssize_t (*read_block)(vfs_inode_t* inode, void* buffer, size_t count, uint64_t block);
-    ssize_t (*write_block)(vfs_inode_t* inode, const void* buffer, size_t count, uint64_t block);
-
 } vfs_ops_t;
-
-void vfs_init(void);
 
 // File system operations
 typedef struct filesystem_ops {
@@ -109,10 +101,11 @@ typedef struct device_ops {
 } device_ops_t;
 
 // File types
-#define VFS_DIR 0x4000
-#define VFS_REG 0x8000
 #define VFS_CHR 0x2000
+#define VFS_DIR 0x4000
 #define VFS_BLK 0x6000
+#define VFS_REG 0x8000
+
 
 #define S_ISBLK(node) (((node)->mode & VFS_BLK) == VFS_BLK)
 #define S_ISCHR(node) (((node)->mode & VFS_CHR) == VFS_CHR)
@@ -148,6 +141,8 @@ extern vfs_dentry_t* vfs_root_node;
 // FAT32 filesystem
 extern filesystem_type_t fat32_filesystem_type;
 extern vfs_ops_t fat32_filesystem_ops;
+
+void vfs_init(void);
 
 int vfs_default_open(vfs_dentry_t* entry, int flags);
 int vfs_default_close(int fd);

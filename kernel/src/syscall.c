@@ -69,12 +69,11 @@ DEFINE_SYSCALL0(yield) {
 }
 END_SYSCALL
 
-// will be syscall4 later
-DEFINE_SYSCALL3(open, const char*, path, int, flags, int, mode) {
+// for now
+DEFINE_SYSCALL2(open, const char*, path, int, flags) {
     if (!path) return -EINVAL;
 
-    // vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
-    vfs_dentry_t* dentry = vfs_finddir(path);
+    vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
     if (!dentry) {
         return -ENOENT; // No such file or directory
     }
@@ -229,7 +228,7 @@ const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
     [SYS_GETPID]       = {{.fn0 = sys_getpid},        "getpid",        0},
     [SYS_YIELD]        = {{.fn0 = sys_yield},          "yield",        0},
-    [SYS_OPEN]         = {{.fn3 = sys_open},           "open",         3},
+    [SYS_OPEN]         = {{.fn2 = sys_open},           "open",         2},
     [SYS_CLOSE]        = {{.fn1 = sys_close},          "close",        1},
     [SYS_FORK]         = {{.fn0 = sys_fork},           "fork",         0},
     [SYS_READDIR]      = {{.fn3 = sys_readdir},        "readdir",      3},

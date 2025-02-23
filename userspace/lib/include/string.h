@@ -4,4 +4,5 @@
 int strlen(const char *str);
 int strcpy(char *dest, const char *src);
 
+
 #endif

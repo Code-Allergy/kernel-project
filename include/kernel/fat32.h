@@ -189,6 +189,8 @@ int fat32_read_fat_entry(fat32_fs_t *fs, uint32_t cluster);
 
 void fat32_format_name(const char *input, char* formatted_name);
 
+uint32_t fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr);
+
 
 extern const fat32_diskio_t mmc_fat32_diskio;
 
@@ -240,5 +242,17 @@ typedef struct __attribute__((packed)) {
     uint16_t firstClusterLow; // Low word of first cluster number
     uint32_t fileSize;        // File size in bytes
 } Fat32DirectoryEntry;
+
+
+typedef struct __attribute__((packed)) {
+    uint8_t sequence_number;
+    uint16_t name1[5];   // First 5 characters (UTF-16LE)
+    uint8_t attr;        // Always 0x0F for LFN
+    uint8_t type;        // Zero for LFN
+    uint8_t checksum;
+    uint16_t name2[6];  // Next 6 characters
+    uint16_t cluster;    // Zero for LFN
+    uint16_t name3[2];  // Final 2 characters
+} Fat32LFNDirectoryEntry;
 
 #endif

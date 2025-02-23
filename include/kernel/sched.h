@@ -7,10 +7,10 @@
 
 #include <stdint.h>
 
-#define MAX_PROCESSES 1024
+#define MAX_PROCESSES 128
 #define MAX_ASID 255  // ARMv7 supports 8-bit ASIDs (0-255)
 #define NULL_PROCESS_FILE "/elf/null.elf"
-#define INIT_PROCESS_FILE "/elf/sleep.elf"
+#define INIT_PROCESS_FILE "/elf/open.elf"
 
 /* Process state definitions */
 #define PROCESS_RUNNING  1
@@ -21,7 +21,7 @@
 #define PROCESS_NONE     0
 
 /* Kernel ticks until scheduler force reschedules */
-#define SCHEDULER_PREEMPT_TICKS 8 // should be a power of 2 ideally for faster modulo
+#define SCHEDULER_PREEMPT_TICKS 2 // should be a power of 2 ideally for faster modulo
 
 struct cpu_regs {
     uint32_t r0;  // 0

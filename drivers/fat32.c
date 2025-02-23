@@ -4,8 +4,9 @@
 #include <kernel/panic.h>
 #include <stdint.h>
 
-int fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr, uint32_t* next) {
-    if (!fs || !next) {
+uint32_t fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr) {
+    uint32_t value;
+    if (!fs) {
         return FAT32_ERROR_BAD_PARAMETER;
     }
 
@@ -30,18 +31,18 @@ int fat32_get_next_cluster(fat32_fs_t* fs, uint32_t curr, uint32_t* next) {
     entry |= buffer[entry_offset + 1] << 8;
     entry |= buffer[entry_offset + 2] << 16;
     entry |= buffer[entry_offset + 3] << 24;
-    *next = entry & 0x0FFFFFFF;
+    value = entry & 0x0FFFFFFF;
 
     // Check for special cluster values
-    if (*next >= 0x0FFFFFF8) {
-        *next = FAT32_EOC_MARKER;
-    } else if (*next == 0x0FFFFFF7) {
+    if (value >= 0x0FFFFFF8) {
+        value = FAT32_EOC_MARKER;
+    } else if (value == 0x0FFFFFF7) {
         return FAT32_ERROR_IO;
-    } else if (*next < 2) { // Check for reserved clusters
+    } else if (value < 2) { // Check for reserved clusters
         return FAT32_ERROR_CORRUPTED_FS;
     }
 
-    return 0;
+    return value;
 }
 
 static int get_cluster_at_index(fat32_fs_t *fs, uint32_t start_cluster, uint32_t index, uint32_t *target_cluster) {
@@ -51,11 +52,7 @@ static int get_cluster_at_index(fat32_fs_t *fs, uint32_t start_cluster, uint32_t
 
     uint32_t current_cluster = start_cluster;
     for (uint32_t i = 0; i < index; ++i) {
-        uint32_t next_cluster;
-        int result = fat32_get_next_cluster(fs, current_cluster, &next_cluster);
-        if (result != FAT32_SUCCESS) {
-            return result;
-        }
+        uint32_t next_cluster = fat32_get_next_cluster(fs, current_cluster);
 
         // Check if next_cluster is EOC prematurely
         if (next_cluster == FAT32_EOC_MARKER) { // Assuming is_eoc() checks for EOC range
@@ -426,12 +423,7 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
         file->current_cluster = target_cluster;
         // If more data is needed, move to the next cluster
         if (bytes_to_read > 0) {
-            uint32_t next_cluster;
-            result = fat32_get_next_cluster(fs, target_cluster, &next_cluster);
-            if (result != FAT32_SUCCESS) {
-                printk("Non success from fat32_get_next_cluster!\n");
-                return bytes_read > 0 ? (int)bytes_read : result;
-            }
+            uint32_t next_cluster = fat32_get_next_cluster(fs, target_cluster);
             if (next_cluster >= FAT32_LAST_MARKER || next_cluster == FAT32_EOC_MARKER) {
                 printk("End of cluster chain!\n");
                 break; // End of cluster chain

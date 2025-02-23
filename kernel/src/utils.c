@@ -88,38 +88,6 @@ char* strncpy(char* dest, const char* src, unsigned int n) {
     return start;
 }
 
-// char* strchr(const char* str, int c) {
-//     while (*str != '\0') {
-//         if (*str == c) {
-//             return (char*)str;
-//         }
-//         str++;
-//     }
-//     return NULL;
-// }
-
-// char* strtok(char* str, const char* delim) {
-//     static char* buffer = NULL;
-//     if (str != NULL) {
-//         buffer = str;
-//     }
-//     if (buffer == NULL) {
-//         return NULL;
-//     }
-//     char* start = buffer;
-//     char* end = buffer;
-//     while (*end != '\0') {
-//         if (strchr(delim, *end) != NULL) {
-//             *end = '\0';
-//             buffer = end + 1;
-//             return start;
-//         }
-//         end++;
-//     }
-//     buffer = NULL;
-//     return start;
-// }
-
 char* strchr(const char* str, int c) {
     while (*str != '\0') {
         if (*str == c) {
@@ -172,15 +140,6 @@ char* strtok(char* str, const char* delim) {
     return start;
 }
 
-// int toupper(char* str) {
-//     while (*str != '\0') {
-//         if (*str >= 'a' && *str <= 'z') {
-//             *str = *str - 'a' + 'A';
-//         }
-//         str++;
-//     }
-//     return 0;
-// }
 int toupper(int c) {
     if (c >= 'a' && c <= 'z') {
         return c - 'a' + 'A';
@@ -268,5 +227,47 @@ int strcmp(const char* str1, const char* str2) {
     }
     return *str1 - *str2;
 }
+
+int strncmp(const char* str1, const char* str2, unsigned int n) {
+    while (*str1 != '\0' && *str2 != '\0' && n > 0) {
+        if (*str1 != *str2) {
+            return *str1 - *str2;
+        }
+        str1++;
+        str2++;
+        n--;
+    }
+    return 0;
+}
+
+char* strcat(char* dest, const char* src) {
+    char* start = dest;
+    while (*dest != '\0') {
+        dest++;
+    }
+    while (*src != '\0') {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+    *dest = '\0';
+    return start;
+}
+
+char* strncat(char* dest, const char* src, unsigned int n) {
+    char* start = dest;
+    while (*dest != '\0') {
+        dest++;
+    }
+    while (*src != '\0' && n > 0) {
+        *dest = *src;
+        dest++;
+        src++;
+        n--;
+    }
+    *dest = '\0';
+    return start;
+}
+
 
 // string format types into a buffer
