@@ -76,8 +76,11 @@ DEFINE_SYSCALL2(open, const char*, path, int, flags) {
     if (!path) return -EINVAL;
 
     vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
+
     if (!dentry) {
-        return -ENOENT; // No such file or directory
+        if (!(flags & O_CREAT)) return -ENOENT; // no file and no create flag
+        // TODO handle flag
+        // find the parent directory instead
     }
 
     // check if the inode has operations and an open function

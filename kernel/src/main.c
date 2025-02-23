@@ -121,21 +121,26 @@ void kernel_main(bootloader_t* _bootloader_info) {
     // setup dynamic managed stacks better
 
 
-    fat32_mount(&fs, &mmc_fat32_diskio);
-    printk("entering create\n");
-    fat32_create(&fs, "test1");
-    if (fat32_open(&fs, "test1", &file)) {
-        LOG(ERROR, "Failed to open file!\n");
-    }
-    printk("Done!\n");
+    // fat32_mount(&fs, &mmc_fat32_diskio);
+    // printk("entering create\n");
+    // fat32_create(&fs, "test1");
+    // if (fat32_open(&fs, "test1", &file)) {
+    //     LOG(ERROR, "Failed to open file!\n");
+    // }
+    // printk("Done!\n");
 
-    int bytes;
-    if ((bytes = fat32_write(&file, "Hello W!\n", 9, 0)) < 0) {
-        LOG(ERROR, "Failed to write to file!\n");
-    };
-    printk("Done #2, wrote %d bytes\n", bytes);
+    // int bytes;
+    // if ((bytes = fat32_write(&file, "Hello W!\n", 9, 0)) < 0) {
+    //     LOG(ERROR, "Failed to write to file!\n");
+    // };
+    // printk("Done #2, wrote %d bytes\n", bytes);
 
-    while(1);
+    // if ((bytes = fat32_write(&file, "Hello W!\n", 9, 9)) < 0) {
+    //     LOG(ERROR, "Failed to write to file!\n");
+    // };
+    // printk("Done #2, wrote %d bytes\n", bytes);
+
+    // while(1);
     // setup vfs
     vfs_init();
 

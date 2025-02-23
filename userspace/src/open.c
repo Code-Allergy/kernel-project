@@ -5,11 +5,18 @@
 #include <syscalls.h>
 
 
-#define open(path, flags, mode) syscall_3(SYSCALL_OPEN_NO, (uint32_t)path, flags, mode)
+#define open(path, flags) syscall_2(SYSCALL_OPEN_NO, (uint32_t)path, flags)
 #define close(fd) syscall_1(SYSCALL_CLOSE_NO, fd)
 #define fork() syscall_0(SYSCALL_FORK_NO)
 #define readdir(fd, buf, len) syscall_3(SYSCALL_READDIR_NO, fd, buf, len);
 
+#define O_CREAT 0x40
+#define O_RDONLY 0x00
+#define O_WRONLY 0x01
+#define O_RDWR 0x02
+#define O_APPEND 0x08
+#define O_TRUNC 0x10
+#define O_EXCL 0x20
 
 // userspace dirent structure
 typedef struct dirent {
@@ -22,7 +29,7 @@ dirent_t some[8];
 int main(void) {
     printf("Hello World!\n");
     printf("Hello World over through user VFS over UART0!\n");
-    int fd = open("/mnt/elf", 0, 0);
+    int fd = open("/mnt/elf", 0);
     if (fd < 0) {
         printf("Error opening file! %d\n", fd);
     } else {
@@ -42,7 +49,7 @@ int main(void) {
     }
 
     printf("Trying to open null.elf\n");
-    int fd2 = open("/mnt/elf/sh.elf", 0, 0);
+    int fd2 = open("/mnt/elf/sh.elf", 0x10101010);
     if (fd2 < 0) {
         printf("Error opening file! %d\n", fd2);
     } else {
@@ -71,12 +78,25 @@ int main(void) {
         printf("Read string: %s\n", buffer);
     }
 
+    // int fd1 = open("/mnt/log.txt", O_CREAT);
+    // if (fd1 < 0) {
+    //     printf("Error opening file! %d\n", fd1);
+    // } else {
+    //     printf("Opened log file! %d\n", fd1);
+    // }
 
     int res = close(fd);
     if (res == 0) {
         printf("CLOSE OK!");
     } else {
         printf("CLOSE FAIL! %d", res);
+    }
+
+    int res2 = close(fd2);
+    if (res2 == 0) {
+        printf("CLOSE OK!");
+    } else {
+        printf("CLOSE FAIL! %d", res2);
     }
 
     // if (fork() == 0) {

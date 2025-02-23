@@ -113,6 +113,10 @@ static int fat32_vfs_open(vfs_dentry_t* dirent, int flags) {
         panic("OUT of memory");
     }
 
+    // get real path on the filesystem
+
+
+
     // FOR NOW, we are reading /mnt (/) so lets just do that.
     if (fat32_open(inode_private->fs, "/elf", file) != 0) {
         return -1;

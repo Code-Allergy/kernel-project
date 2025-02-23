@@ -8,6 +8,14 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#define O_CREAT 0x40
+#define O_RDONLY 0x00
+#define O_WRONLY 0x01
+#define O_RDWR 0x02
+#define O_APPEND 0x08
+#define O_TRUNC 0x10
+#define O_EXCL 0x20
+
 typedef size_t ino_t;
 
 /* Per–process file descriptor table entry */

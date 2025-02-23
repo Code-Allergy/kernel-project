@@ -11,6 +11,7 @@
 #define FAT32_ERROR_CORRUPTED_FS        -5
 #define FAT32_ERROR_NO_SPACE            -6
 #define FAT32_ERROR_NO_DIR              -7
+#define FAT32_ERROR_INVALID_PATH        -8
 #define FAT32_SUCCESS                    0
 #define FAT32_EOC                        1
 

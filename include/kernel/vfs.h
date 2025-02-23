@@ -90,6 +90,7 @@ typedef struct vfs_mount {
     void* fs_data;                  // Filesystem-specific data
 } vfs_mount_t;
 
+// TODO - later
 typedef struct device_ops {
     /* Block device operations */
     ssize_t (*read_block)(dev_t dev, void* buffer, size_t count, uint64_t block_num);
