@@ -20,6 +20,9 @@ CFLAGS = -g -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -nostdinc -ffreestanding -
 # LDFLAGS = -Llib -L$(GCC_LIB_DIR) --entry _start
 LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
 
+# for now, we load everything in one region
+LDFLAGS += --no-warn-rwx-segments
+
 LDLIBS = -losc -lgcc
 
 

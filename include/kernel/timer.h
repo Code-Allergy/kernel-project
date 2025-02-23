@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 
-#define KERNEL_HEARTBEAT_TIMER 3000 // should be in USEC and should be universal for all platforms
+#define KERNEL_HEARTBEAT_TIMER 1000 // should be in USEC and should be universal for all platforms
 #define MAX_TIMERS 16
 
 typedef void (*timer_callback_t)(void);
@@ -34,6 +34,7 @@ typedef struct {
 
     // get global ticks
     uint64_t (*get_ticks)(void);
+    uint64_t (*get_tickrate)(void);
 
     // get global ticks as nanoseconds
     uint64_t (*ticks_to_ns)(uint64_t ticks);

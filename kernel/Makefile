@@ -33,8 +33,9 @@ DRIVERS_DIR     = $(DRIVERS_BASE)/qemu
 LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 # Set flags
+# soft float for now, until we can build libgcc with hard float and enable saving FPU registers in switch
 CFLAGS := -Wall -Wextra -Wpedantic \
-         -mcpu=cortex-a8 -marm -mfpu=neon \
+         -mcpu=cortex-a8 -marm -mfpu=neon -mfloat-abi=soft \
          -ffreestanding -nostdlib -nostdinc \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
@@ -42,9 +43,9 @@ CFLAGS := -Wall -Wextra -Wpedantic \
          -MMD -MP
 
 # Optimization flags
-# CFLAGS += -g -O0
+CFLAGS += -g -O0
 # CFLAGS += -fstack-protector-all -fstack-protector-none -O0 -DDEBUG
-CFLAGS += -fno-stack-protector -O2
+# CFLAGS += -fno-stack-protector -O2
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 

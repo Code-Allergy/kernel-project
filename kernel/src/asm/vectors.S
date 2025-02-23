@@ -23,7 +23,6 @@ fiq_addr:      .word fiq_handler
 
 /* Default handlers */
 
-
 .section .text
 reset_handler:
 fiq_handler: /* No FIQ hardware on AM335x */
@@ -101,8 +100,8 @@ irq_handler_new:
     @ save stack pointer for passing to C handler
     MOV     R0, SP                      @ Get system mode SP
 
-    @ switch back to IRQ mode
-    CPS     #0x12                       @ Switch to IRQ mode
+    @ switch to supervisor mode to handle the interrupt
+    CPS     #0x13                       @ Switch to IRQ mode
 
     BL      handle_irq_c               @ Call C handler
     B      userspace_return
@@ -128,40 +127,31 @@ irq_from_kernel:
 
 swi_stack_handler:
     @ Save critical registers and LR/SPSR to Supervisor stack
-    STMFD   SP!, {R0, LR}      @ Save R0-R3 and Supervisor LR
+    STMFD   SP!, {R0, LR}      @ Save R0 and Supervisor LR
     MRS     R0, SPSR              @ Get user's CPSR from SPSR
     STMFD   SP!, {R0}             @ Save SPSR to Supervisor stack
 
     @ Switch to System mode (user registers now accessible)
     CPS     #0x1F
-
-    @ Allocate space on user stack for full context
     SUB     SP, SP, #64           @ 16 registers * 4 = 64 bytes
 
     @ Save user's R0-R12 and LR (System mode's registers)
     STMIA   SP, {R0-R12, LR}      @ Safe: uses user's actual registers
+    MOV     R0, SP                @ R0 = user's SP
 
     @ Switch back to Supervisor mode to retrieve saved LR/SPSR
     CPS     #0x13
-    LDMFD   SP!, {R0}             @ R0 = user's CPSR (from SPSR)
-    LDMFD   SP!, {R1, LR}      @ Restore R0-R3, LR (SWI return address)
-    MOV     R5, LR                @ Save LR for later
+    LDMFD   SP!, {R1}             @ R1 = user's CPSR (from SPSR)
+    LDMFD   SP!, {R2, LR}         @ R2 = user's R0, LR = user's LR
 
-    @ Switch to System mode to save PC/CPSR to user stack
-    CPS     #0x1F
-    @ Store R0-R3 (which are in R1-R4) to user stack
-    STR     R1, [SP, #0]         @ Save R0 at offset 0
-@    STR     R2, [SP, #4]         @ Save R1 at offset 4
-@    STR     R3, [SP, #8]         @ Save R2 at offset 8
-@    STR     R4, [SP, #12]        @ Save R3 at offset 12
-
-    STR     R5, [SP, #60]         @ Save PC at offset 60
-    STR     R0, [SP, #56]         @ Save CPSR at offset 56
+    @ Store R0 and PC(lr) and CPSR to user stack
+    STR     R2, [R0, #0]         @ Save R0 at offset 0
+    STR     R1, [R0, #56]         @ Save CPSR at offset 56
+    STR     LR, [R0, #60]         @ Save PC at offset 60
 
     @ Pass arguments to handle_svc_c and switch back to Supervisor mode for the call
-    MOV     R1, SP                @ User stack pointer (context)
+    MOV     R1, R0                @ User stack pointer (context)
     MOV     R0, R7                @ Syscall number (from R7)
-    CPS     #0x13                 @ Back to Supervisor mode
 
     BL      handle_svc_c
     B       userspace_return
