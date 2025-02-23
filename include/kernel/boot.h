@@ -2,7 +2,7 @@
 #define KERNEL_BOOT_H
 
 #include <stdint.h>
-#include <utils.h>
+#include <stddef.h>
 #include <kernel/mm.h>
 
 extern void setup_stacks(void);
@@ -75,6 +75,9 @@ typedef struct {
     printk("Bootloader failed at stage: " msg " (Error %d) on line %d in file %s\n", res, __LINE__, __FILE__); \
     goto bootloader_fail; \
 }
+
+// utils.c
+uint32_t calculate_checksum(const void *data, size_t len);
 
 // TODO checksum, versioning, flags, other things
 #define JUMP_KERNEL(kernel) do {  \

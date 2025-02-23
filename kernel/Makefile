@@ -22,6 +22,7 @@ RM          = rm -rf
 
 # Directories
 SRC_DIR         = src
+ASM_DIR         = asm
 BASE_INCLUDE    = ../include
 DRIVERS_BASE    = ../drivers
 
@@ -61,12 +62,12 @@ LDLIBS = -lgcc
 
 # My kernel code
 KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/**/*.c) $(wildcard $(SRC_DIR)/*.c)
-KERNEL_ASM_SRCS    = $(wildcard $(SRC_DIR)/*.S)
+KERNEL_ASM_SRCS    = $(wildcard $(SRC_DIR)/$(ASM_DIR)/*.S)
 DRIVER_SRCS        = $(wildcard $(DRIVERS_DIR)/*.c)
 BASE_DRIVER_SRCS   = $(wildcard $(DRIVERS_BASE)/*.c)
 
 KERNEL_OBJS 	   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS))
-KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/%.S,$(BUILD_DIR)/kernel/%.o,$(KERNEL_ASM_SRCS))
+KERNEL_ASM_OBJS    = $(patsubst $(SRC_DIR)/$(ASM_DIR)/%.S,$(BUILD_DIR)/kernel/$(ASM_DIR)/%.o,$(KERNEL_ASM_SRCS))
 DRIVER_OBJS        = $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/drivers-$(PLATFORM)/%.o,$(DRIVER_SRCS))
 BASE_DRIVER_OBJS   = $(patsubst $(DRIVERS_BASE)/%.c,$(BUILD_DIR)/drivers/%.o,$(BASE_DRIVER_SRCS))
 
@@ -106,7 +107,7 @@ $(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)/kernel
 	@$(MKDIR) $(@D)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)/kernel
+$(BUILD_DIR)/kernel/$(ASM_DIR)/%.o: $(SRC_DIR)/$(ASM_DIR)/%.S | $(BUILD_DIR)/kernel/$(ASM_DIR)
 	@echo "[ASM]     Kernel ASM: $<"
 	@$(CC) $(CFLAGS) -E $< -o $(BUILD_DIR)/kernel/$*.i
 	@$(AS) $(ASFLAGS) $(BUILD_DIR)/kernel/$*.i -o $@
@@ -131,6 +132,9 @@ $(BUILD_DIR):
 	@$(MKDIR) $@
 
 $(BUILD_DIR)/kernel:
+	@$(MKDIR) $@
+
+$(BUILD_DIR)/kernel/$(ASM_DIR):
 	@$(MKDIR) $@
 
 ################################################################################################

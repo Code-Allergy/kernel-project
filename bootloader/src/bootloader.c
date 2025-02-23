@@ -98,7 +98,6 @@ void loader(void){
         printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);
         goto bootloader_fail;
     }
-    // init_scr();
 
     /* jump to kernel memory space */
     JUMP_KERNEL(kernel);
