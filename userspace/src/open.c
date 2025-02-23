@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <syscalls.h>
-#include <string.h>
 
 
 #define open(path, flags, mode) syscall_3(SYSCALL_OPEN_NO, (uint32_t)path, flags, mode)
@@ -43,7 +42,7 @@ int main(void) {
     }
 
     printf("Trying to open null.elf\n");
-    int fd2 = open("/mnt/elf/null.elf", 0, 0);
+    int fd2 = open("/mnt/elf/hello.txt", 0, 0);
     if (fd2 < 0) {
         printf("Error opening file! %d\n", fd2);
     } else {
@@ -51,12 +50,12 @@ int main(void) {
     }
 
     printf("Reading first bytes\n");
-    char elf_header[4];
-    int read_bytes = read(fd2, elf_header, 4);
-    if (read_bytes != 4) {
+    char elf_header[12];
+    int read_bytes = read(fd2, elf_header, 12);
+    if (read_bytes != 12) {
         printf("Error reading file! %d\n", read_bytes);
     } else {
-        printf("Read bytes: %c%c%c%c\n", elf_header[0], elf_header[1], elf_header[2], elf_header[3]);
+        printf("Read string: %s\n", elf_header);
     }
 
 

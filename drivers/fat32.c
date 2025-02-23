@@ -256,12 +256,9 @@ int fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const c
                 // Check if entry is empty or deleted
                 if (current_entry->filename[0] == 0x00) {
                     // End of directory
-                    printk("End\n");
                     return -1; // TODO: Return proper error code
                 }
                 if (current_entry->filename[0] == 0xE5) {
-                    printk("Deleted\n");
-                    // Deleted entry, skip
                     continue;
                 }
 
@@ -378,15 +375,12 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
             remaining -= cluster_size;
             file->file_offset += cluster_size;
         } else {
-
-
             // Calculate starting sector and position within the cluster
             uint32_t cluster_start_sector = fat32_cluster_to_sector(fs, target_cluster);
             uint32_t sector_offset = cluster_offset % fs->bytes_per_sector;
             uint32_t sector_in_cluster = cluster_offset % fs->bytes_per_sector;
             uint32_t current_sector = cluster_start_sector + sector_in_cluster;
 
-            // printk("Writing %d bytes, remaining: %d\n", bytes_to_read, remaining - bytes_to_read);
             // Read sectors within the cluster until we fulfill the request or exhaust the cluster
             while (bytes_to_read > 0) {
                 uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(8)));
@@ -425,7 +419,6 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
         if (bytes_to_read > 0) {
             uint32_t next_cluster = fat32_get_next_cluster(fs, target_cluster);
             if (next_cluster >= FAT32_LAST_MARKER || next_cluster == FAT32_EOC_MARKER) {
-                printk("End of cluster chain!\n");
                 break; // End of cluster chain
             }
         }
