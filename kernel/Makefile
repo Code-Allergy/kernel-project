@@ -60,7 +60,7 @@ LDFLAGS += --gc-sections
 LDLIBS = -lgcc
 
 # My kernel code
-KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/*.c)
+KERNEL_SRCS 	   = $(wildcard $(SRC_DIR)/**/*.c) $(wildcard $(SRC_DIR)/*.c)
 KERNEL_ASM_SRCS    = $(wildcard $(SRC_DIR)/*.S)
 DRIVER_SRCS        = $(wildcard $(DRIVERS_DIR)/*.c)
 BASE_DRIVER_SRCS   = $(wildcard $(DRIVERS_BASE)/*.c)
