@@ -7,6 +7,8 @@ vfs for fat32 so we can start on making a basic shell
 
 debug elf loading - data section access error? loading unknown address
 
+critical bug logging and instability with O2 optimization
+
 general:
 managed stacks for all kernel modes instead of static (system, irq, svc, abt, und)
 ipc to support message passing between processes

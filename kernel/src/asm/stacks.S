@@ -1,6 +1,8 @@
 .global setup_stacks
-setup_stacks:
+setup_stacks: // setup stacks for all modes and switch to SVC mode in the kernel.
     // no hardware support for FIQs, we don't setup a stack for it
+
+    MOV r1, lr
 
     // Switch to IRQ mode
     mrs r0, cpsr
@@ -29,12 +31,5 @@ setup_stacks:
     orr r0, r0, #0x13       // SVC mode (0x13)
     msr cpsr_c, r0
     ldr sp, =svc_stack_top - 4
-
-    // Switch to System mode
-    mrs r0, cpsr
-    bic r0, r0, #0x1F
-    orr r0, r0, #0x1F       // System mode (0x1F)
-    msr cpsr_c, r0
-    ldr sp, =sys_stack_top - 4
-
+    MOV lr, r1
     bx lr

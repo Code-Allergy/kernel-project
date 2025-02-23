@@ -91,10 +91,6 @@ __attribute__((noreturn))void enter_userspace(void) {
     LOG(INFO, "Jumping to PID 0\n");
     log_consume(); // flush the log buffer
 
-    // switch to svc mode
-    __asm__ volatile("cps #0x13");
-
-
     scheduler();
 
     panic("Reached end of start_userspace, something bad happened in scheduler!");
@@ -102,15 +98,16 @@ __attribute__((noreturn))void enter_userspace(void) {
 }
 
 #ifndef BOOTLOADER
-__attribute__((section(".text.kernel_main"), noreturn)) void kernel_main(bootloader_t* _bootloader_info) {
-    setup_stacks();
+__attribute__((section(".text.kernel_main"), noreturn))
+void kernel_main(bootloader_t* _bootloader_info) {
+    setup_stacks();      // switches mode to SVC
     init_kernel_pages();
 
     for (size_t i = 0; i < sizeof(bootloader_t); i++) ((char*)&bootloader_info)[i] = ((char*)_bootloader_info)[i]; // copy bootloader into memory controlled by the kernel
     if (bootloader_info.magic != 0xFEEDFACE) panic("Invalid bootloader magic: %x\n", bootloader_info.magic);
     init_stack_canary();
-
     init_kernel_hardware(); // initialize the most basic hardware
+
     LOG(INFO, "Kernel starting - version %s\n", GIT_VERSION);
     LOG(INFO, "Kernel base address %p\n", kernel_main);
     LOG(INFO, "Finished initializing critical hardware\n");
