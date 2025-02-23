@@ -46,7 +46,7 @@ process_t* spawn_elf_init_process(const char* file_path) {
         printk("Failed to allocate buffer for ELF\n");
         return NULL;
     }
-    if ((uint32_t)fat32_read(&userspace_application, buffer, userspace_application.file_size) != userspace_application.file_size) {
+    if ((uint32_t)fat32_read(&userspace_application, buffer, userspace_application.file_size, 0) != userspace_application.file_size) {
         printk("Init process not read fully off disk\n");
         return NULL;
     };

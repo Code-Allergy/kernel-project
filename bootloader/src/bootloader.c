@@ -93,7 +93,7 @@ void loader(void){
     CHECK_FAIL(kernel.file_size == 0, "Kernel image is empty");
 
     /* Read kernel into DRAM */
-    if ((res = fat32_read(&kernel, (void*)KERNEL_ENTRY, kernel.file_size)) < 0
+    if ((res = fat32_read(&kernel, (void*)KERNEL_ENTRY, kernel.file_size, 0)) < 0
         || res != (int)kernel.file_size) {
         printk("Bootloader failed: Failed to read entire kernel into memory! (Read %d bytes, expected %d)\n", res, kernel.file_size);
         goto bootloader_fail;

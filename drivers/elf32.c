@@ -29,8 +29,14 @@ int test_elf32(void) {
         return -1;
     }
 
+    uint8_t* bytes = (uint8_t*)kmalloc(userspace_application.file_size);
+    if (!bytes) {
+        printk("Failed to allocate memory for init process\n");
+        return -1;
+    }
 
-    if ((uint32_t)fat32_read(&userspace_application, bytes, 16384) != userspace_application.file_size) {
+
+    if ((uint32_t)fat32_read(&userspace_application, bytes, 16384, 0) != userspace_application.file_size) {
         printk("Init process not read fully off disk\n");
         return -1;
     };

@@ -59,6 +59,7 @@ typedef struct {
     uint8_t  num_fats;
     uint32_t sectors_per_fat;      /* For FAT32, BPB_FATSz32 */
     uint32_t root_cluster;         /* For FAT32, BPB_RootClus */
+    uint32_t cluster_size;         /* Sectors per cluster * bytes per sector */
 
     uint32_t first_data_sector;    /* The first sector of the data region */
     uint32_t fat_start_sector;     /* The first FAT's starting sector */
@@ -133,9 +134,10 @@ int fat32_open(fat32_fs_t *fs, const char *path, fat32_file_t *file);
  * @param file         Pointer to an open fat32_file_t.
  * @param buffer       Pointer to the destination buffer.
  * @param size         Number of bytes to read.
+ * @param offset       Offset into the file to start reading.
  * @return             Real bytes read on success, or an error code.
  */
-int fat32_read(fat32_file_t *file, void *buffer, int size);
+ int fat32_read(fat32_file_t *file, void *buffer, int size, int offset);
 
 
 /**
@@ -147,9 +149,6 @@ int fat32_read(fat32_file_t *file, void *buffer, int size);
  * @return         FAT32_SUCCESS on success, or an error code.
  */
 int fat32_close(fat32_file_t *file);
-
-
-// TODO dynamic allocation of listing
 
 /**
  * @brief Lists the contents of a directory.

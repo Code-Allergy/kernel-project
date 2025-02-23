@@ -215,6 +215,7 @@ int fat32_mount(fat32_fs_t *fs, const fat32_diskio_t *io) {
     fs->root_cluster = boot_sector->rootCluster;
     fs->disk.read_sector = io->read_sector;
     fs->disk.read_sectors = io->read_sectors;
+    fs->cluster_size = fs->sectors_per_cluster * fs->bytes_per_sector;
 
     return 0;
 }
@@ -325,12 +326,26 @@ int fat32_open(fat32_fs_t* fs, const char* path, fat32_file_t* file) {
     return FAT32_SUCCESS;
 }
 
-int fat32_read(fat32_file_t *file, void *buffer, int size) {
+int fat32_read(fat32_file_t *file, void *buffer, int size, int offset) {
     if (!file || !buffer) {
         return FAT32_ERROR_BAD_PARAMETER;
     }
+
     if (file->file_offset >= file->file_size || size == 0) {
         return 0;
+    }
+
+    // TODO handle negative offset
+    if (offset < 0) {
+        return FAT32_ERROR_BAD_PARAMETER;
+    }
+
+    if (offset >= (int)file->file_size ||size == 0) {
+        return 0;
+    }
+
+    if (offset != -1) {
+        file->file_offset = offset;
     }
 
     fat32_fs_t *fs = file->fs;
@@ -354,7 +369,6 @@ int fat32_read(fat32_file_t *file, void *buffer, int size) {
 
         int result = get_cluster_at_index(fs, file->start_cluster, cluster_index, &target_cluster);
         if (result != FAT32_SUCCESS) {
-            printk("ERROR: Got %d from get_cluster_at_index\n", result);
             return bytes_read > 0 ? (int)bytes_read : result;
         }
 
