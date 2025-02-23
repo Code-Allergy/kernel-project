@@ -1,1 +1,0 @@
-// generic uart.c driver

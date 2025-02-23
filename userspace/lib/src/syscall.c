@@ -10,7 +10,7 @@ uint32_t getpid(void) {
     return syscall_0(SYSCALL_GET_PID_NO);
 }
 
-int yield() {
+int yield(void) {
     return syscall_0(SYSCALL_YIELD_NO);
 }
 

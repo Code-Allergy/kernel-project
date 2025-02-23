@@ -83,7 +83,7 @@ static inline __attribute__((always_inline)) uint32_t syscall_3(uint32_t syscall
 void syscall_debug(const char *str, uint32_t len);
 
 
-
+void exit(int return_val);
 uint32_t getpid(void);
 int fork(void);
 int yield(void);

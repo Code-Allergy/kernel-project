@@ -37,7 +37,7 @@ void data_abort_handler(uint32_t lr) {
     __asm__ volatile("mrc p15, 0, %0, c6, c0, 0" : "=r"(dfar));
 
     // Extract status bits (bits [4:0] and bit [10])
-    status = (dfsr & 0b1111) | ((dfsr >> 6) & 0b10000);
+    status = (dfsr & 0xF) | ((dfsr >> 6) & 0x10);
     domain = (dfsr >> 4) & 0xF;  // Fault domain
 
     // switch page table so we can print
@@ -48,22 +48,22 @@ void data_abort_handler(uint32_t lr) {
     printk("Fault Status: %p (Domain: %d)\n", status, domain);
 
     switch (status) {
-        case 0b00001: printk("Alignment fault\n"); break;
-        case 0b00011: printk("Debug event\n"); break;
-        case 0b00100: printk("Instruction cache maintenance fault\n"); break;
-        case 0b01100: printk("Translation fault (Level 1)\n"); break;
-        case 0b01110: printk("Translation fault (Level 2)\n"); break;
-        case 0b01000: printk("Access flag fault (Level 1)\n"); break;
-        case 0b01010: printk("Access flag fault (Level 2)\n"); break;
-        case 0b00110: printk("Domain fault (Level 1)\n"); break;
-        case 0b00111: printk("Domain fault (Level 2)\n"); break;
-        case 0b01101: printk("Permission fault (Level 1)\n"); break;
-        case 0b01111: printk("Permission fault (Level 2)\n"); break;
-        case 0b01001: printk("Synchronous External Abort\n"); break;
-        case 0b01011: printk("TLB conflict abort\n"); break;
-        case 0b10100: printk("Lockdown fault\n"); break;
-        case 0b10110: printk("Coprocessor fault\n"); break;
-        case 0b00000: printk("Unknown fault\n"); break;
+        case 0x01: printk("Alignment fault\n"); break;
+        case 0x03: printk("Debug event\n"); break;
+        case 0x04: printk("Instruction cache maintenance fault\n"); break;
+        case 0x0C: printk("Translation fault (Level 1)\n"); break;
+        case 0x0E: printk("Translation fault (Level 2)\n"); break;
+        case 0x08: printk("Access flag fault (Level 1)\n"); break;
+        case 0x0A: printk("Access flag fault (Level 2)\n"); break;
+        case 0x06: printk("Domain fault (Level 1)\n"); break;
+        case 0x07: printk("Domain fault (Level 2)\n"); break;
+        case 0x0D: printk("Permission fault (Level 1)\n"); break;
+        case 0x0F: printk("Permission fault (Level 2)\n"); break;
+        case 0x09: printk("Synchronous External Abort\n"); break;
+        case 0x0B: printk("TLB conflict abort\n"); break;
+        case 0x14: printk("Lockdown fault\n"); break;
+        case 0x16: printk("Coprocessor fault\n"); break;
+        case 0x00: printk("Unknown fault\n"); break;
         default: printk("Reserved fault status\n"); break;
     }
 
@@ -77,8 +77,8 @@ void data_abort_handler(uint32_t lr) {
 
 void prefetch_abort_c(void) {
     uint32_t ifar, ifsr;
-    asm volatile("mrc p15, 0, %0, c6, c0, 2" : "=r"(ifar)); // IFAR
-    asm volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
+    __asm__ volatile("mrc p15, 0, %0, c6, c0, 2" : "=r"(ifar)); // IFAR
+    __asm__ volatile("mrc p15, 0, %0, c5, c0, 2" : "=r"(ifsr)); // IFSR
     panic("Prefetch abort! Addr: %p, Status: %p\n", ifar, ifsr);
 }
 

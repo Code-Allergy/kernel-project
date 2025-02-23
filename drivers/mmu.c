@@ -82,7 +82,7 @@ void mmu_enable(void) {
 
     // Enable MMU, caches, and branch prediction
     uint32_t sctlr;
-    asm volatile (
+    __asm__ volatile (
         "MRC p15, 0, %0, c1, c0, 0 \n"
         "ORR %0, %0, #0x1 \n"          // MMU enable
         "ORR %0, %0, #0x4 \n"          // D-cache

@@ -10,7 +10,7 @@
 static int uint64_to_str(char *buf, size_t len, uint64_t num, int base, int uppercase) {
     const char *digits = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
     char temp[32];
-    int pos = 0;
+    size_t pos = 0;
     int written = 0;
 
     if (num == 0) {
@@ -46,43 +46,43 @@ static int int64_to_str(char *buf, size_t len, int64_t num, int base) {
 }
 
 
-static int uint_to_str(char *buf, size_t len, unsigned int num, int base) {
-    const char *digits = "0123456789abcdef";
-    char temp[32];
-    int pos = 0;
-    int written = 0;
+// static int uint_to_str(char *buf, size_t len, unsigned int num, int base) {
+//     const char *digits = "0123456789abcdef";
+//     size_t pos = 0;
+//     char temp[32];
+//     int written = 0;
 
-    if (num == 0) {
-        temp[pos++] = '0';
-    } else {
-        while (num > 0 && pos < sizeof(temp)-1) {
-            temp[pos++] = digits[num % base];
-            num /= base;
-        }
-    }
+//     if (num == 0) {
+//         temp[pos++] = '0';
+//     } else {
+//         while (num > 0 && pos < sizeof(temp)-1) {
+//             temp[pos++] = digits[num % base];
+//             num /= base;
+//         }
+//     }
 
-    // Reverse digits
-    for (int i = pos-1; i >= 0; i--) {
-        if (written < (int)len-1) {
-            buf[written++] = temp[i];
-        }
-    }
+//     // Reverse digits
+//     for (int i = pos-1; i >= 0; i--) {
+//         if (written < (int)len-1) {
+//             buf[written++] = temp[i];
+//         }
+//     }
 
-    return written;
-}
+//     return written;
+// }
 
-static int int_to_str(char *buf, size_t len, int num, int base) {
-    int written = 0;
+// static int int_to_str(char *buf, size_t len, int num, int base) {
+//     int written = 0;
 
-    if (num < 0) {
-        if (written < (int)len-1) {
-            buf[written++] = '-';
-        }
-        num = -num;
-    }
+//     if (num < 0) {
+//         if (written < (int)len-1) {
+//             buf[written++] = '-';
+//         }
+//         num = -num;
+//     }
 
-    return written + uint_to_str(buf + written, len - written, num, base);
-}
+//     return written + uint_to_str(buf + written, len - written, num, base);
+// }
 
 // TODO - improve feature set
 int vsnprintf(char *buf, size_t size, const char *fmt, va_list args) {
@@ -197,7 +197,7 @@ parse_width:
         }
 
         // Format numbers
-        int num_len = 0;
+        size_t num_len = 0;
         if (str) {
             num_len = str ? strlen(str) : 0;
         } else if (is_signed) {
@@ -244,7 +244,7 @@ parse_width:
 
     // Null-terminate
     if (size > 0) {
-        buf[written < (int)size ? written : size-1] = '\0';
+        buf[written < (int)size ? written : (int)size-1] = '\0';
     }
 
     return written;

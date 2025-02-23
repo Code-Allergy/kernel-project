@@ -28,7 +28,10 @@ CC = arm-none-eabi-gcc
 IFLAGS = -I. -I../kernel/src -I../include
 CCDEFINES = -DPLATFORM=$(PLATFORM) -DPLATFORM_$(PLATFORM) -DBOOTLOADER
 CFLAGS = -Wall -Wextra -g -mcpu=cortex-a8 -mfloat-abi=soft -pedantic $(CCDEFINES)
-CFLAGS += -static -ffreestanding -fbuiltin -marm -MMD -MP
+CFLAGS += -static -ffreestanding -fbuiltin -marm -MMD -MP -Wno-builtin-declaration-mismatch
+
+CFLAGS += -Wno-unused-parameter
+
 LDLIBS = -lgcc
 
 # ======================================================================
@@ -73,22 +76,24 @@ DEP_FILES = $(ALL_OBJS:.o=.d)
 # ======================================================================
 all: $(OUTPUT_ELF) $(OUTPUT_BIN) $(OUTPUT_SDIMG) $(OUTPUT_MLO)
 
-$(OUTPUT_MLO): $(OUTPUT_BIN)
-	$(SD_IMAGER_DIR)/mk-gpimage $(MLO_DEST_ADDR) $< $@
 
 $(OUTPUT_SDIMG): $(OUTPUT_MLO)
-	cp $(SD_IMAGER_DIR)/raw-mmc-header.img $@
-	dd if=$< of=$@ iflag=fullblock conv=sync seek=1 status=none
-	echo 'label: dos' | sfdisk --quiet $@
+	@echo "[IMG]     Creating SD card image"
+	@cp $(SD_IMAGER_DIR)/raw-mmc-header.img $@
+	@dd if=$< of=$@ iflag=fullblock conv=sync seek=1 status=none
+	@echo 'label: dos' | sfdisk --quiet $@
+
+$(OUTPUT_MLO): $(OUTPUT_BIN)
+	@echo "[MLO]     Creating MLO image"
+	@$(SD_IMAGER_DIR)/mk-gpimage $(MLO_DEST_ADDR) $< $@
 
 $(OUTPUT_ELF): $(ALL_OBJS)
-	echo "Linking $@ $^"
-	echo "Core objs $(CORE_OBJS)"
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	@echo "Build complete for platform: $(PLATFORM)"
+	@echo "[LD]      Linking $@"
+	@$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(OUTPUT_BIN): $(OUTPUT_ELF)
-	$(OBJCOPY) -O binary $< $@
+	@echo "[OC]      Converting $@ to binary"
+	@$(OBJCOPY) -O binary $< $@
 
 # ======================================================================
 # Compilation Rules
@@ -96,53 +101,58 @@ $(OUTPUT_BIN): $(OUTPUT_ELF)
 # Bootloader assembly files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
 	@mkdir -p $(@D)
-	@echo "Compiling bootloader: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -E $< -o $(BUILD_DIR)/$*.i
-	$(AS) $(ASFLAGS) $(BUILD_DIR)/$*.i -o $@
+	@echo "[ASM]     Bootloader assembly: $<"
+	@$(CC) $(IFLAGS) $(CFLAGS) -E $< -o $(BUILD_DIR)/$*.i
+	@$(AS) $(ASFLAGS) $(BUILD_DIR)/$*.i -o $@
 
 # Bootloader C entry file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@mkdir -p $(@D)
-	@echo "Compiling bootloader: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
+	@echo "[CC]      Bootloader C: $<"
+	@$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
 # Core kernel C files
 $(BUILD_DIR)/kernel/%.o: $(KERNEL_SRC_DIR)/%.c | $(BUILD_DIR)/kernel
 	@mkdir -p $(@D)
-	@echo "Compiling core: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
+	@echo "[CC]      Bootloader kernel core: $<"
+	@$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
 # Platform-specific drivers
 $(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)/drivers-$(PLATFORM)
 	@mkdir -p $(@D)
-	@echo "Compiling driver: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
+	@echo "[CC]      Bootloader platform driver: $<"
+	@$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE)/%.c | $(BUILD_DIR)/drivers
 	@mkdir -p $(@D)
-	@echo "Compiling general driver: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
+	@echo "[CC]      Bootloader general driver: $<"
+	@$(CC) $(IFLAGS) $(CFLAGS) -c $< -o $@
 
 # ======================================================================
 # Make directories
 # ======================================================================
 $(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+	@echo "[MKDIR]   Creating build directory"
+	@mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/kernel:
-	mkdir -p $(BUILD_DIR)/kernel
+	@echo "[MKDIR]   Creating kernel build directory"
+	@mkdir -p $(BUILD_DIR)/kernel
 
 $(BUILD_DIR)/drivers:
-	mkdir -p $(BUILD_DIR)/drivers
+	@echo "[MKDIR]   Creating drivers build directory"
+	@mkdir -p $(BUILD_DIR)/drivers
 
 $(BUILD_DIR)/drivers-$(PLATFORM):
-	mkdir -p $(BUILD_DIR)/drivers-$(PLATFORM)
+	@echo "[MKDIR]   Creating platform drivers build directory"
+	@mkdir -p $(BUILD_DIR)/drivers-$(PLATFORM)
 
 -include $(DEP_FILES)
 # ======================================================================
 # Utilities
 # ======================================================================
 clean:
+	@echo "[CLEAN]   Cleaning up"
 	@rm -rf $(BUILD_DIR) $(OUTPUT_ELF) $(OUTPUT_BIN) disassembly.txt
 
 

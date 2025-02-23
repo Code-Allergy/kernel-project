@@ -44,7 +44,7 @@ struct log_msg {
   const char* file;
   const char* func;
   int line;
-  uint32_t current_pid;
+  int32_t current_pid;
   char message[LOG_MAX_MESSAGE_SIZE];
 };
 

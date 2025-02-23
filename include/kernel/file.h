@@ -4,7 +4,6 @@
 
 #define MAX_FDS 32
 
-typedef size_t off_t;
 typedef size_t ino_t;
 
 /* Per–process file descriptor table entry */

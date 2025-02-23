@@ -49,12 +49,15 @@ CFLAGS += -Wbuiltin-declaration-mismatch
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
+CFLAGS += -Wno-unused-parameter
+# for now, ignore unused parameters
 
 ASFLAGS = -mcpu=cortex-a8
 
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
 LDFLAGS = -T kernel.ld -L$(LGCC)
-LDFLAGS += --gc-sections --print-memory-usage
+LDFLAGS += --gc-sections
+
 LDLIBS = -lgcc
 
 # My kernel code
@@ -75,50 +78,50 @@ DEP_FILES = $(ALL_OBJS:.o=.d)
 # Define build rules
 .PHONY: all clean qemu-run disassemble distclean #userspace
 
-all: $(OUTPUT_BIN) $(OUTPUT_IMG) disassemble
+all: $(OUTPUT_BIN) $(OUTPUT_IMG)
 
 # Main build targets
 $(OUTPUT_ELF): $(ALL_OBJS) | $(BUILD_DIR)
-	@echo "[LD] Linking $@"
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	@echo "[LD]      Linking $@"
+	@$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(OUTPUT_BIN): $(OUTPUT_ELF)
 	@echo "[OBJCOPY] Creating binary $@"
-	$(OBJCOPY) -O binary $< $@
+	@$(OBJCOPY) -O binary $< $@
 
 $(OUTPUT_IMG): $(OUTPUT_BIN)
-	@echo "[IMG] Creating disk image"
+	@echo "[IMG]     Creating disk image"
 	@$(MKDIR) $(@D)
-	qemu-img create -f raw $@ 64M
-	mkfs.fat -F 32 $@
-	mmd -i $@ ::/boot
-	mmd -i $@ ::/bin
-	mmd -i $@ ::/elf
-	mcopy -i $@ $< ::/boot/kernel.bin
+	@qemu-img create -f raw $@ 64M > /dev/null
+	@mkfs.fat -F 32 $@ > /dev/null
+	@mmd -i $@ ::/boot
+	@mmd -i $@ ::/bin
+	@mmd -i $@ ::/elf
+	@mcopy -i $@ $< ::/boot/kernel.bin
 
 ################################################################################################
 # kernel Compilation rules
 ################################################################################################
 $(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)/kernel
-	@echo "[CC] Kernel: $<"
+	@echo "[CC]      Kernel: $<"
 	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)/kernel
-	@echo "Kernel ASM: $<"
-	$(CC) $(IFLAGS) $(CFLAGS) -E $< -o $(BUILD_DIR)/kernel/$*.i
-	$(AS) $(ASFLAGS) $(BUILD_DIR)/kernel/$*.i -o $@
+	@echo "[ASM]     Kernel ASM: $<"
+	@$(CC) $(CFLAGS) -E $< -o $(BUILD_DIR)/kernel/$*.i
+	@$(AS) $(ASFLAGS) $(BUILD_DIR)/kernel/$*.i -o $@
 
 
 $(BUILD_DIR)/drivers-$(PLATFORM)/%.o: $(DRIVERS_DIR)/%.c | $(BUILD_DIR)
-	@echo "[CC] Kernel Platform Drivers: $<"
+	@echo "[CC]      Kernel Platform Drivers: $<"
 	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/drivers/%.o: $(DRIVERS_BASE)/%.c | $(BUILD_DIR)
-	@echo "[CC] Kernel Base Drivers: $<"
+	@echo "[CC]      Kernel Base Drivers: $<"
 	@$(MKDIR) $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 
 ################################################################################################
@@ -136,22 +139,12 @@ $(BUILD_DIR)/kernel:
 ################################################################################################
 -include $(DEP_FILES)
 
-
-################################################################################################
-# Debug disassembly
-################################################################################################
-disassemble: $(OUTPUT_DIS)
-
-$(OUTPUT_DIS): $(OUTPUT_ELF)
-	@echo "[DISASSEMBLY] Generating $(OUTPUT_DIS)"
-	$(TOOLCHAIN)-objdump -d $< > $(OUTPUT_DIS)
-
 ################################################################################################
 # Clean up
 ################################################################################################
 clean:
 	@echo "[CLEAN] Removing build artifacts"
-	$(RM) $(BUILD_DIR)
+	@$(RM) $(BUILD_DIR)
 ################################################################################################
 # Run in QEMU
 ################################################################################################

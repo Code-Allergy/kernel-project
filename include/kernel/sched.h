@@ -5,8 +5,6 @@
 #include <kernel/list.h>
 #include <elf32.h>
 
-
-#include <stddef.h>
 #include <stdint.h>
 
 #define MAX_PROCESSES 128
@@ -72,8 +70,8 @@ typedef struct process_page {
 
 typedef struct {
     uint32_t* stack_top;
-    uint32_t pid;
-    uint32_t ppid;
+    int32_t pid;
+    int32_t ppid;
     uint32_t priority;
     uint32_t state;
 

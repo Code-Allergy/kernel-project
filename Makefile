@@ -1,6 +1,7 @@
 # Master makefile for CMPT432 solo project
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-print-directory
 .SHELLFLAGS := -eu -c
 
 # Target arch
@@ -51,6 +52,7 @@ all: sdcard
 sdcard: $(SDCARD_BUILD_DIR)/$(SDCARD_IMAGE_NAME)
 
 $(SDCARD_BUILD_DIR)/$(SDCARD_IMAGE_NAME): kernel bootloader userspace
+	@echo "[SDCARD]  Creating SD card image"
 	@qemu-img create -f raw $@ $(SDCARD_IMAGE_SIZE) 1> /dev/null
 	@mkfs.fat -F 32 $@ 1> /dev/null
 	@mmd -i $@ ::/boot
@@ -59,15 +61,18 @@ $(SDCARD_BUILD_DIR)/$(SDCARD_IMAGE_NAME): kernel bootloader userspace
 	@mcopy -i $@ $(OUTPUT_BIN) ::$(SDCARD_KERNEL_PATH)
 	@mcopy -i $@ $(USERSPACE_BUILD)/bin/* ::$(SDCARD_USERSPACE_BIN)
 	@mcopy -i $@ $(USERSPACE_BUILD)/elf/* ::$(SDCARD_USERSPACE_ELF)
-	@echo "SD card image created at $@"
+	@echo "[OUTPUT]   SD card image created at $@"
 
 kernel:
+	@echo "[MAKE]    Building kernel"
 	@$(MAKE) -C $(KERNEL_DIR) BUILD_DIR=$(BUILD_DIR) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
 
 bootloader:
+	@echo "[MAKE]    Building bootloader"
 	@$(MAKE) -C $(BOOTLOADER_DIR) BUILD_DIR=$(BOOTLOADER_BUILD) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
 
 userspace:
+	@echo "[MAKE]    Building userspace"
 	@$(MAKE) -C $(USERSPACE_DIR) BUILD_DIR=$(USERSPACE_BUILD) PLATFORM=$(PLATFORM) ARCH=$(ARCH) CPU=$(CPU)
 
 qemu: sdcard
@@ -97,11 +102,5 @@ boot-bbb: bbb
 
 CLEAN_LABEL = [\033[0;32mCLEAN\033[0m]
 clean:
-	@echo "[CLEAN] Cleaning up build directory"
+	@echo "[CLEAN]   Cleaning project build directory"
 	@$(RM) $(BUILD_DIR)
-	@echo "[CLEAN] Cleaning up kernel"
-	@$(MAKE) -C $(KERNEL_DIR) clean 1> /dev/null
-	@echo "[CLEAN] Cleaning up bootloader"
-	@$(MAKE) -C $(BOOTLOADER_DIR) clean 1> /dev/null
-	@echo "[CLEAN] Cleaning up userspace"
-	@$(MAKE) -C $(USERSPACE_DIR) clean 1> /dev/null

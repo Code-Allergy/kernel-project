@@ -13,6 +13,7 @@
     while (1) { \
         __asm__("wfi");  \
     } \
+    __builtin_unreachable();\
 } while(0)
 
 static inline void unimplemented_driver(void) {

@@ -178,4 +178,5 @@ uint8_t rtc_i2c_read(struct cubie_twi* twi, uint8_t reg_addr) {
 
     // twi_stop(twi);
     // return data;
+    return 0;
 }

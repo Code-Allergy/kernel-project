@@ -1,4 +1,6 @@
 // this can be moved into fat32.c file later after we port.
+#include <stdbool.h>
+
 #include <kernel/sched.h>
 #include <kernel/fat32.h>
 #include <kernel/vfs.h>
@@ -6,7 +8,7 @@
 #include <kernel/heap.h>
 #include <kernel/mmc.h>
 #include <kernel/file.h>
-#include <stdbool.h>
+#include <kernel/string.h>
 
 struct fat32_inode_private {
     fat32_fs_t* fs;         // Pointer to the mounted FAT32 filesystem
@@ -116,18 +118,19 @@ static int fat32_vfs_close(int fd) {
 
 static ssize_t fat32_vfs_read(vfs_inode_t* inode, void* buff, size_t len, off_t offset) {
     panic("unimplemented!\n");
+    return -1;
 
 }
 
 static ssize_t fat32_vfs_write(vfs_inode_t* inode, const void* buff, size_t len, off_t offset) {
     panic("unimplemented!\n");
-
+    return -1;
 }
 
 
 static int fat32_vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
     struct fat32_inode_private* inode_private = dir->inode->private_data;
-    uint32_t buffer_idx = 0;
+    int buffer_idx = 0;
     uint32_t current_cluster;
     uint32_t sector_target;
 
@@ -169,15 +172,13 @@ static int fat32_vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_
 }
 
 static vfs_dentry_t* fat32_vfs_finddir(vfs_dentry_t* dir, const char* name) {
-    struct fat32_inode_private* inode_private = dir->inode->private_data;
+    // struct fat32_inode_private* inode_private = dir->inode->private_data;
 
     // if (!(inode_private->attributes & FAT32_ATTR_DIRECTORY)) {
     //     return NULL; // Not a directory, so return NULL
     // }
 
     panic("unimplemented!\n");
-
-    return NULL;
 }
 
 
@@ -207,7 +208,7 @@ void init_mount_fat32(void) {
         panic("Failed to allocate memory for mount point!\n");
     }
 
-    vfs_inode_t* node = vfs_fat32_mount(mount, NULL);
+    // vfs_inode_t* node = vfs_fat32_mount(mount, NULL);
 
     LOG(INFO, "Mounting FAT32 filesystem at /mnt (WIP)\n");
 }

@@ -24,14 +24,21 @@ all: libosc.a
 
 
 libosc.a: $(OBJECTS)
-	$(AR) rcs $@ $^
+	@echo "[AR]      Building user static lib $@"
+	@$(AR) rcs $@ $^
 
 
 # build object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	@echo "[CC]      Compiling user lib: $<"
 	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
+
+$(OBJ_DIR):
+	@echo "[MKDIR]    Creating user lib object directory"
+	@mkdir -p $(OBJ_DIR)
 
 clean:
-	rm -rf $(BUILD_DIR) libosc.a
+	@echo "[CLEAN]    Cleaning user lib build directory"
+	@rm -rf $(BUILD_DIR) libosc.a

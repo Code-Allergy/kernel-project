@@ -38,7 +38,7 @@ void loader(void){
     board_info.init();
 
     printk("UART Active\n");
-    printk("Loader loaded at %p\n", (void*)loader);
+    printk("Loader loaded at %p\n", (void*)(uintptr_t)loader);
     printk("Build time (UTC): %s\n", BUILD_DATE);
 
     printk("Board name: %s\n", board_info.name);

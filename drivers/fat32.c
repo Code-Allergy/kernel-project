@@ -225,7 +225,6 @@ int fat32_mount(fat32_fs_t *fs, const fat32_diskio_t *io) {
 int fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const char* name) {
     if (!fs || !name) return FAT32_ERROR_BAD_PARAMETER;
 
-    int ret;
     uint32_t current_cluster;
     uint32_t sector_target;
 
@@ -291,7 +290,7 @@ int fat32_read_dir_entry(fat32_fs_t* fs, fat32_dir_entry_t* current_dir, const c
         }
 
         // Read next cluster from FAT
-        uint32_t next_cluster = fat32_read_fat_entry(fs, current_cluster);
+        int next_cluster = fat32_read_fat_entry(fs, current_cluster);
         if (next_cluster < 0) {
             return next_cluster;
         }

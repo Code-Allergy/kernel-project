@@ -294,7 +294,7 @@ static int load_elf_binary(process_t* p, binary_t* bin) {
 
 static int clone_parent_pages(process_t* p, process_t* parent) {
     process_page_ref_t* current_ref;
-    list_for_each_entry(current_ref, &parent->pages_head, list) {
+    list_for_each_entry(current_ref, process_page_ref_t, &parent->pages_head, list) {
         process_page_t* current_page = current_ref->page;
         if (current_page->page_type == PROCESS_PAGE_CODE) {
             process_page_ref_t *new_ref = create_page_ref(current_page);
@@ -358,7 +358,7 @@ static void copy_parent_stack_and_heap(process_t* p, process_t* parent) {
 
     int count = 0;
     process_page_ref_t* current_ref;
-    list_for_each_entry(current_ref, &parent->pages_head, list) {
+    list_for_each_entry(current_ref, process_page_ref_t, &parent->pages_head, list) {
         if (current_ref->page->page_type == PROCESS_PAGE_HEAP) {
             parent_heap_page = current_ref->page;
             count++;
@@ -371,7 +371,7 @@ static void copy_parent_stack_and_heap(process_t* p, process_t* parent) {
         panic("Parent process does not handle more than 2 currently.\n");
     }
 
-    list_for_each_entry(current_ref, &p->pages_head, list) {
+    list_for_each_entry(current_ref, process_page_ref_t, &p->pages_head, list) {
         if (current_ref->page->page_type == PROCESS_PAGE_HEAP) {
             memcpy(PHYS_TO_KERNEL_VIRT(current_ref->page->paddr), PHYS_TO_KERNEL_VIRT(parent_heap_page->paddr), PAGE_SIZE);
         } else if (current_ref->page->page_type == PROCESS_PAGE_STACK) {
@@ -413,7 +413,7 @@ process_t* create_process(binary_t* bin, process_t* parent) {
 
     process_page_ref_t *stack_ref;
     process_page_t* stack_page;
-    list_for_each_entry(stack_ref, &p->pages_head, list) {
+    list_for_each_entry(stack_ref, process_page_ref_t, &p->pages_head, list) {
         if (stack_ref->page->page_type == PROCESS_PAGE_STACK) {
             stack_page = stack_ref->page;
             break;
@@ -432,7 +432,7 @@ process_t* create_process(binary_t* bin, process_t* parent) {
     }
 
     // map all the pages to the process page table
-    list_for_each_entry(current_ref, &p->pages_head, list) {
+    list_for_each_entry(current_ref, process_page_ref_t, &p->pages_head, list) {
         mmu_driver.map_page(p->ttbr0, current_ref->page->vaddr, current_ref->page->paddr, current_ref->page->flags);
     }
 
@@ -450,7 +450,7 @@ void free_process_page(process_page_t* process_page) {
 // free specifically only memory from the process
 void free_process_memory(process_t* p) {
     process_page_ref_t* ref, *next;
-    list_for_each_entry_safe(ref, next, &p->pages_head, list) {
+    list_for_each_entry_safe(ref, process_page_ref_t, next, &p->pages_head, list) {
         if (ref->page->ref_count == 0) panic("ref_count is 0");
         else if (ref->page->ref_count == 1) {
             free_process_page(ref->page);

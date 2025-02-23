@@ -23,9 +23,6 @@ LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
 LDLIBS = -losc -lgcc
 
 
-# bin files, when targeting elf we don't need custom linker script
-
-
 SOURCES = $(wildcard $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
 BINARY_TARGETS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%, $(SOURCES))
@@ -34,36 +31,45 @@ all: $(BINARY_TARGETS)
 
 # Rule to create binary for each source file
 $(BIN_DIR)/%: $(ELF_DIR)/%.elf | $(BIN_DIR)
-	$(OBJCOPY) -O binary $< $@
+	@echo "[OBJCOPY] Creating stripped binary $@"
+	@$(OBJCOPY) -O binary $< $@
 
 # Create elf from object files
 $(ELF_DIR)/%.elf: $(OBJ_DIR)/%.o | $(ELF_DIR)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	@echo "[LD]      Linking userspace program $@"
+	@$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compile C source files into object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR) make-lib
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo "[CC]      Compiling userspace program $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Create necessary directories if they don't exist
 $(BUILD_DIR):
+	@echo "[MKDIR]   Creating directory $(BUILD_DIR)"
 	@mkdir -p $(BUILD_DIR)
 
 $(BIN_DIR):
+	@echo "[MKDIR]   Creating directory $(BIN_DIR)"
 	@mkdir -p $(BIN_DIR)
 
 $(ELF_DIR):
+	@echo "[MKDIR]   Creating directory $(ELF_DIR)"
 	@mkdir -p $(ELF_DIR)
 
 $(OBJ_DIR):
+	@echo "[MKDIR]   Creating directory $(OBJ_DIR)"
 	@mkdir -p $(OBJ_DIR)
 
 make-lib:
-	$(MAKE) -C lib
+	@echo "[MAKE]    Building lib"
+	@$(MAKE) -C lib
 
 # Clean target to remove generated files
 clean:
-	$(MAKE) -C lib clean
-	rm -rf $(BUILD_DIR)
+	@echo "[CLEAN]   Cleaning up userspace programs"
+	@$(MAKE) -C lib clean
+	@rm -rf $(BUILD_DIR)
 
 .PRECIOUS: $(ELF_DIR)/%.elf $(OBJ_DIR)/%.o
 .PHONY: all clean make-lib

@@ -47,9 +47,12 @@ static inline int list_empty(const struct list_head *head) {
     return head->next == head;
 }
 
-#define container_of(ptr, type, member) ({          \
-    const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-    (type *)( (char *)__mptr - offsetof(type, member) );})
+#define container_of(ptr, type, member) container_of_func(ptr, (type *)0, offsetof(type, member))
+
+static inline void *container_of_func(const void *ptr, const void *dummy, size_t offset) {
+    (void)dummy;
+    return (void *)((char *)ptr - offset);
+}
 
 #define list_entry(ptr, type, member) \
     container_of(ptr, type, member)
@@ -57,15 +60,15 @@ static inline int list_empty(const struct list_head *head) {
 #define list_for_each(pos, head) \
     for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define list_for_each_entry(pos, head, member)              \
-    for (pos = list_entry((head)->next, typeof(*pos), member);  \
+#define list_for_each_entry(pos, type, head, member)              \
+    for (pos = list_entry((head)->next, type, member);  \
          &pos->member != (head);                    \
-         pos = list_entry(pos->member.next, typeof(*pos), member))
+         pos = list_entry(pos->member.next, type, member))
 
-#define list_for_each_entry_safe(pos, n, head, member)          \
-    for (pos = list_entry((head)->next, typeof(*pos), member),  \
-        n = list_entry(pos->member.next, typeof(*pos), member); \
+#define list_for_each_entry_safe(pos, type, n, head, member)          \
+    for (pos = list_entry((head)->next, type, member),  \
+        n = list_entry(pos->member.next, type, member); \
             &pos->member != (head);                    \
-            pos = n, n = list_entry(n->member.next, typeof(*n), member))
+            pos = n, n = list_entry(n->member.next, type, member))
 
 #endif /* KERNEL_LIST_H */

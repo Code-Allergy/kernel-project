@@ -1,6 +1,7 @@
 /* linker.ld */
 ENTRY(kernel_main)  /* Entry point */
 
+/* we should have separate sections */
 MEMORY
 {
     RAM (rwx) : ORIGIN = 0xC0000000, LENGTH = 0x4000000

@@ -65,7 +65,7 @@ static int itoa(int num, char *str, int base) {
 }
 
 int vsnprintf(char *str, size_t size, const char *format, va_list args) {
-    int i = 0;
+    size_t i = 0;
     const char *ptr;
 
     for (ptr = format; *ptr != '\0'; ++ptr) {
