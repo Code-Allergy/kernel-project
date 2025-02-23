@@ -1,38 +1,40 @@
-
 .global setup_stacks
 setup_stacks:
-    /* switch to secure mode */
-    /* TODO */
+    // no hardware support for FIQs, we don't setup a stack for it
 
-    /* all -4 because we need to align them to 8 bytes */
-
-    /* Switch to FIQ mode and set stack pointer */
-    msr CPSR_c, #0x11     /* FIQ mode */
-    ldr sp, =fiq_stack_top - 4
-
-    /* Switch to IRQ mode and set stack pointer */
-    msr CPSR_c, #0x12     /* IRQ mode */
+    // Switch to IRQ mode
+    mrs r0, cpsr
+    bic r0, r0, #0x1F       // Clear mode bits
+    orr r0, r0, #0x12       // Set IRQ mode (0x12)
+    msr cpsr_c, r0
     ldr sp, =irq_stack_top - 4
 
-    /* Switch to Abort mode and set stack pointer */
-    msr CPSR_c, #0x17     /* Abort mode */
+    // Switch to Abort mode
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x17       // Abort mode (0x17)
+    msr cpsr_c, r0
     ldr sp, =abort_stack_top - 4
 
-    /* Switch to Undefined Instruction mode */
-    msr CPSR_c, #0x1B     /* Undefined mode */
+    // Switch to Undefined mode
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x1B       // Undefined mode (0x1B)
+    msr cpsr_c, r0
     ldr sp, =undef_stack_top - 4
 
-    /* Switch to Supervisor mode */
-    msr CPSR_c, #0x13     /* SVC mode */
+    // Switch to SVC mode
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x13       // SVC mode (0x13)
+    msr cpsr_c, r0
     ldr sp, =svc_stack_top - 4
 
-    /* Switch back to System mode (or User mode if needed) */
-    /* Save return address */
-    /*mov r0, lr           Store lr in r0 temporarily */
-    /* Switch back to System mode */
-    msr CPSR_c, #0x1F   /* System mode */
-    ldr sp, =sys_stack_top - 4 /* Load the new stack pointer */
-    /* Restore return address */
-    /*mov lr, r0           Restore lr */
+    // Switch to System mode
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x1F       // System mode (0x1F)
+    msr cpsr_c, r0
+    ldr sp, =sys_stack_top - 4
 
     bx lr
