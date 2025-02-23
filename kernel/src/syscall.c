@@ -20,6 +20,8 @@
 // we will use some macros later to clean up the warnings
 
 
+
+
 // here for now, later we can move this
 // copy len bytes to current_process dest from src
 int copy_to_user(uint8_t* __user dest, const uint8_t* src, size_t len) {
@@ -108,7 +110,12 @@ DEFINE_SYSCALL3(read, int, fd, char*, buff, size_t, count) {
         return -ENOTSUP; // Operation not supported
     }
 
-    return file->dirent->inode->ops->read(file->dirent->inode, buff, count, 0);
+    ssize_t bytes_read = file->dirent->inode->ops->read(file->dirent->inode, buff, count, file->offset);
+
+    // update the offset
+    file->offset += bytes_read;
+
+    return bytes_read;
 }
 END_SYSCALL
 
@@ -126,7 +133,7 @@ DEFINE_SYSCALL3(write, int, fd, const char*, buff, size_t, count) {
         return -ENOTSUP; // Operation not supported
     }
 
-    return file->dirent->inode->ops->write(file->dirent->inode, buff, count, 0);
+    return file->dirent->inode->ops->write(file->dirent->inode, buff, count, file->offset);
 }
 END_SYSCALL
 
@@ -223,6 +230,34 @@ DEFINE_SYSCALL2(usleep, uint32_t, us_high, uint32_t, us_low) {
 }
 END_SYSCALL
 
+DEFINE_SYSCALL3(lseek, int, fd, off_t, offset, int, when) {
+    if (fd < 0) return -EBADF; // bad file descriptor
+    if (when < 0 || when > 2) return -EINVAL; // invalid whence
+
+    file_t* file = current_process->fd_table[fd];
+    if (!file) return -EBADF; // bad file descriptor
+
+    // verify that the offset is valid
+    int new_offset = 0;
+    switch (when) {
+        case SEEK_SET:
+            new_offset = offset;
+            break;
+        case SEEK_CUR:
+            new_offset = file->offset + offset;
+            break;
+        case SEEK_END:
+            new_offset = file->dirent->inode->size + offset;
+            break;
+    }
+
+    if (new_offset < 0 || new_offset > (int32_t) file->dirent->inode->size) return -EINVAL; // invalid offset
+
+    file->offset = new_offset;
+    return new_offset;
+}
+END_SYSCALL
+
 const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
     [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
@@ -238,6 +273,7 @@ const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_TIME]         = {{.fn1 = sys_time},           "time",         1},
     [SYS_GETTIMEOFDAY] = {{.fn2 = sys_gettimeofday},  "gettimeofday",  2},
     [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
+    [SYS_LSEEK]        = {{.fn3 = sys_lseek},          "lseek",        3},
 };
 
 

@@ -49,7 +49,7 @@ typedef struct dirent {
 } dirent_t;
 
 
-typedef size_t off_t;
+typedef int32_t off_t;
 
 
 typedef int (*open_fn)(vfs_dentry_t*, int flags);

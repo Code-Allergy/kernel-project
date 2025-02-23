@@ -1,13 +1,23 @@
-#include <kernel/printk.h>
 #include <stdint.h>
-#include "mmc.h"
-#include "ccm.h"
-#include "dma.h"
-#include "kernel/mmc.h"
+
+#include <kernel/printk.h>
+#include <kernel/mmc.h>
 #include <kernel/fat32.h>
 #include <kernel/sd.h>
+#include <kernel/panic.h>
+
+#include "mmc.h"
+#include "ccm.h"
 
 // TODO error checking
+
+typedef struct {
+    uint32_t rca;
+    int is_sdhc;    // SDHC/SDXC flag
+} mmc_context_t;
+
+mmc_context_t card;
+
 
 void mmc_clock_init(void) {
     // 2. Configure SD clock to 400 kHz (24 MHz / 60 = 400 kHz)
@@ -37,6 +47,8 @@ void mmc_init(void) {
         mmc_send_cmd(41, ocr);  // ACMD41
         // return;
     } while (!(mmc0->resp[0] & (1 << 31))); // Wait until ready
+
+    card.is_sdhc = (mmc0->resp[0] & (1 << 30)) ? 1 : 0;
 
     // 4. Send CMD2 (get CID)
     mmc_send_cmd(2, 0);
@@ -70,21 +82,34 @@ int mmc_read_sector(uint32_t sector, uint8_t *buffer) {
 
 int mmc_send_cmd(uint32_t cmd, uint32_t arg) {
     uint32_t cmdr = (cmd & 0x3F);
+    uint32_t flags = 0;
     switch (cmd) {
         case CMD0:   // Reset
+            cmdr |= SD_CMDR_NO_RESP;  // No response
+            break;
         case CMD8:   // Voltage check
-            cmdr |= (1 << 6);  // Short response
+            cmdr |= SD_CMDR_SHORT_RESP;  // Short response
+            break;
+        case CMD17:
+            cmdr |= SD_CMDR_SHORT_RESP | SD_CMDR_READ;  // Short response, data expected, read
+            break;
+        case CMD24:  // Write single block
+            flags = SD_CMDR_SHORT_RESP | SD_CMDR_WRITE;
+            break;
+        case CMD13:  // Check status
+            flags = SD_CMDR_SHORT_RESP;
             break;
         case CMD2:   // CID
         case CMD9:   // CSD
-            cmdr |= (1 << 7);  // Long response
+            cmdr |= SD_CMDR_LONG_RESP;  // Long response
             break;
         default:
             cmdr |= (1 << 6);  // Default to short response
             break;
     }
 
-    mmc0->arg = arg;        // Set argument
+    mmc0->arg = arg;
+    // mmc0->cmd = cmdr | flags;
 
     // if (cmd == 0 || cmd == 8) {
     //     // CMD0: No response
@@ -146,10 +171,52 @@ int mmc_send_cmd(uint32_t cmd, uint32_t arg) {
 // }
 
 
+int mmc_write_sector(uint32_t sector, uint8_t* buffer) {
+    // 1. Calculate physical address
+    uint32_t address = card.is_sdhc ? sector : sector * 512;
+
+    // 2. Send write command
+    if (mmc_send_cmd(CMD24, address) != 0) {
+        printk("CMD24 failed\n");
+        return -1;
+    }
+
+    // 3. Wait for data request
+    // while (!(mmc0->status & SD_STA_DATA_REQ));
+
+    // 4. Write data through FIFO
+    uint32_t *data_ptr = (uint32_t*)buffer;
+    for (int i = 0; i < 128; i++) {
+        while (mmc0->status & SD_STA_FIFO_FULL);  // Wait for FIFO space
+        mmc0->fifo = *data_ptr++;
+    }
+
+    // 5. Wait for write completion
+    while (!(mmc0->rint & SD_RISR_DATA_COMPLETE)) {
+        // Add timeout handling
+    }
+
+    // // 6. Check for errors
+    // if (mmc0->rint & (SD_RISR_CRC_ERR | SD_RISR_DATA_TIMEOUT)) {
+    //     printk("Write error: 0x%08x\n", mmc0->rint);
+    //     return -1;
+    // }
+
+    // 7. Wait until card is ready
+    uint32_t status;
+    do {
+        mmc_send_cmd(CMD13, card.rca << 16);
+        status = mmc0->resp[0];
+    } while (status & 0x8000);  // Check busy flag
+
+    return 0;
+}
+
 
 const fat32_diskio_t mmc_fat32_diskio = {
     .read_sector = mmc_read_sector,
     // .read_sectors = mmc_read_sectors
+    .write_sector = mmc_write_sector
 };
 
 mmc_driver_t mmc_driver = {

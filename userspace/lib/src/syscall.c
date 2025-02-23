@@ -52,3 +52,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz) {
 int usleep(uint64_t usec) {
     return syscall_2(SYSCALL_USLEEP_NO, (uint32_t)(usec >> 32), (uint32_t)usec);
 }
+
+int lseek(int fd, int offset, int mode) {
+    return syscall_3(SYSCALL_LSEEK_NO, fd, offset, mode);
+}

@@ -17,6 +17,11 @@
 #define SYSCALL_TIME_NO 11
 #define SYSCALL_GETTIMEOFDAY_NO 12
 #define SYSCALL_USLEEP_NO 13
+#define SYSCALL_LSEEK_NO 14
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;
@@ -93,6 +98,7 @@ typedef int32_t ssize_t;
 int open(const char *pathname, int flags, int mode);
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
+int lseek(int fd, int offset, int mode);
 int usleep(uint64_t usec);
 
 

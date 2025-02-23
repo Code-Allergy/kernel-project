@@ -4,6 +4,10 @@
 
 #define MAX_FDS 32
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 typedef size_t ino_t;
 
 /* Per–process file descriptor table entry */

@@ -117,6 +117,18 @@ void kernel_main(bootloader_t* _bootloader_info) {
     kernel_heap_init();
     // setup dynamic managed stacks better
 
+    fat32_fs_t fs;
+    fat32_file_t file;
+    fat32_mount(&fs, &mmc_fat32_diskio);
+    printk("entering create\n");
+    // fat32_create(&fs, "test1");
+    fat32_open(&fs, "test1", &file);
+    printk("Done!\n");
+
+    fat32_write(&file, "Hello World!\n", 13, 0);
+    printk("Done #2\n");
+
+    while(1);
     // setup vfs
     vfs_init();
 

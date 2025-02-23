@@ -15,7 +15,7 @@ typedef union {
     syscall_fn_4 fn4;
 } syscall_fn;
 
-#define NR_SYSCALLS 13
+#define NR_SYSCALLS 14
 enum syscall_num {
     SYS_DEBUG         = 0,
     SYS_EXIT          = 1,
@@ -31,6 +31,7 @@ enum syscall_num {
     SYS_TIME          = 11,
     SYS_GETTIMEOFDAY  = 12,
     SYS_USLEEP        = 13,
+    SYS_LSEEK         = 14,
 };
 
 typedef struct syscall_entry {

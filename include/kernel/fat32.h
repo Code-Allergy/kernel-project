@@ -9,6 +9,8 @@
 #define FAT32_ERROR_NO_FILE             -3
 #define FAT32_ERROR_BAD_PARAMETER       -4
 #define FAT32_ERROR_CORRUPTED_FS        -5
+#define FAT32_ERROR_NO_SPACE            -6
+#define FAT32_ERROR_NO_DIR              -7
 #define FAT32_SUCCESS                    0
 #define FAT32_EOC                        1
 
@@ -48,6 +50,8 @@ typedef struct {
      */
     int (*read_sector)(uint32_t sector, uint8_t *buffer);
     int (*read_sectors)(uint32_t sector, uint8_t* buffer, uint32_t count);
+
+    int (*write_sector)(uint32_t sector, uint8_t *buffer);
 } fat32_diskio_t;
 
 typedef struct {
@@ -60,6 +64,8 @@ typedef struct {
     uint32_t sectors_per_fat;      /* For FAT32, BPB_FATSz32 */
     uint32_t root_cluster;         /* For FAT32, BPB_RootClus */
     uint32_t cluster_size;         /* Sectors per cluster * bytes per sector */
+    uint32_t total_clusters;
+    uint32_t total_sectors;
 
     uint32_t first_data_sector;    /* The first sector of the data region */
     uint32_t fat_start_sector;     /* The first FAT's starting sector */
@@ -77,6 +83,7 @@ typedef struct {
     uint32_t current_cluster_index;  /* Index of last cluster */
     uint32_t file_size;        /* Total file size in bytes */
     uint32_t file_offset;      /* Current offset into the file */
+    uint32_t parent_dir_cluster; // Cluster of the directory containing this file <-- NEW
     /* You might also cache a small buffer for partial sector reads */
 } fat32_file_t;
 
@@ -124,6 +131,17 @@ int fat32_mount(fat32_fs_t *fs, const fat32_diskio_t *io);
  */
 int fat32_open(fat32_fs_t *fs, const char *path, fat32_file_t *file);
 
+/**
+ * @brief Creates a new file at the specified path.
+ *
+ * This function creates a new empty file at the specified path. Parent directories
+ * must exist. If a file already exists at the path, an error is returned.
+ *
+ * @param fs        Mounted FAT32 filesystem pointer.
+ * @param path      Null-terminated path where file should be created.
+ * @return          FAT32_SUCCESS on success, or an error code.
+ */
+int fat32_create(fat32_fs_t* fs, const char* path);
 
 /**
  * @brief Reads data from an open file.
@@ -139,6 +157,21 @@ int fat32_open(fat32_fs_t *fs, const char *path, fat32_file_t *file);
  */
  int fat32_read(fat32_file_t *file, void *buffer, int size, int offset);
 
+
+
+/**
+ * @brief Writes data to a file.
+ *
+ * Writes up to 'size' bytes to the file at the specified offset, updating the file offset
+ * and following/allocating cluster chains as necessary.
+ *
+ * @param file         Pointer to an open fat32_file_t.
+ * @param buffer       Pointer to the source buffer.
+ * @param size         Number of bytes to write.
+ * @param offset       Offset into the file to start writing.
+ * @return             Real bytes written on success, or an error code.
+ */
+int fat32_write(fat32_file_t *file, const void *buffer, int size, int offset);
 
 /**
  * @brief Closes an open file.

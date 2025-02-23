@@ -154,7 +154,14 @@ static ssize_t fat32_vfs_read(vfs_inode_t* inode, void* buff, size_t len, off_t 
 }
 
 static ssize_t fat32_vfs_write(vfs_inode_t* inode, const void* buff, size_t len, off_t offset) {
-    (void)inode, (void)buff, (void)len, (void)offset;
+    int ret = 0;
+    struct fat32_inode_private* inode_private = inode->private_data;
+    fat32_file_t *file = inode_private->file;
+
+    if ((ret = fat32_write(file, buff, len, offset)) < (int)len) {
+        return -1; // TODO error codes
+    }
+
     panic("unimplemented!\n");
     return -1;
 }

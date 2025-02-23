@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <syscalls.h>
 
 // from include/syyscall.h

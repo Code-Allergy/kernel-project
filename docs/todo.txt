@@ -3,7 +3,7 @@ blocking processes on events - for ipc, hardware
  - need per process kernel stacks to make sure we return to where we were in the kernel
 
 nonblocking file io so we can start on making a basic shell
-vfs for fat32 so we can start on making a basic shell
+block device for mmc so we aren't cheating with the fat32 driver directly and can more easily support other filesystems
 
 debug elf loading - data section access error? loading unknown address
 

@@ -42,20 +42,33 @@ int main(void) {
     }
 
     printf("Trying to open null.elf\n");
-    int fd2 = open("/mnt/elf/hello.txt", 0, 0);
+    int fd2 = open("/mnt/elf/sh.elf", 0, 0);
     if (fd2 < 0) {
         printf("Error opening file! %d\n", fd2);
     } else {
         printf("Opened file! %d\n", fd2);
     }
 
-    printf("Reading first bytes\n");
-    char elf_header[12];
-    int read_bytes = read(fd2, elf_header, 12);
-    if (read_bytes != 12) {
+    // printf("Seeking 2 bytes\n");
+    // int offset = lseek(fd2, 2, SEEK_SET);
+    // printf("Offset: %d\n", offset);
+
+
+    printf("Reading first byte\n");
+    char buffer[12];
+    int read_bytes = read(fd2, buffer, 2);
+    if (read_bytes != 2) {
         printf("Error reading file! %d\n", read_bytes);
     } else {
-        printf("Read string: %s\n", elf_header);
+        printf("Read string: %s\n", buffer);
+    }
+
+    printf("Reading a second\n");
+    read_bytes = read(fd2, buffer, 2);
+    if (read_bytes != 2) {
+        printf("Error reading file! %d\n", read_bytes);
+    } else {
+        printf("Read string: %s\n", buffer);
     }
 
 

@@ -51,10 +51,23 @@ typedef volatile struct {
 #define REG_SD_DLBA       0x84  /* Descriptor List Base Address */
 
 // Command flags (SD_CMDR)
-#define SD_CMDR_LOAD      (1 << 31)
-#define SD_CMDR_DATA      (1 << 9)
-#define SD_CMDR_AUTOSTOP  (1 << 12)
-#define SD_CMDR_RESPONSE  (1 << 6)
+#define SD_CMDR_DATA         (1 << 5)
+#define SD_CMDR_WRITE        (0 << 4)  // Write direction
+#define SD_CMDR_READ         (1 << 4)  // Read direction
+#define SD_CMDR_AUTOSTOP    (1 << 12)
+#define SD_CMDR_LOAD        (1 << 31)
+
+
+#define SD_CMDR_NO_RESP   (0 << 6)
+#define SD_CMDR_SHORT_RESP  (1 << 6)
+#define SD_CMDR_LONG_RESP   (1 << 7)
+
+#define SD_STA_DATA_REQ  0x8
+#define SD_STA_FIFO_FULL 0x10
+#define SD_STA_FIFO_EMPTY 0x20
+
+#define SD_RISR_DATA_COMPLETE (1 << 3)
+
 
 // DMA Status flags (SD_IDST)
 #define SD_IDST_INT_SUMMARY (1 << 8)
