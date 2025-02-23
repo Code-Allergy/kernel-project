@@ -90,18 +90,14 @@ irq_handler_new:
     @ store user registers
     STMIA   SP, {R0-R12, LR}           @ Save user registers
     STR     R12, [SP, #56]              @ Save SPSR at offset 60
+    MOV     R0, SP                      @ Get user SP
     CPS    #0x12                       @ Switch to IRQ mode
     MOV   R12, LR
     SUB   R12, R12, #4
-
-    CPS   #0x1F                        @ System mode
-    STR   R12, [SP, #60]              @ Save user PC (LR contains return address)
-
-    @ save stack pointer for passing to C handler
-    MOV     R0, SP                      @ Get system mode SP
+    STR   R12, [R0, #60]              @ Save user PC (LR contains return address)
 
     @ switch to supervisor mode to handle the interrupt
-    CPS     #0x13                       @ Switch to IRQ mode
+    CPS     #0x13                       @ Switch to supervisor mode to do the actual interrupt
 
     BL      handle_irq_c               @ Call C handler
     B      userspace_return

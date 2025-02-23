@@ -90,6 +90,11 @@ __attribute__((noreturn))void enter_userspace(void) {
     LOG(INFO, "Kernel ready after %u.%04u seconds!\n", s, ms);
     LOG(INFO, "Jumping to PID 0\n");
     log_consume(); // flush the log buffer
+
+    // switch to svc mode
+    __asm__ volatile("cps #0x13");
+
+
     scheduler();
 
     panic("Reached end of start_userspace, something bad happened in scheduler!");

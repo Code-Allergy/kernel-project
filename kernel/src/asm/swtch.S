@@ -1,36 +1,24 @@
-.global context_switch
-.global context_restore
-
 .text
 .align 4
 
-@ TODO this shouldn't clobber any of r0-r12
 @ r0 is the stack pointer of the current context, with all registers saved
 .global user_context_return
 .type user_context_return, %function
 user_context_return:
-    cpsid i                    @ Disable interrupts
+    ldr r1, [r0, #56]           @ Load CSPR from the saved stack
+    ldr r2, [r0, #60]           @ Load PC from the saved stack
+    push {r1, r2}               @ Push CSPR and PC onto the stack
+
     cps    #0x1F                @ Switch to System mode
 
-    @ Restore user mode sp, then load r0-r12
-    mov   sp, r0               @ Restore user SP
-
-    @ set spsr to the saved cpsr
-    ldmia sp, {r0-r12, lr}     @ Load r0-r12, LR
-    ldr   ip, [sp, #60]        @ Load saved PC into temporary register (ip/r12)
-    ldr   r10, [sp, #56]        @ Load saved CPSR
-
-    @ advance the stack pointer past the last 4
-    add sp, sp, #64            @ update stack
+    mov   sp, r0               @ Restore user mode sp, then load r0-r12 and LR
+    ldmia sp, {r0-r12, lr}
+    add sp, sp, #64            @ advance the stack pointer past the saved registers
 
     cps    #0x13               @ Switch to Supervisor mode again (needed before returning)
-    @ Set SPSR to the saved CPSR (user's CPSR)
-    msr   spsr_cxsf, r10
 
-    @ Set LR to the saved PC (adjusted for exception return)
-    mov   lr, ip
+    pop   {lr}                 @ Load saved CSPR from the stack into lr
+    msr   spsr_cxsf, lr
 
-
-    cpsie if                  @ Re-enable interrupts in supervisor mode
-    @ Return to user mode, restoring CPSR from SPSR
+    pop   {lr}                 @ Load saved PC from the stack
     movs  pc, lr
