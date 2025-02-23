@@ -97,6 +97,9 @@ __attribute__((noreturn))void enter_userspace(void) {
     __builtin_unreachable();
 }
 
+static fat32_fs_t fs;
+static fat32_file_t file;
+
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn))
 void kernel_main(bootloader_t* _bootloader_info) {
@@ -117,16 +120,20 @@ void kernel_main(bootloader_t* _bootloader_info) {
     kernel_heap_init();
     // setup dynamic managed stacks better
 
-    fat32_fs_t fs;
-    fat32_file_t file;
+
     fat32_mount(&fs, &mmc_fat32_diskio);
     printk("entering create\n");
-    // fat32_create(&fs, "test1");
-    fat32_open(&fs, "test1", &file);
+    fat32_create(&fs, "test1");
+    if (fat32_open(&fs, "test1", &file)) {
+        LOG(ERROR, "Failed to open file!\n");
+    }
     printk("Done!\n");
 
-    fat32_write(&file, "Hello World!\n", 13, 0);
-    printk("Done #2\n");
+    int bytes;
+    if ((bytes = fat32_write(&file, "Hello World!\n", 13, 0)) < 0) {
+        LOG(ERROR, "Failed to write to file!\n");
+    };
+    printk("Done #2, wrote %d bytes\n", bytes);
 
     while(1);
     // setup vfs

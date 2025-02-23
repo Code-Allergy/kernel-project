@@ -83,7 +83,7 @@ typedef struct {
     uint32_t current_cluster_index;  /* Index of last cluster */
     uint32_t file_size;        /* Total file size in bytes */
     uint32_t file_offset;      /* Current offset into the file */
-    uint32_t parent_dir_cluster; // Cluster of the directory containing this file <-- NEW
+    uint32_t parent_dir_cluster; // Cluster of the directory containing this file
     /* You might also cache a small buffer for partial sector reads */
 } fat32_file_t;
 

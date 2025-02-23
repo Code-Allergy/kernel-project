@@ -490,7 +490,7 @@ int find_free_cluster(fat32_fs_t* fs) {
     uint8_t sector[FAT32_SECTOR_SIZE];
 
     // Start searching after root cluster
-    for (uint32_t cluster = 2; cluster < fs->total_clusters; cluster++) {
+    for (uint32_t cluster = 2; cluster < (2 + fs->total_clusters); cluster++) {
         uint32_t fat_sector = fs->fat_start_sector + (cluster * 4 / FAT32_SECTOR_SIZE);
         uint32_t entry_offset = (cluster * 4) % FAT32_SECTOR_SIZE;
 
@@ -531,9 +531,91 @@ int update_directory_entry(fat32_fs_t* fs, fat32_file_t* file) {
     return FAT32_ERROR_NO_FILE;
 }
 
+// int fat32_write(fat32_file_t* file, const void* buffer, int size, int offset) {
+//     if (!file || !buffer) return FAT32_ERROR_BAD_PARAMETER;
+//     if (offset < 0) return FAT32_ERROR_BAD_PARAMETER;
+
+//     fat32_fs_t* fs = file->fs;
+//     const uint32_t cluster_size = fs->cluster_size;
+//     uint32_t bytes_written = 0;
+//     const uint8_t* buf_ptr = (const uint8_t*)buffer;
+
+//     // Handle file expansion
+//     uint32_t required_clusters = (offset + size + cluster_size - 1) / cluster_size;
+//     uint32_t current_clusters = (file->file_size + cluster_size - 1) / cluster_size;
+
+//     // Allocate additional clusters if needed
+//     if (required_clusters > current_clusters) {
+//         uint32_t last_cluster = file->start_cluster;
+//         for (int i = 0; i < (int)current_clusters - 1; i++) {
+//             last_cluster = fat32_get_next_cluster(fs, last_cluster);
+//         }
+
+//         for (uint32_t i = current_clusters; i < required_clusters; i++) {
+//             uint32_t new_cluster = find_free_cluster(fs);
+//             if (new_cluster < 2) return FAT32_ERROR_NO_SPACE;
+
+//             fat32_set_next_cluster(fs, last_cluster, new_cluster);
+//             fat32_set_next_cluster(fs, new_cluster, FAT32_EOC_MARKER);
+//             last_cluster = new_cluster;
+//         }
+//     }
+
+//     // Perform actual write
+//     uint32_t remaining = size;
+//     while (remaining > 0) {
+//         uint32_t cluster_offset = offset % cluster_size;
+//         uint32_t cluster_index = offset / cluster_size;
+//         uint32_t target_cluster;
+
+//         // Get target cluster
+//         int res = get_cluster_at_index(fs, file->start_cluster, cluster_index, &target_cluster);
+//         if (res != FAT32_SUCCESS) return res;
+
+//         // Calculate write size for this cluster
+//         uint32_t write_size = MIN(remaining, cluster_size - cluster_offset);
+
+//         // Write to cluster
+//         uint32_t sector_start = fat32_cluster_to_sector(fs, target_cluster);
+//         uint32_t sector_offset = cluster_offset % FAT32_SECTOR_SIZE;
+//         uint32_t sectors_needed = (write_size + sector_offset + FAT32_SECTOR_SIZE - 1) / FAT32_SECTOR_SIZE;
+
+//         for (uint32_t i = 0; i < sectors_needed; i++) {
+//             uint8_t sector[FAT32_SECTOR_SIZE];
+
+//             // Read existing sector if partial write
+//             if (i == 0 || sector_offset != 0) {
+//                 if (fs->disk.read_sector(sector_start + i, sector) != 0)
+//                     return FAT32_ERROR_IO;
+//             }
+
+//             // Calculate copy parameters
+//             uint32_t copy_size = MIN(write_size, FAT32_SECTOR_SIZE - sector_offset);
+//             memcpy(sector + sector_offset, buf_ptr, copy_size);
+
+//             // Write sector
+//             if (fs->disk.write_sector(sector_start + i, sector) != 0)
+//                 return FAT32_ERROR_IO;
+
+//             buf_ptr += copy_size;
+//             offset += copy_size;
+//             remaining -= copy_size;
+//             bytes_written += copy_size;
+//             sector_offset = 0; // Only first sector has offset
+//         }
+//     }
+
+//     // Update file size if needed
+//     if (offset > (int)file->file_size) {
+//         file->file_size = offset;
+//         update_directory_entry(fs, file); // Need to implement this
+//     }
+
+//     return bytes_written;
+// }
+
 int fat32_write(fat32_file_t* file, const void* buffer, int size, int offset) {
     if (!file || !buffer) return FAT32_ERROR_BAD_PARAMETER;
-    if (offset < 0) return FAT32_ERROR_BAD_PARAMETER;
 
     fat32_fs_t* fs = file->fs;
     const uint32_t cluster_size = fs->cluster_size;
@@ -545,13 +627,17 @@ int fat32_write(fat32_file_t* file, const void* buffer, int size, int offset) {
     uint32_t current_clusters = (file->file_size + cluster_size - 1) / cluster_size;
 
     // Allocate additional clusters if needed
-    if (required_clusters > current_clusters) {
+    uint32_t clusters_to_add = required_clusters - current_clusters;
+    if (clusters_to_add > 0) {
         uint32_t last_cluster = file->start_cluster;
-        for (int i = 0; i < (int)current_clusters - 1; i++) {
+
+        // Find last existing cluster
+        for (uint32_t i = 0; i < current_clusters - 1; i++) {
             last_cluster = fat32_get_next_cluster(fs, last_cluster);
         }
 
-        for (uint32_t i = current_clusters; i < required_clusters; i++) {
+        // Add new clusters
+        for (uint32_t i = 0; i < clusters_to_add; i++) {
             uint32_t new_cluster = find_free_cluster(fs);
             if (new_cluster < 2) return FAT32_ERROR_NO_SPACE;
 
@@ -574,41 +660,40 @@ int fat32_write(fat32_file_t* file, const void* buffer, int size, int offset) {
 
         // Calculate write size for this cluster
         uint32_t write_size = MIN(remaining, cluster_size - cluster_offset);
+        if (write_size == 0) break; // Should never happen, but prevent infinite loop
 
-        // Write to cluster
+        // Calculate sector parameters
         uint32_t sector_start = fat32_cluster_to_sector(fs, target_cluster);
         uint32_t sector_offset = cluster_offset % FAT32_SECTOR_SIZE;
         uint32_t sectors_needed = (write_size + sector_offset + FAT32_SECTOR_SIZE - 1) / FAT32_SECTOR_SIZE;
+        uint32_t clusters_needed = (offset + size + cluster_size - 1) / cluster_size;
+        // Ensure at least 1 sector is processed
 
-        for (uint32_t i = 0; i < sectors_needed; i++) {
-            uint8_t sector[FAT32_SECTOR_SIZE];
+        if (clusters_needed > current_clusters) {
+            uint32_t clusters_to_add = clusters_needed - current_clusters;
+            uint32_t last_cluster = file->start_cluster;
 
-            // Read existing sector if partial write
-            if (i == 0 || sector_offset != 0) {
-                if (fs->disk.read_sector(sector_start + i, sector) != 0)
-                    return FAT32_ERROR_IO;
+            // Find last existing cluster
+            for (uint32_t i = 0; i < current_clusters - 1; i++) {
+                last_cluster = fat32_get_next_cluster(fs, last_cluster);
             }
 
-            // Calculate copy parameters
-            uint32_t copy_size = MIN(write_size, FAT32_SECTOR_SIZE - sector_offset);
-            memcpy(sector + sector_offset, buf_ptr, copy_size);
+            // Add new clusters
+            for (uint32_t i = 0; i < clusters_to_add; i++) {
+                uint32_t new_cluster = find_free_cluster(fs);
+                if (new_cluster < 2) return FAT32_ERROR_NO_SPACE;
 
-            // Write sector
-            if (fs->disk.write_sector(sector_start + i, sector) != 0)
-                return FAT32_ERROR_IO;
-
-            buf_ptr += copy_size;
-            offset += copy_size;
-            remaining -= copy_size;
-            bytes_written += copy_size;
-            sector_offset = 0; // Only first sector has offset
+                fat32_set_next_cluster(fs, last_cluster, new_cluster);
+                fat32_set_next_cluster(fs, new_cluster, FAT32_EOC_MARKER);
+                last_cluster = new_cluster;
+            }
         }
     }
 
     // Update file size if needed
-    if (offset > (int)file->file_size) {
+    if (offset > file->file_size) {
         file->file_size = offset;
-        update_directory_entry(fs, file); // Need to implement this
+        update_directory_entry(fs, file);
     }
 
     return bytes_written;
