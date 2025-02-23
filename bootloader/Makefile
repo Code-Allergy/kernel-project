@@ -27,7 +27,7 @@ CC = arm-none-eabi-gcc
 # ======================================================================
 IFLAGS = -I. -I../kernel/src -I../include
 CCDEFINES = -DPLATFORM=$(PLATFORM) -DPLATFORM_$(PLATFORM) -DBOOTLOADER
-CFLAGS = -Wall -Wextra -g -mcpu=cortex-a8 -mfloat-abi=soft -pedantic $(CCDEFINES)
+CFLAGS = -Wall -Wextra -g -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=soft -pedantic $(CCDEFINES)
 CFLAGS += -static -ffreestanding -fbuiltin -marm -MMD -MP -Wno-builtin-declaration-mismatch
 
 CFLAGS += -Wno-unused-parameter

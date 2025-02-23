@@ -34,7 +34,7 @@ LIBGCC_PATH = $(dir $(shell $(CC) -print-libgcc-file-name))
 
 # Set flags
 CFLAGS := -Wall -Wextra -Wpedantic \
-         -mcpu=cortex-a8 -marm \
+         -mcpu=cortex-a8 -marm -mfpu=neon \
          -ffreestanding -nostdlib -nostdinc \
          -fno-builtin -fno-common \
          -ffunction-sections -fdata-sections \
@@ -52,7 +52,7 @@ CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
 # for now, ignore unused parameters
 
-ASFLAGS = -mcpu=cortex-a8
+ASFLAGS = -mcpu=cortex-a8 -mfpu=neon
 
 LGCC := $(shell arm-none-eabi-gcc -print-libgcc-file-name | xargs dirname)
 LDFLAGS = -T kernel.ld -L$(LGCC)
