@@ -219,13 +219,14 @@ static inline void add_syscall_message(
     size_t* remaining,
     uint32_t syscall_num
 ) {
-    int written;
+    int written = 0;
     if(syscall_num > NR_SYSCALLS) {
         written = snprintf(*buf, *remaining, "[INVALID_SYSCALL:%d]", syscall_num);
         *buf += written;
         *remaining -= written;
         return;
     }
+
     uint32_t* user_stack = current_process->stack_top;
 
     switch (syscall_table[syscall_num].num_args) {

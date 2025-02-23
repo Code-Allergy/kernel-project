@@ -353,8 +353,8 @@ static int setup_stack_and_heap(process_t* p) {
 }
 
 static void copy_parent_stack_and_heap(process_t* p, process_t* parent) {
-    process_page_t* parent_stack_page;
-    process_page_t* parent_heap_page;
+    process_page_t* parent_stack_page = NULL;
+    process_page_t* parent_heap_page = NULL;
 
     int count = 0;
     process_page_ref_t* current_ref;
@@ -367,6 +367,15 @@ static void copy_parent_stack_and_heap(process_t* p, process_t* parent) {
             count++;
         }
     }
+
+    if (!parent_stack_page) {
+        panic("Parent process is missing a stack page!");
+    }
+
+    if (!parent_heap_page) {
+        panic("Parent process is missing a heap page!");
+    }
+
     if (count > 2) {
         panic("Parent process does not handle more than 2 currently.\n");
     }
@@ -412,7 +421,7 @@ process_t* create_process(binary_t* bin, process_t* parent) {
     }
 
     process_page_ref_t *stack_ref;
-    process_page_t* stack_page;
+    process_page_t* stack_page = NULL;
     list_for_each_entry(stack_ref, process_page_ref_t, &p->pages_head, list) {
         if (stack_ref->page->page_type == PROCESS_PAGE_STACK) {
             stack_page = stack_ref->page;
@@ -420,6 +429,12 @@ process_t* create_process(binary_t* bin, process_t* parent) {
         }
     }
 
+    if (stack_page == NULL) {
+        LOG(ERROR, "Process created with no stack page! aborted!");
+        free_process_memory(p);
+        // TODO other cleanup, make sure everything is sorted.
+        return NULL;
+    }
 
     // Set up the process entry point for the stack if binary exists
     if (bin) {

@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <kernel/printk.h>
 
-void panic(const char *fmt, ...){
+void _panic(const char* file, const char* line, const char *fmt, ...){
      va_list args;
 
      // Disable interrupts (inline assembly)
@@ -11,7 +11,7 @@ void panic(const char *fmt, ...){
      // TODO dump registers and stack, current process, other debug info
      printk("PANIC: ");
      vprintk(fmt, args);
-     printk(" at %s:%d\n", __FILE__, __LINE__);
+     printk(" at %s:%d\n", file, line);
      printk("System halted.\n");
 
      while (1) {

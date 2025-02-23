@@ -122,7 +122,7 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 // TODO instead of checking if kernel mem is set, we should just make 2 functions, and replace the function pointer
 // Map a 4KB page into virtual memory using process-specific page tables
 void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
-    // printk("Kernel mem? %d\n", mmu_driver.kernel_mem);
+    __asm__ volatile("cpsid i":::"memory");
     if (ttbr0 == NULL) ttbr0 = l1_page_table;
     else ttbr0 = PHYS_TO_KERNEL_VIRT(ttbr0);
 
@@ -166,10 +166,7 @@ void map_page(void *ttbr0, void* vaddr, void* paddr, uint32_t flags) {
 
     // Map the page
     l2_table[PAGE_INDEX((uint32_t)vaddr)] = (uint32_t)paddr | L2_SMALL_PAGE | flags;
-    // printk("Mapping vaddr %p to paddr %p\n", vaddr, paddr);
-    // printk("L1 Entry Address: %p (Value: %p)\n", l1_entry, *PHYS_TO_KERNEL_VIRT(l1_entry));
-    // printk("Using L2 Table Address: %p\n", l2_table);
-    // printk("L2 Entry Address: %p (Value: %p)\n", &l2_table[PAGE_INDEX((uint32_t)vaddr)], l2_table[PAGE_INDEX((uint32_t)vaddr)]);
+    __asm__ volatile("cpsie i":::"memory");
 }
 
 #endif

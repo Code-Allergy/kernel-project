@@ -5,13 +5,18 @@
 #include <kernel/sched.h>
 
 #define CONFIG_LOG_LEVEL DEBUG
-
-// try and consume the log buffer after this many ticks
-#define LOG_CONSUME_TICKS 64
+#define LOG_SYSCALL_LEVEL DEBUG // the level that the syscall log messages will be logged at
 
 #define LOG_MAX_MESSAGE_SIZE 256
 #define LOG_MAX_BUFFER_LENGTH 1024
 
+// try and consume the log buffer after this many ticks
+#define LOG_CONSUME_TICKS 64
+
+
+// enabled features
+// #define TRACE_SYSCALLS         // turn this into tracing of syscalls later
+#define USE_ASCII_COLOR
 #define LOG_TIME
 #define LOG_LINE_NUM
 #define LOG_FUNCTION_NAME
@@ -19,9 +24,6 @@
 #define LOG_PID
 #define LOG_PPID
 
-#define TRACE_SYSCALLS         // turn this into tracing of syscalls later
-#define LOG_SYSCALL_LEVEL DEBUG // the level that the syscall log messages will be logged at
-#define USE_ASCII_COLOR
 
 
 enum LOG_LEVEL {

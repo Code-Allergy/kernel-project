@@ -97,26 +97,24 @@
 #define TTBR0_BOUNDARY(n) (0xFFFFFFFF >> (n))
 #define TTBR1_BOUNDARY(n) (~TTBR0_BOUNDARY(n))
 
-
-
 // arm specific
 static inline void set_ttbr0(uint32_t val) {
-    asm volatile ("mcr p15, 0, %0, c2, c0, 0" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c2, c0, 0" : : "r" (val) : "memory");
 }
 
 static inline void set_ttbr1(uint32_t val) {
-    asm volatile ("mcr p15, 0, %0, c2, c0, 1" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c2, c0, 1" : : "r" (val) : "memory");
 }
 
 static inline uint32_t get_ttbr0(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (val));
     return val;
 }
 
 static inline uint32_t get_ttbr1(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c2, c0, 1" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c2, c0, 1" : "=r" (val));
     return val;
 }
 
@@ -124,12 +122,12 @@ static inline uint32_t get_ttbr1(void) {
  * Translation Table Base Control Register
  */
 static inline void set_ttbcr(uint32_t val) {
-    asm volatile ("mcr p15, 0, %0, c2, c0, 2" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c2, c0, 2" : : "r" (val) : "memory");
 }
 
 static inline uint32_t get_ttbcr(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (val));
     return val;
 }
 
@@ -137,12 +135,12 @@ static inline uint32_t get_ttbcr(void) {
  * Domain Access Control Register
  */
 static inline void set_dacr(uint32_t val) {
-    asm volatile ("mcr p15, 0, %0, c3, c0, 0" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c3, c0, 0" : : "r" (val) : "memory");
 }
 
 static inline uint32_t get_dacr(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c3, c0, 0" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c3, c0, 0" : "=r" (val));
     return val;
 }
 
@@ -151,52 +149,52 @@ static inline uint32_t get_dacr(void) {
  */
 static inline void enable_mmu(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
     val |= 1; // Set M bit
-    asm volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
 }
 
 static inline void disable_mmu(void) {
     uint32_t val;
-    asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
+    __asm__ volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (val));
     val &= ~1; // Clear M bit
-    asm volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c1, c0, 0" : : "r" (val) : "memory");
 }
 
 /**
  * TLB Operations
  */
 static inline void invalidate_tlb(void) {
-    asm volatile ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0) : "memory");
 }
 
 static inline void invalidate_tlb_single(uint32_t mva) {
-    asm volatile ("mcr p15, 0, %0, c8, c7, 1" : : "r" (mva) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c8, c7, 1" : : "r" (mva) : "memory");
 }
 
 /**
  * Cache Operations
  */
 static inline void invalidate_icache(void) {
-    asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory");
 }
 
 static inline void invalidate_dcache(void) {
-    asm volatile ("mcr p15, 0, %0, c7, c6, 0" : : "r" (0) : "memory");
+    __asm__ volatile ("mcr p15, 0, %0, c7, c6, 0" : : "r" (0) : "memory");
 }
 
 /**
  * Data Memory Barrier
  */
 static inline void dmb(void) {
-    asm volatile ("dmb" : : : "memory");
+    __asm__ volatile ("dmb" : : : "memory");
 }
 
 /**
  * Data Synchronization Barrier
  */
 static inline void dsb(void) {
-    asm volatile ("dsb" : : : "memory");
+    __asm__ volatile ("dsb" : : : "memory");
 }
 
 
