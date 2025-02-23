@@ -6,6 +6,7 @@
 #include <kernel/uart.h>
 
 static ssize_t uart0_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
+    (void)inode, (void)offset, (void)buffer, (void)count;
     panic("unimplemented!\n");
     // need some kind of process blocking here first
 

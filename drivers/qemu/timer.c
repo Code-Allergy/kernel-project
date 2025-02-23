@@ -7,7 +7,9 @@
 
 #include "timer.h"
 
+// handle reset timer for system clock (TIMER1)
 void handle_irq(int irq, void* data) {
+    (void)irq, (void)data;
     if (TIMER0->irq_status & (1 << 0)) {
         TIMER0->irq_status |= (1 << 0);   // Clear interrupt
         clock_timer.global_ticks += 0x100000000ULL;    // Increment high bits
@@ -31,7 +33,8 @@ static void timer_init(void) {
 }
 
 
-void handle_callback(int irq, void* __attribute__((unused)) data) {
+void handle_callback(int irq, void* data) {
+    (void)data; // unused
     uint32_t timer_idx = get_timer_idx_from_irq(irq);
     if (clock_timer.callbacks[timer_idx] == NULL) {
         panic("No callback set for timer %d\n", timer_idx);

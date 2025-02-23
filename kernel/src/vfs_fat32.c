@@ -19,7 +19,7 @@ struct fat32_inode_private {
 
 static vfs_inode_t* vfs_fat32_mount(vfs_mount_t* mount, const char* device) {
     // ignore device for now, we only have one device
-
+    (void)device;
     // if (!mount || !device) {
     //     return NULL;
     // }
@@ -77,6 +77,7 @@ static vfs_inode_t* vfs_fat32_mount(vfs_mount_t* mount, const char* device) {
 }
 
 static int vfs_fat32_unmount(vfs_mount_t* mount) {
+    (void) mount;
     panic("unimplemented!\n");
 
     return -1;
@@ -110,6 +111,7 @@ static int fat32_vfs_open(vfs_dentry_t* dirent, int flags) {
 }
 
 static int fat32_vfs_close(int fd) {
+    (void)fd;
     panic("unimplemented!\n");
 
     return -1;
@@ -117,18 +119,23 @@ static int fat32_vfs_close(int fd) {
 
 
 static ssize_t fat32_vfs_read(vfs_inode_t* inode, void* buff, size_t len, off_t offset) {
+    (void)inode, (void)buff, (void)len, (void)offset;
     panic("unimplemented!\n");
     return -1;
 
 }
 
 static ssize_t fat32_vfs_write(vfs_inode_t* inode, const void* buff, size_t len, off_t offset) {
+    (void)inode, (void)buff, (void)len, (void)offset;
     panic("unimplemented!\n");
     return -1;
 }
 
 
 static int fat32_vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
+    (void)buffer_sz;
+    panic("unimplemented!\n");
+
     struct fat32_inode_private* inode_private = dir->inode->private_data;
     int buffer_idx = 0;
     uint32_t current_cluster;
@@ -172,6 +179,7 @@ static int fat32_vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_
 }
 
 static vfs_dentry_t* fat32_vfs_finddir(vfs_dentry_t* dir, const char* name) {
+    (void)dir, (void)name;
     // struct fat32_inode_private* inode_private = dir->inode->private_data;
 
     // if (!(inode_private->attributes & FAT32_ATTR_DIRECTORY)) {

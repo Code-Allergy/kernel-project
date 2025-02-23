@@ -1,6 +1,7 @@
 
 #include <stdbool.h>
 #include <kernel/printk.h>
+#include <kernel/panic.h>
 
 #include "i2c.h"
 
@@ -129,8 +130,10 @@ int read_eeprom_header(struct cubie_twi* twi, struct eeprom_header* header) {
 }
 
 
-// Read 1 byte from RTC register at `reg_addr`
+// doesn't work.
 uint8_t rtc_i2c_read(struct cubie_twi* twi, uint8_t reg_addr) {
+    (void)twi, (void)reg_addr;
+    panic("unimplemented!\n");
     struct eeprom_header header;
 
     read_eeprom_header(twi, &header);

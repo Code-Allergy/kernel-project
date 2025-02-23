@@ -44,12 +44,11 @@ CFLAGS := -Wall -Wextra -Wpedantic \
 CFLAGS += -g -O0
 # CFLAGS += -fstack-protector-all -fstack-protector-none -O0 -DDEBUG
 # CFLAGS += -fno-stack-protector -O2
-CFLAGS += -Wbuiltin-declaration-mismatch
 
 CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
-CFLAGS += -Wno-unused-parameter
+
 # for now, ignore unused parameters
 
 ASFLAGS = -mcpu=cortex-a8
