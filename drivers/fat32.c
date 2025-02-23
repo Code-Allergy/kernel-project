@@ -376,54 +376,40 @@ int fat32_read(fat32_file_t *file, void *buffer, int size, int offset) {
         uint32_t bytes_in_cluster = cluster_size - cluster_offset;
         uint32_t bytes_to_read = (remaining < bytes_in_cluster) ? remaining : bytes_in_cluster;
 
-        // try and get this working
-        if (0 && cluster_offset == 0 && remaining >= cluster_size) {
-            uint32_t cluster_sector = fat32_cluster_to_sector(file->fs, target_cluster);
-            uint32_t sectors_to_read = file->fs->sectors_per_cluster;
-            // Use bulk read for full clusters
-            int result = file->fs->disk.read_sectors(cluster_sector, buf_ptr, sectors_to_read);
-            if (result != 0) return bytes_read;
+        // Calculate starting sector and position within the cluster
+        uint32_t cluster_start_sector = fat32_cluster_to_sector(fs, target_cluster);
+        uint32_t sector_offset = cluster_offset % fs->bytes_per_sector;
+        uint32_t sector_in_cluster = cluster_offset / fs->bytes_per_sector;
+        uint32_t current_sector = cluster_start_sector + sector_in_cluster;
 
-            buf_ptr += cluster_size;
-            bytes_read += cluster_size;
-            remaining -= cluster_size;
-            file->file_offset += cluster_size;
-        } else {
-            // Calculate starting sector and position within the cluster
-            uint32_t cluster_start_sector = fat32_cluster_to_sector(fs, target_cluster);
-            uint32_t sector_offset = cluster_offset % fs->bytes_per_sector;
-            uint32_t sector_in_cluster = cluster_offset % fs->bytes_per_sector;
-            uint32_t current_sector = cluster_start_sector + sector_in_cluster;
+        // Read sectors within the cluster until we fulfill the request or exhaust the cluster
+        while (bytes_to_read > 0) {
+            uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(8))); // 8byte alignment for arm
+            result = fs->disk.read_sector(current_sector, sector_buffer);
+            if (result != 0) {
+                return bytes_read > 0 ? (int)bytes_read : FAT32_ERROR_IO;
+            }
 
-            // Read sectors within the cluster until we fulfill the request or exhaust the cluster
-            while (bytes_to_read > 0) {
-                uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(8)));
-                result = fs->disk.read_sector(current_sector, sector_buffer);
-                if (result != 0) {
-                    return bytes_read > 0 ? (int)bytes_read : FAT32_ERROR_IO;
-                }
+            uint32_t bytes_in_sector = fs->bytes_per_sector - sector_offset;
+            uint32_t bytes_from_sector = (bytes_to_read < bytes_in_sector) ? bytes_to_read : bytes_in_sector;
 
-                uint32_t bytes_in_sector = fs->bytes_per_sector - sector_offset;
-                uint32_t bytes_from_sector = (bytes_to_read < bytes_in_sector) ? bytes_to_read : bytes_in_sector;
+            volatile uint8_t *src = sector_buffer + sector_offset;
+            for (size_t i = 0; i < bytes_from_sector; i++) {
+                buf_ptr[i] = src[i];
+            }
+            buf_ptr += bytes_from_sector;
+            bytes_read += bytes_from_sector;
+            remaining -= bytes_from_sector;
+            file->file_offset += bytes_from_sector;
+            bytes_to_read -= bytes_from_sector;
 
-                volatile uint8_t *src = sector_buffer + sector_offset;
-                for (size_t i = 0; i < bytes_from_sector; i++) {
-                    buf_ptr[i] = src[i];
-                }
-                buf_ptr += bytes_from_sector;
-                bytes_read += bytes_from_sector;
-                remaining -= bytes_from_sector;
-                file->file_offset += bytes_from_sector;
-                bytes_to_read -= bytes_from_sector;
+            // Move to next sector and reset offset
+            current_sector++;
+            sector_offset = 0;
 
-                // Move to next sector and reset offset
-                current_sector++;
-                sector_offset = 0;
-
-                // Check if we've exceeded the current cluster
-                if ((current_sector - cluster_start_sector) >= sectors_per_cluster) {
-                    break;
-                }
+            // Check if we've exceeded the current cluster
+            if ((current_sector - cluster_start_sector) >= sectors_per_cluster) {
+                break;
             }
         }
 
