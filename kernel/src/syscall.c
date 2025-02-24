@@ -1,3 +1,4 @@
+#include "elf32.h"
 #include <kernel/vfs.h>
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
@@ -18,9 +19,6 @@
 #define __user
 
 // we will use some macros later to clean up the warnings
-
-
-
 
 // here for now, later we can move this
 // copy len bytes to current_process dest from src
@@ -165,7 +163,38 @@ DEFINE_SYSCALL3(readdir, int, fd, struct dirent*, buf, size_t, len) {
 END_SYSCALL
 
 DEFINE_SYSCALL1(exec, char*, path) {
-    panic("unimplemented sys_exec");
+    if (!path) return -EINVAL;
+    // check that path is valid
+
+    vfs_dentry_t* dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
+    if (!dentry) {
+        return -ENOENT; // No such file or directory
+    }
+
+    uint8_t* buffer = (uint8_t*) kmalloc(dentry->inode->size);
+    if (!buffer) {
+        return -ENOMEM; // Out of memory
+    }
+
+    int fd = dentry->inode->ops->open(dentry, 0);
+    if (dentry->inode->ops->read(current_process->fd_table[fd], buffer, dentry->inode->size)
+        != (ssize_t)dentry->inode->size) {
+            return -EIO; // I/O error
+    }
+
+    dentry->inode->ops->close(fd);
+    binary_t* bin = load_elf32(buffer, dentry->inode->size);
+
+
+    // TODO shouldn't have to interrupt switch here
+    current_process->state = PROCESS_UNINTERUPTABLE;
+    if (swap_process(bin, current_process) != 0) { // might need to propagate error
+        return -ENOMEM; // Out of memory
+    }
+
+    current_process->state = PROCESS_READY;
+
+    return 0;
 }
 END_SYSCALL
 
@@ -291,6 +320,9 @@ int handle_syscall(int num, int arg1, int arg2, int arg3, int arg4) {
             case 4: ret = syscall_table[num].fn.fn4(arg1, arg2, arg3, arg4); break;
         }
     }
+
+    // if exec, then we don't need to set the return value in the process
+    if (num == SYS_EXEC) return ret;
 
     // process doesn't necessarily exist as runnable anymore, so check for it first
     if (current_process) current_process->stack_top[0] = ret;

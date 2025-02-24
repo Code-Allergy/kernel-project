@@ -139,9 +139,12 @@ static int fat32_vfs_open(vfs_dentry_t* dirent, int flags) {
 
 static int fat32_vfs_close(int fd) {
     (void)fd;
-    panic("unimplemented!\n");
+    // panic("unimplemented!\n");
 
-    return -1;
+    // cleanup the file handle, for now just NULL out the fd
+    current_process->fd_table[fd] = NULL;
+
+    return 0;
 }
 
 

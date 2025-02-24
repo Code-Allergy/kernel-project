@@ -10,5 +10,6 @@
 #define EBADF 9
 #define ENOTSUP 95
 #define EAGAIN 11
+#define EIO 5
 
 #endif // KERNEL_ERRNO_H

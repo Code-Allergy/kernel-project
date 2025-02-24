@@ -244,8 +244,6 @@ static int initialize_process_memory(process_t* p) {
 
     INIT_LIST_HEAD(&p->pages_head);
     p->asid = allocate_asid();
-    p->pid = get_next_pid();
-
     // other generic memory initialization
 
     return 0;
@@ -453,6 +451,7 @@ process_t* create_process(binary_t* bin, process_t* parent) {
     }
 
     p->state = PROCESS_READY;
+    p->pid = get_next_pid();
     p->ppid = parent ? parent->pid : 0;
     return p;
 }
@@ -507,9 +506,54 @@ __attribute__((naked, noreturn)) void userspace_return(void) {
 }
 
 // for exec* syscalls
-int swap_process(binary_t* binary, process_t* process) {
-    (void)binary, (void)process;
-    panic("unimplemented!");
+int swap_process(binary_t* bin, process_t* p) {
+    process_page_ref_t* current_ref;
+    if (!bin || !p) {
+        return -1;
+    }
+
+    /* free the old process memory */
+    free_process_memory(p);
+
+    if (bin->type != BINARY_TYPE_ELF32) {
+        panic("Flat binaries aren't supported at this time!");
+    }
+
+    if (initialize_process_memory(p) != 0) return -1;
+
+    if (load_elf_binary(p, bin) != 0) return -1;
+
+    if (setup_stack_and_heap(p) != 0) return -1;
+
+    process_page_ref_t *stack_ref;
+    process_page_t* stack_page = NULL;
+    list_for_each_entry(stack_ref, process_page_ref_t, &p->pages_head, list) {
+        if (stack_ref->page->page_type == PROCESS_PAGE_STACK) {
+            stack_page = stack_ref->page;
+            break;
+        }
+    }
+
+    if (stack_page == NULL) {
+        LOG(ERROR, "Process created with no stack page! aborted!");
+        free_process_memory(p);
+        // TODO other cleanup, make sure everything is sorted.
+        return -1;
+    }
+
+
+    p->stack_top = (uint32_t*)(MEMORY_USER_STACK_BASE + PAGE_SIZE - (16 * sizeof(uint32_t)));
+    uint32_t* sp_phys = PHYS_TO_KERNEL_VIRT(stack_page->paddr + PAGE_SIZE - (16 * sizeof(uint32_t)));
+
+    sp_phys[13] = 0xCAFEBABE; // lr -- TODO: set to exit handler backup when we have dynamic linking
+    sp_phys[14] = 0x10; // cpsr
+    sp_phys[15] = bin->entry; // pc
+
+    // map all the pages to the process page table
+    list_for_each_entry(current_ref, process_page_ref_t, &p->pages_head, list) {
+        mmu_driver.map_page(p->ttbr0, current_ref->page->vaddr, current_ref->page->paddr, current_ref->page->flags);
+    }
+
     return 0;
 }
 

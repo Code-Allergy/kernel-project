@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define KHEAP_START 0xE0000000
-#define KHEAP_SIZE 0x4000000     // initial size for now.
+#define KHEAP_SIZE 0x2000000     // initial size for now.
 
 extern uint32_t kernel_heap_start;
 extern uint32_t kernel_heap_end;

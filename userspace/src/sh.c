@@ -64,6 +64,14 @@ int main(void) {
 
             // Fork and exec if file exists, else print error
 
+            // for now, don't give a shit if it exists, just fork and report the fail
+            int pid = fork();
+            if (pid == 0) {
+                if (exec(argv[0]) != 0) {
+                    printf("File %s not found (or exec failed!)!\n", argv[0]);
+                }
+            }
+
             // Reset for next command
             pos = 0;
             write(stdout, PROMPT, strlen(PROMPT));

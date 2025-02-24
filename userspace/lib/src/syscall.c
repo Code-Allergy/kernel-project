@@ -56,3 +56,7 @@ int usleep(uint64_t usec) {
 int lseek(int fd, int offset, int mode) {
     return syscall_3(SYSCALL_LSEEK_NO, fd, offset, mode);
 }
+
+int exec(const char* path) {
+    return syscall_1(SYSCALL_EXEC_NO, (uint32_t) path);
+}

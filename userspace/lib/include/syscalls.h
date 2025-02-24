@@ -114,5 +114,8 @@ int lseek(int fd, int offset, int mode);
 int usleep(uint64_t usec);
 
 
+// very basic exec
+int exec(const char* path);
+
 
 #endif
