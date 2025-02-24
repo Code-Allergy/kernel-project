@@ -1,3 +1,4 @@
+#include "kernel/int.h"
 #include <kernel/panic.h>
 #include <kernel/sched.h>
 #include <kernel/vfs.h>
@@ -392,6 +393,7 @@ int vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t max_entries) {
 
 
 void vfs_init(void) {
+    disable_interrupts();
     // Initialize the root directory
     vfs_root_node = vfs_init_root();
     if (!vfs_root_node) panic("Failed to initialize root directory!");
@@ -408,6 +410,7 @@ void vfs_init(void) {
     ones_device_init();
     uart0_vfs_device_init();
     init_mount_fat32();
+    enable_interrupts();
 }
 
 // TODO block device

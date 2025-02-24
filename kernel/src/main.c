@@ -1,3 +1,4 @@
+#include "kernel/int.h"
 #include <kernel/boot.h>
 #include <kernel/printk.h>
 #include <kernel/sched.h>
@@ -80,7 +81,7 @@ void init_stack_canary(void) {
 __attribute__((noreturn))void enter_userspace(void) {
     uint64_t ticks;
     uint32_t s,ms;
-
+    disable_interrupts();
     LOG(INFO, "Starting userspace\n");
     scheduler_init();
     ticks = clock_timer.get_ticks();
@@ -90,7 +91,7 @@ __attribute__((noreturn))void enter_userspace(void) {
     LOG(INFO, "Kernel ready after %u.%04u seconds!\n", s, ms);
     LOG(INFO, "Jumping to PID 0\n");
     log_consume(); // flush the log buffer
-
+    enable_interrupts();
     scheduler();
 
     panic("Reached end of start_userspace, something bad happened in scheduler!");
@@ -120,28 +121,6 @@ void kernel_main(bootloader_t* _bootloader_info) {
     kernel_heap_init();
     // setup dynamic managed stacks better
 
-
-    // fat32_mount(&fs, &mmc_fat32_diskio);
-    // printk("entering create\n");
-    // fat32_create(&fs, "test1");
-    // if (fat32_open(&fs, "test1", &file)) {
-    //     LOG(ERROR, "Failed to open file!\n");
-    // }
-    // printk("Done!\n");
-
-    // int bytes;
-    // if ((bytes = fat32_write(&file, "Hello W!\n", 9, 0)) < 0) {
-    //     LOG(ERROR, "Failed to write to file!\n");
-    // };
-    // printk("Done #2, wrote %d bytes\n", bytes);
-
-    // if ((bytes = fat32_write(&file, "Hello W!\n", 9, 9)) < 0) {
-    //     LOG(ERROR, "Failed to write to file!\n");
-    // };
-    // printk("Done #2, wrote %d bytes\n", bytes);
-
-    // while(1);
-    // setup vfs
     vfs_init();
 
     // make the jump to starting the scheduler and starting our init process

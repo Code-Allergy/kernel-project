@@ -185,14 +185,9 @@ DEFINE_SYSCALL1(exec, char*, path) {
     dentry->inode->ops->close(fd);
     binary_t* bin = load_elf32(buffer, dentry->inode->size);
 
-
-    // TODO shouldn't have to interrupt switch here
-    current_process->state = PROCESS_UNINTERUPTABLE;
     if (swap_process(bin, current_process) != 0) { // might need to propagate error
         return -ENOMEM; // Out of memory
     }
-
-    current_process->state = PROCESS_READY;
 
     return 0;
 }

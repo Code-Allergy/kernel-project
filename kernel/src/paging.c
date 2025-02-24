@@ -1,3 +1,4 @@
+#include "kernel/int.h"
 #include <kernel/sched.h>
 #include <kernel/paging.h>
 #include <kernel/boot.h>
@@ -12,6 +13,7 @@ page_allocator_t kpage_allocator;
 #define MB_ALIGN_DOWN(addr) ((addr) & ~0xFFFFF)
 
 void init_page_allocator(struct page_allocator *alloc) {
+    disable_interrupts();
     // start at end of kernel code space
     uint32_t kernel_end_phys = ((uint32_t)&kernel_end - KERNEL_ENTRY) + DRAM_BASE;
 
@@ -37,6 +39,7 @@ void init_page_allocator(struct page_allocator *alloc) {
     LOG(INFO, "Total pages: %d (%dKB)\n", alloc->total_pages, alloc->total_pages * PAGE_SIZE / 1024);
     LOG(INFO, "Reserved pages: %d (%dKB)\n", alloc->reserved_pages, alloc->reserved_pages * PAGE_SIZE / 1024);
     LOG(INFO, "Free pages: %d (%dKB)\n", alloc->free_pages, alloc->free_pages * PAGE_SIZE / 1024);
+    enable_interrupts();
 }
 
 
