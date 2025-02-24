@@ -1,7 +1,11 @@
 #include <stdarg.h>
 #include <kernel/uart.h>
+#include <kernel/printk.h>
+#include <kernel/spinlock.h>
 
 #define MAX_NUMBER_LEN 21 // int64_t + sign
+
+spinlock_t printk_lock = SPINLOCK_INIT;
 
 static void print_char(char c) {
     uart_driver.putc(c);
@@ -266,8 +270,10 @@ void vprintk(const char *fmt, va_list args) {
 }
 
 void printk(const char *fmt, ...) {
+    spinlock_acquire(&printk_lock);
     va_list args;
     va_start(args, fmt);
     vprintk(fmt, args);
     va_end(args);
+    spinlock_release(&printk_lock);
 }

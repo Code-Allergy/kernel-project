@@ -98,9 +98,6 @@ __attribute__((noreturn))void enter_userspace(void) {
     __builtin_unreachable();
 }
 
-static fat32_fs_t fs;
-static fat32_file_t file;
-
 #ifndef BOOTLOADER
 __attribute__((section(".text.kernel_main"), noreturn))
 void kernel_main(bootloader_t* _bootloader_info) {
