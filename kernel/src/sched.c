@@ -16,6 +16,7 @@
 #include <kernel/errno.h>
 #include <kernel/sleep.h>
 #include <kernel/log.h>
+#include <kernel/int.h>
 
 
 /* Globals */
@@ -511,6 +512,7 @@ int swap_process(binary_t* bin, process_t* p) {
     if (!bin || !p) {
         return -1;
     }
+    p->state = PROCESS_UNINTERUPTABLE;
 
     /* free the old process memory */
     free_process_memory(p);
@@ -553,6 +555,9 @@ int swap_process(binary_t* bin, process_t* p) {
     list_for_each_entry(current_ref, process_page_ref_t, &p->pages_head, list) {
         mmu_driver.map_page(p->ttbr0, current_ref->page->vaddr, current_ref->page->paddr, current_ref->page->flags);
     }
+
+    current_process->state = PROCESS_READY;
+    scheduler_driver.schedule_next = 1;
 
     return 0;
 }
