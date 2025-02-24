@@ -122,7 +122,7 @@ static int fat32_vfs_open(vfs_dentry_t* dirent, int flags) {
         return -1;
     }
 
-    file_t* vfs_file = kmalloc(sizeof(file_t));
+    vfs_file_t* vfs_file = kmalloc(sizeof(*vfs_file));
     if (!vfs_file) {
         panic("OUT of memory");
     }
@@ -145,24 +145,26 @@ static int fat32_vfs_close(int fd) {
 }
 
 
-static ssize_t fat32_vfs_read(vfs_inode_t* inode, void* buff, size_t len, off_t offset) {
+static ssize_t fat32_vfs_read(vfs_file_t* file, void* buff, size_t len) {
     int ret = 0;
-    struct fat32_inode_private* inode_private = inode->private_data;
-    fat32_file_t *file = inode_private->file;
+    struct fat32_inode_private* inode_private = file->dirent->inode->private_data; // TODO this should store in the file struct
+    fat32_file_t *fat32_file = inode_private->file;
 
-    if ((ret = fat32_read(file, buff, len, offset)) < (int)len) {
+    // TODO check flags
+
+    if ((ret = fat32_read(fat32_file, buff, len, file->offset)) < (int)len) {
         return -1; // TODO error codes
     }
 
     return len;
 }
 
-static ssize_t fat32_vfs_write(vfs_inode_t* inode, const void* buff, size_t len, off_t offset) {
+static ssize_t fat32_vfs_write(vfs_file_t* file, const void* buff, size_t len) {
     int ret = 0;
-    struct fat32_inode_private* inode_private = inode->private_data;
-    fat32_file_t *file = inode_private->file;
+    struct fat32_inode_private* inode_private = file->dirent->inode->private_data; // TODO this should store in the file struct
+    fat32_file_t *fat32_file = inode_private->file;
 
-    if ((ret = fat32_write(file, buff, len, offset)) < (int)len) {
+    if ((ret = fat32_write(fat32_file, buff, len, file->offset)) < (int)len) {
         return -1; // TODO error codes
     }
 

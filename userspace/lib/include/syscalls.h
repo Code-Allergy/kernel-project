@@ -33,6 +33,8 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#define EAGAIN 11
+
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;
 

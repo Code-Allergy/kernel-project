@@ -36,47 +36,55 @@ int main(void) {
         printf("Opened file! %d\n", fd);
     }
 
-
+    while(1) {
+        ssize_t bytes;
+        char buffer[256];
+        if ((bytes = read(stdin, buffer, 256)) == -EAGAIN) {
+            usleep(1000); // sleep for 1ms
+        } else {
+            printf("Read %d bytes: %s\n", bytes, buffer);
+        }
+    }
 
     // if (write(fd, "Hello world! From VFS!\n", 23) != 23) {
     //     printf("Error!\n");
     // }
 
-    int read_dirs = readdir(fd, (uint32_t)some, sizeof(some));
-    printf("Reading dir /mnt/bin:\n", read_dirs);
-    for (int i = 0; i < read_dirs; i++) {
-        printf("Entry %d: %s\n", i, some[i].d_name);
-    }
+    // int read_dirs = readdir(fd, (uint32_t)some, sizeof(some));
+    // printf("Reading dir /mnt/bin:\n", read_dirs);
+    // for (int i = 0; i < read_dirs; i++) {
+    //     printf("Entry %d: %s\n", i, some[i].d_name);
+    // }
 
-    printf("Trying to open null.elf\n");
-    int fd2 = open("/mnt/elf/sh.elf", 0x10101010);
-    if (fd2 < 0) {
-        printf("Error opening file! %d\n", fd2);
-    } else {
-        printf("Opened file! %d\n", fd2);
-    }
+    // printf("Trying to open null.elf\n");
+    // int fd2 = open("/mnt/elf/sh.elf", 0x10101010);
+    // if (fd2 < 0) {
+    //     printf("Error opening file! %d\n", fd2);
+    // } else {
+    //     printf("Opened file! %d\n", fd2);
+    // }
 
-    // printf("Seeking 2 bytes\n");
-    // int offset = lseek(fd2, 2, SEEK_SET);
-    // printf("Offset: %d\n", offset);
+    // // printf("Seeking 2 bytes\n");
+    // // int offset = lseek(fd2, 2, SEEK_SET);
+    // // printf("Offset: %d\n", offset);
 
 
-    printf("Reading first byte\n");
-    char buffer[12];
-    int read_bytes = read(fd2, buffer, 2);
-    if (read_bytes != 2) {
-        printf("Error reading file! %d\n", read_bytes);
-    } else {
-        printf("Read string: %s\n", buffer);
-    }
+    // printf("Reading first byte\n");
+    // char buffer[12];
+    // int read_bytes = read(fd2, buffer, 2);
+    // if (read_bytes != 2) {
+    //     printf("Error reading file! %d\n", read_bytes);
+    // } else {
+    //     printf("Read string: %s\n", buffer);
+    // }
 
-    printf("Reading a second\n");
-    read_bytes = read(fd2, buffer, 2);
-    if (read_bytes != 2) {
-        printf("Error reading file! %d\n", read_bytes);
-    } else {
-        printf("Read string: %s\n", buffer);
-    }
+    // printf("Reading a second\n");
+    // read_bytes = read(fd2, buffer, 2);
+    // if (read_bytes != 2) {
+    //     printf("Error reading file! %d\n", read_bytes);
+    // } else {
+    //     printf("Read string: %s\n", buffer);
+    // }
 
     // int fd1 = open("/mnt/log.txt", O_CREAT);
     // if (fd1 < 0) {
@@ -90,13 +98,6 @@ int main(void) {
         printf("CLOSE OK!");
     } else {
         printf("CLOSE FAIL! %d", res);
-    }
-
-    int res2 = close(fd2);
-    if (res2 == 0) {
-        printf("CLOSE OK!");
-    } else {
-        printf("CLOSE FAIL! %d", res2);
     }
 
     // if (fork() == 0) {

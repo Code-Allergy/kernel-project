@@ -4,8 +4,8 @@
 #include <kernel/string.h>
 #include <kernel/panic.h>
 
-static ssize_t zero_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)offset; // Unused parameters
+static ssize_t zero_read(vfs_file_t* file, void* buffer, size_t count) {
+    (void)file; // Unused parameters
     char* buf = (char*)buffer;
 
     // Fill the buffer with 0s
@@ -16,8 +16,8 @@ static ssize_t zero_read(vfs_inode_t* inode, void* buffer, size_t count, off_t o
     return count;
 }
 
-static ssize_t zero_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)buffer, (void)count, (void)offset;
+static ssize_t zero_write(vfs_file_t* file, const void* buffer, size_t count) {
+    (void)file, (void)buffer, (void)count;
     return -1; // Return error, device is read-only
 }
 

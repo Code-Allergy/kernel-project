@@ -90,7 +90,7 @@ typedef struct {
     uint32_t num_pages;
 
     // file management
-    file_t* fd_table[MAX_FDS];
+    vfs_file_t* fd_table[MAX_FDS];
     int num_fds;
 
     int forked; // 1 if forked, 0 if not -- DEBUG - remove later

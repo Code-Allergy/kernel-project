@@ -9,5 +9,6 @@
 #define EEXIST 17
 #define EBADF 9
 #define ENOTSUP 95
+#define EAGAIN 11
 
 #endif // KERNEL_ERRNO_H

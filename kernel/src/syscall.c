@@ -77,11 +77,11 @@ DEFINE_SYSCALL2(open, const char*, path, int, flags) {
 
     vfs_dentry_t *dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
 
-    if (!dentry) {
-        if (!(flags & O_CREAT)) return -ENOENT; // no file and no create flag
-        // TODO handle flag
-        // find the parent directory instead
-    }
+    // if (!dentry) {
+    //     if (!(flags & O_CREAT)) return -ENOENT; // no file and no create flag
+    //     // TODO handle flag
+    //     // find the parent directory instead
+    // }
 
     // check if the inode has operations and an open function
     if (!dentry->inode || !dentry->inode->ops || !dentry->inode->ops->open) {
@@ -104,7 +104,7 @@ DEFINE_SYSCALL3(read, int, fd, char*, buff, size_t, count) {
         return -EINVAL; // Invalid arguments
     }
 
-    file_t* file = current_process->fd_table[fd];
+    vfs_file_t* file = current_process->fd_table[fd];
     if (!file) {
         return -EBADF; // Bad file descriptor
     }
@@ -113,7 +113,7 @@ DEFINE_SYSCALL3(read, int, fd, char*, buff, size_t, count) {
         return -ENOTSUP; // Operation not supported
     }
 
-    ssize_t bytes_read = file->dirent->inode->ops->read(file->dirent->inode, buff, count, file->offset);
+    ssize_t bytes_read = file->dirent->inode->ops->read(file, buff, count);
 
     // update the offset
     file->offset += bytes_read;
@@ -127,7 +127,7 @@ DEFINE_SYSCALL3(write, int, fd, const char*, buff, size_t, count) {
         return -EINVAL; // Invalid arguments
     }
 
-    file_t* file = current_process->fd_table[fd];
+    vfs_file_t* file = current_process->fd_table[fd];
     if (!file) {
         return -EBADF; // Bad file descriptor
     }
@@ -136,7 +136,7 @@ DEFINE_SYSCALL3(write, int, fd, const char*, buff, size_t, count) {
         return -ENOTSUP; // Operation not supported
     }
 
-    return file->dirent->inode->ops->write(file->dirent->inode, buff, count, file->offset);
+    return file->dirent->inode->ops->write(file, buff, count);
 }
 END_SYSCALL
 
@@ -146,7 +146,7 @@ DEFINE_SYSCALL3(readdir, int, fd, struct dirent*, buf, size_t, len) {
         return -EINVAL; // Invalid arguments
     }
 
-    file_t* file = current_process->fd_table[fd];
+    vfs_file_t* file = current_process->fd_table[fd];
     if (!file) {
         return -EBADF; // Bad file descriptor
     }
@@ -237,7 +237,7 @@ DEFINE_SYSCALL3(lseek, int, fd, off_t, offset, int, when) {
     if (fd < 0) return -EBADF; // bad file descriptor
     if (when < 0 || when > 2) return -EINVAL; // invalid whence
 
-    file_t* file = current_process->fd_table[fd];
+    vfs_file_t* file = current_process->fd_table[fd];
     if (!file) return -EBADF; // bad file descriptor
 
     // verify that the offset is valid

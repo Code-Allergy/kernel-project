@@ -1,6 +1,5 @@
 #ifndef KERNEL_FILE_H
 #define KERNEL_FILE_H
-#include <kernel/vfs.h>
 
 #define MAX_FDS 32
 
@@ -8,16 +7,10 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-typedef size_t ino_t;
+// typedef size_t ino_t;
 
 /* Per–process file descriptor table entry */
-typedef struct file {
-    vfs_dentry_t *dirent;    /* Pointer to the underlying directory entry */
-    off_t offset;           /* Current file offset */
-    int flags;              /* Open flags (e.g., O_RDONLY, etc.) */
-    size_t refcount;        /* Reference count */
-    void* private_data;  /* Pointer to private data */
-} file_t;
+
 
 // struct dirent {
 //     ino_t d_ino;          // Inode number

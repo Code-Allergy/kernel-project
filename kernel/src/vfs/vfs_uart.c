@@ -5,16 +5,61 @@
 #include <kernel/panic.h>
 #include <kernel/uart.h>
 
-static ssize_t uart0_read(vfs_inode_t* inode, void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)offset, (void)buffer, (void)count;
-    panic("unimplemented!\n");
-    // need some kind of process blocking here first
+
+static int circular_read(char* dest_buffer, size_t count) {
+    size_t available;
+
+    // Calculate available data (handle wrap-around)
+    if (uart_driver.incoming_buffer_head >= uart_driver.incoming_buffer_tail) {
+        available = uart_driver.incoming_buffer_head - uart_driver.incoming_buffer_tail;
+    } else {
+        available = UART0_INCOMING_BUFFER_SIZE - uart_driver.incoming_buffer_tail + uart_driver.incoming_buffer_head;
+    }
+
+    // Nothing to read
+    if (available == 0) return 0;
+
+    // Determine actual bytes to read
+    size_t bytes_to_read = (count < available) ? count : available;
+
+    // Calculate contiguous space until buffer end
+    size_t first_chunk = UART0_INCOMING_BUFFER_SIZE - uart_driver.incoming_buffer_tail;
+    if (first_chunk > bytes_to_read) {
+        first_chunk = bytes_to_read;
+    }
+
+    // Copy first contiguous segment
+    memcpy(dest_buffer, uart_driver.incoming_buffer + uart_driver.incoming_buffer_tail, first_chunk);
+
+    // Handle wrap-around if needed
+    if (bytes_to_read > first_chunk) {
+        size_t second_chunk = bytes_to_read - first_chunk;
+        memcpy(dest_buffer + first_chunk, uart_driver.incoming_buffer, second_chunk);
+    }
+
+    // Update tail position with wrap-around
+    uart_driver.incoming_buffer_tail = (uart_driver.incoming_buffer_tail + bytes_to_read) % UART0_INCOMING_BUFFER_SIZE;
+
+    return bytes_to_read;
+}
+
+static ssize_t uart0_read(vfs_file_t* file, void* buffer, size_t count) {
+    (void)file, (void)buffer, (void)count;
+    if (!(file->flags & OPEN_MODE_READ)) return -EBADF;
+
+    // for now, only non blocking reads are supported until we have wait queues
+    if (!(file->flags & OPEN_MODE_NOBLOCK)) return -ENOTSUP;
+
+    // get count bytes from the uart
+    ssize_t bytes_read = circular_read((char*)buffer, count);
+    if (bytes_read <= 0) return -EAGAIN;
 
     return count;
 }
 
-static ssize_t uart0_write(vfs_inode_t* inode, const void* buffer, size_t count, off_t offset) {
-    (void)inode, (void)offset;
+// TODO verify address is valid
+static ssize_t uart0_write(vfs_file_t* file, const void* buffer, size_t count) {
+    (void)file;
 
     for (size_t i = 0; i < count; i++) uart_driver.putc(((char*)buffer)[i]);
 

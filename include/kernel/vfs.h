@@ -6,6 +6,15 @@
 
 #define VFS_MAX_FILELEN 256
 
+#define OPEN_MODE_READ      0x01
+#define OPEN_MODE_WRITE     0x02
+#define OPEN_MODE_APPEND    0x04
+#define OPEN_MODE_CREATE    0x08
+#define OPEN_MODE_TRUNCATE  0x10
+#define OPEN_MODE_DIRECTORY 0x20
+#define OPEN_MODE_EXCLUSIVE 0x40
+#define OPEN_MODE_NOBLOCK   0x80
+
 struct vfs_ops;
 struct vfs_mount;
 
@@ -13,6 +22,9 @@ typedef uint32_t uid_t;
 typedef uint32_t gid_t;
 typedef uint64_t time_t;
 typedef uint32_t dev_t;
+
+typedef ssize_t off_t;
+typedef size_t ino_t;
 
 typedef struct vfs_inode {
     // uint32_t inode_number;         // Unique identifier
@@ -48,14 +60,18 @@ typedef struct dirent {
     char d_name[VFS_MAX_FILELEN];  // Filename
 } dirent_t;
 
-
-typedef int32_t off_t;
-
+typedef struct file {
+    vfs_dentry_t *dirent;    /* Pointer to the underlying directory entry */
+    off_t offset;           /* Current file offset */
+    int flags;              /* Open flags (e.g., O_RDONLY, etc.) */
+    size_t refcount;        /* Reference count */
+    void* private_data;  /* Pointer to private data */
+} vfs_file_t;
 
 typedef int (*open_fn)(vfs_dentry_t*, int flags);
 typedef int (*close_fn)(int fd);
-typedef ssize_t (*read_fn)(vfs_inode_t*, void*, size_t, off_t);
-typedef ssize_t (*write_fn)(vfs_inode_t*, const void*, size_t, off_t);
+typedef ssize_t (*read_fn)(vfs_file_t*, void*, size_t);
+typedef ssize_t (*write_fn)(vfs_file_t*, const void*, size_t);
 typedef int (*readdir_fn)(vfs_dentry_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
 typedef vfs_dentry_t* (*lookup_fn)(vfs_dentry_t*, const char* name);
 

@@ -67,9 +67,9 @@ char uart_getc(void) {
 void uart_handler(int irq, void *data) {
     (void)data;
     char c = UART0->RBR_THR_DLL;  // Read the character (clears interrupt)
-    uart_driver.incoming_buffer[uart_driver.incoming_buffer_head++] = c;
+    uart_driver.incoming_buffer[uart_driver.incoming_buffer_head++ % UART0_INCOMING_BUFFER_SIZE] = c;
     INTC->IRQ_PEND[0] = (irq << 1);
-    uart_putc(c); // echo the character for now
+    // uart_putc(c); // echo the character for now
 }
 
 

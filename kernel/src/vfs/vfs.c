@@ -11,15 +11,6 @@
 // Global root node, this is the root of the virtual filesystem at / (root)
 vfs_dentry_t* vfs_root_node = NULL;
 
-#define OPEN_MODE_READ      0x01
-#define OPEN_MODE_WRITE     0x02
-#define OPEN_MODE_APPEND    0x04
-#define OPEN_MODE_CREATE    0x08
-#define OPEN_MODE_TRUNCATE  0x10
-#define OPEN_MODE_DIRECTORY 0x20
-#define OPEN_MODE_EXCLUSIVE 0x40
-#define OPEN_MODE_NOBLOCK   0x80
-
 
 int vfs_default_open(vfs_dentry_t* entry, int flags) {
     if (!entry) {
@@ -28,7 +19,7 @@ int vfs_default_open(vfs_dentry_t* entry, int flags) {
 
     // verify that mode flags are valid, for now we assume it is
     // create an open file structure for the node
-    file_t* file = (file_t*)kmalloc(sizeof(file_t));
+    vfs_file_t* file = (vfs_file_t*)kmalloc(sizeof(*file));
     if (entry->mount) {
         file->dirent = entry->mount->root;
     } else {
