@@ -19,6 +19,16 @@
 #define SYSCALL_USLEEP_NO 13
 #define SYSCALL_LSEEK_NO 14
 
+
+#define OPEN_MODE_READ      0x01
+#define OPEN_MODE_WRITE     0x02
+#define OPEN_MODE_APPEND    0x04
+#define OPEN_MODE_CREATE    0x08
+#define OPEN_MODE_TRUNCATE  0x10
+#define OPEN_MODE_DIRECTORY 0x20
+#define OPEN_MODE_EXCLUSIVE 0x40
+#define OPEN_MODE_NOBLOCK   0x80
+
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
@@ -95,7 +105,7 @@ int yield(void);
 
 typedef int32_t ssize_t;
 
-int open(const char *pathname, int flags, int mode);
+int open(const char *pathname, int flags, int modee);
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 int lseek(int fd, int offset, int mode);

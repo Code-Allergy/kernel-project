@@ -17,6 +17,8 @@ vfs_dentry_t* vfs_root_node = NULL;
 #define OPEN_MODE_CREATE    0x08
 #define OPEN_MODE_TRUNCATE  0x10
 #define OPEN_MODE_DIRECTORY 0x20
+#define OPEN_MODE_EXCLUSIVE 0x40
+#define OPEN_MODE_NOBLOCK   0x80
 
 
 int vfs_default_open(vfs_dentry_t* entry, int flags) {
