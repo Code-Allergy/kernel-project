@@ -18,6 +18,7 @@ int fork(void) {
     return syscall_0(SYSCALL_FORK_NO);
 }
 
+__attribute((noreturn))
 void exit(int return_val) {
     _exit(return_val); // actually do the exit (in runtime.c)
     __builtin_unreachable();
@@ -31,12 +32,20 @@ int open(const char *path, int flags, int mode) {
     return syscall_3(SYSCALL_OPEN_NO, (uint32_t) path, flags, mode);
 }
 
+int close(int fd) {
+    return syscall_1(SYSCALL_CLOSE_NO, fd);
+}
+
 ssize_t read(int fd, void *buf, size_t count) {
     return syscall_3(SYSCALL_READ_NO, fd, (uint32_t) buf, count);
 }
 
 ssize_t write(int fd, const void *buf, size_t count) {
     return syscall_3(SYSCALL_WRITE_NO, fd, (uint32_t) buf, count);
+}
+
+int readdir(int fd, dirent_t *buf, size_t count) {
+    return syscall_3(SYSCALL_READDIR_NO, fd, (uint32_t) buf, count);
 }
 
 uint64_t time(void) {

@@ -35,6 +35,12 @@
 
 #define EAGAIN 11
 
+
+typedef struct dirent {
+    uint32_t d_ino;    // Inode number
+    char d_name[256];  // Filename
+} dirent_t;
+
 static inline __attribute__((always_inline)) uint32_t syscall_0(uint32_t syscall_num) {
     uint32_t retval;
 
@@ -108,7 +114,9 @@ int yield(void);
 typedef int32_t ssize_t;
 
 int open(const char *pathname, int flags, int modee);
+int close(int fd);
 ssize_t read(int fd, void *buf, size_t count);
+int readdir(int fd, dirent_t *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 int lseek(int fd, int offset, int mode);
 int usleep(uint64_t usec);

@@ -19,10 +19,6 @@
 #define O_EXCL 0x20
 
 // userspace dirent structure
-typedef struct dirent {
-    uint32_t d_ino;    // Inode number
-    char d_name[256];  // Filename
-} dirent_t;
 
 dirent_t some[8];
 

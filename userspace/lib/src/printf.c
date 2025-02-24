@@ -148,12 +148,21 @@ int printf(const char *format, ...) {
 }
 
 
+// TODO: 1024 is magic?
 int sprintf(char *str, const char *format, ...) {
     va_list args;
     va_start(args, format);
     int ret = vsnprintf(str, 1024, format, args);
     va_end(args);
     return ret;
+}
+
+int snprintf(char *buf, size_t size, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, size, fmt, args);
+    va_end(args);
+    return len;
 }
 
 int fprintf(int fd, const char *format, ...) {

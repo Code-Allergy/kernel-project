@@ -19,6 +19,14 @@ int strlen(const char *str) {
     return i;
 }
 
+int strcmp(const char *a, const char *b) {
+    int i = 0;
+    while (a[i] != '\0' && b[i] != '\0' && a[i] == b[i]) {
+        i++;
+    }
+    return a[i] - b[i];
+}
+
 int memcmp(const char* a, const char* b, size_t bytes) {
     for (size_t i = 0; i < bytes; i++) {
         if (a[i] != b[i]) {
