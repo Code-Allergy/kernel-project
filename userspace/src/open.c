@@ -40,7 +40,7 @@ int main(void) {
         ssize_t bytes;
         char buffer[256];
         if ((bytes = read(stdin, buffer, 256)) == -EAGAIN) {
-            usleep(1000); // sleep for 1ms
+            usleep(500); // sleep for 1ms
         } else {
             printf("Read %d bytes: %s\n", bytes, buffer);
         }
