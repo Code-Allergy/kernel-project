@@ -208,13 +208,10 @@ END_SYSCALL
 DEFINE_SYSCALL1(exit, int, exit_status) {
     // iterate through all pages and free them if they are not shared, otherwise decrement the ref count
     free_process_memory(current_process);
-
-    // // TODO free anything else in the process
-    // // TODO reassign PID or parents of children
-    // // TODO clean up any open files
     free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
-    memset(current_process, 0, sizeof(process_t));
-    current_process->state = PROCESS_NONE;
+
+    current_process->state = PROCESS_KILLED;
+    current_process->exit_status = exit_status;
     current_process = NULL;
     scheduler_driver.schedule_next = 1;
     return 0;

@@ -97,6 +97,7 @@ typedef struct {
     int forked; // 1 if forked, 0 if not -- DEBUG - remove later
 
     uint32_t syscall_trace; // syscalls to trace (bitmask)
+    int32_t exit_status;    // exit status of the process
 
     // debug info
     char* process_name;            // Name or identifier for the process
