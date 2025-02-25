@@ -37,32 +37,25 @@ int cmd_exit(int argc, char **argv) {
     exit(0);
 }
 
+
 int cmd_ls(int argc, char **argv) {
-    int entries;
     dirent_t entry[4];
-    // char *path = argc > 1 ? argv[1] : "."; // Use provided path or current directory
-    const char* path = "/";
-    int dir = open(path, OPEN_MODE_NOBLOCK, 0);
+    // const char* path = argc > 1 ? argv[1] : ".";
+    int dir = open("/", OPEN_MODE_NOBLOCK, 0);
 
     if (dir < 0) {
-        printf("Could not open directory '%s'\n", path);
+        printf("Could not open directory '%s'\n", "/");
         return 1;
     }
 
-    while (1) {
-        entries = readdir(dir, (dirent_t*)&entry, 4);
-        printf("Got %d entries\n", entries);
-        // if (entries < 0) {
-        //     printf("Error reading directory '%s'\n", path);
-        //     close(dir);
-        //     return 1;
-        // } else if (entries == 0) {
-        //     break; // End of directory entries
-        // }
+    printf("Unimplemented!\n");
+    return -1;
 
-        // for (int i = 0; i < entries; i++) {
-        //     printf("%s  ", entry[i].d_name);
-        // }
+    int entries;
+    while ((entries = readdir(dir, entry, 4)) > 0) {
+        for (int i = 0; i < entries; i++) {
+            printf("%s  ", entry[i].d_name);
+        }
     }
 
     printf("\n");
@@ -70,6 +63,13 @@ int cmd_ls(int argc, char **argv) {
     return 0;
 }
 
+int cmd_echo(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        printf("%s ", argv[i]);
+    }
+    printf("\n");
+    return 0;
+}
 
 
 int cmd_cat(int argc, char **argv) {
@@ -92,10 +92,73 @@ int cmd_cat(int argc, char **argv) {
         return 1;
     }
 
-    // Read file and output to stdout
+    size_t total = 0;
+    printf("Contents of %s:\n", argv[1]);
     while ((bytes_read = read(fd, buf, sizeof(buf))) > 0) {
+        printf("bytes_read: %d\n", bytes_read);
         write(1, buf, bytes_read);
+        total += bytes_read;
+        if (total >= 1024) break; // Stop after 1KB
     }
+
+    printf("read bytes/errL %d\n", bytes_read);
+
+    close(fd);
+    return 0;
+}
+
+int cmd_help(int argc, char **argv) {
+    (void)argc; (void)argv;
+    printf("Available commands:\n");
+    printf("  exit\n");
+    printf("  echo\n");
+    printf("  ls\n");
+    printf("  cat\n");
+    printf("  help\n");
+    printf("  clear\n");
+    return 0;
+}
+
+int cmd_clear(int argc, char **argv) {
+    (void)argc; (void)argv;
+    printf("\033[2J\033[H");
+    return 0;
+}
+
+int cmd_write(int argc, char **argv) {
+    int fd;
+    char buf[BUF_SIZE];
+
+    if (argc < 2) {
+        printf("Usage: write <filename> [text]\n");
+        return 1;
+    }
+
+    // Open file for appending (create if it doesn't exist)
+    fd = open(argv[1], OPEN_MODE_WRITE | OPEN_MODE_CREATE | OPEN_MODE_APPEND, 0);
+    if (fd < 0) {
+        printf("write: cannot open %s for writing\n", argv[1]);
+        return 1;
+    }
+
+    // if (argc >= 3) {
+    //     // Write command-line arguments directly
+    //     for (int i = 2; i < argc; i++) {
+    //         write(fd, argv[i], strlen(argv[i]));
+    //         if (i < argc - 1) {
+    //             write(fd, " ", 1); // Add space between arguments
+    //         }
+    //     }
+    //     write(fd, "\n", 1); // Add newline at the end
+    // } else {
+    //     // No text arguments provided, read from stdin
+    //     printf("Enter text to write (press Ctrl+D to finish):\n");
+    //     ssize_t bytes_read;
+    //     while ((bytes_read = read(0, buf, sizeof(buf) - 1)) > 0) {
+    //         buf[bytes_read] = '\0';
+    //         write(fd, buf, bytes_read);
+    //     }
+    // }
 
     close(fd);
     return 0;
@@ -103,8 +166,14 @@ int cmd_cat(int argc, char **argv) {
 
 builtin_cmd builtins[] = {
     {"exit", cmd_exit},
+    {"echo", cmd_echo},
     {"ls", cmd_ls},
     {"cat", cmd_cat},
+    // {"cd", cmd_cd},
+    // {"pwd", cmd_pwd},
+    {"help", cmd_help},
+    {"clear", cmd_clear},
+    // {"write", cmd_write},
     {NULL, NULL}
 };
 
@@ -171,10 +240,6 @@ int main(void) {
                 argv[argc++] = token;
                 while (*token && *token != ' ') token++;
                 if (*token) *token++ = '\0';
-            }
-
-            if (strlen(argv[0]) == 4 && !memcmp(argv[0], "exit", 4)) {
-                exit(0);
             }
 
             // Fork and exec if file exists, else print error

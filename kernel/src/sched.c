@@ -251,44 +251,168 @@ static int initialize_process_memory(process_t* p) {
 }
 
 // load an elf binary into memory, allocating all required pages
+// static int load_elf_binary(process_t* p, binary_t* bin) {
+//     for (uint32_t i = 0; i < bin->data.elf.program_header_count; i++) {
+//         elf_program_header_t* phdr = &bin->data.elf.program_headers[i];
+//         if (phdr->p_type == ELF_PROGRAM_HEADER_TYPE_LOAD) {
+//             uint32_t page_count = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
+//             uint32_t vaddr_aligned = phdr->p_vaddr & ~(PAGE_SIZE - 1);
+
+//             bool is_code = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_EXECUTABLE;
+//             bool is_writable = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_WRITABLE;
+
+//             for (uint32_t j = 0; j < page_count; j++) {
+//                 process_page_t *page = alloc_process_page();
+//                 if (!page) return -ENOMEM;
+
+//                 page->vaddr = (void*) (vaddr_aligned + (j * PAGE_SIZE));
+//                 page->ref_count = 1;
+
+//                 // Copy segment data into page
+//                 size_t copy_size = MIN(PAGE_SIZE, phdr->p_filesz - (j * PAGE_SIZE));
+//                 if (copy_size > 0) {
+//                     memcpy(PHYS_TO_KERNEL_VIRT(page->paddr), bin->data.elf.raw + phdr->p_offset + (j * PAGE_SIZE), copy_size);
+//                 }
+
+//                 // Map page with appropriate permissions
+//                 uint32_t prot = MMU_NORMAL_MEMORY | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
+//                 if (is_writable) prot |= PAGE_AP_FULL_ACCESS;
+//                 else prot |= PAGE_AP_USER_RO;
+//                 if (is_code) prot |= MMU_EXECUTE;
+
+//                 page->flags = prot;
+
+//                 page->page_type = is_code ? PROCESS_PAGE_CODE : PROCESS_PAGE_DATA;
+//                 process_page_ref_t* ref = create_page_ref(page);
+//                 list_add_tail(&ref->list, &p->pages_head);
+//                 p->num_pages++;
+//             }
+//         }
+//     }
+//     return 0;
+// }
+
+
 static int load_elf_binary(process_t* p, binary_t* bin) {
     for (uint32_t i = 0; i < bin->data.elf.program_header_count; i++) {
         elf_program_header_t* phdr = &bin->data.elf.program_headers[i];
         if (phdr->p_type == ELF_PROGRAM_HEADER_TYPE_LOAD) {
-            uint32_t page_count = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
+            // Calculate page-aligned address and offset within first page
             uint32_t vaddr_aligned = phdr->p_vaddr & ~(PAGE_SIZE - 1);
+            uint32_t page_offset = phdr->p_vaddr - vaddr_aligned;
 
+            // Calculate total memory size needed (including alignment)
+            uint32_t total_mem_size = page_offset + phdr->p_memsz;
+            uint32_t page_count = (total_mem_size + PAGE_SIZE - 1) / PAGE_SIZE;
+
+            // Determine segment flags
             bool is_code = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_EXECUTABLE;
             bool is_writable = phdr->p_flags & ELF_PROGRAM_HEADER_FLAG_WRITABLE;
 
+            // Debug output
+            // printk("Loading segment: vaddr=0x%x, size=0x%x, offset=0x%x, flags=%c%c%c\n",
+            //        phdr->p_vaddr, phdr->p_memsz, phdr->p_offset,
+            //        is_code ? 'X' : '-',
+            //        is_writable ? 'W' : '-',
+            //        'R'); // Always readable
+
             for (uint32_t j = 0; j < page_count; j++) {
+                // Calculate addresses for this page
+                uint32_t page_vaddr = vaddr_aligned + (j * PAGE_SIZE);
+
+                // Allocate a physical page
                 process_page_t *page = alloc_process_page();
-                if (!page) return -ENOMEM;
-
-                page->vaddr = (void*) (vaddr_aligned + (j * PAGE_SIZE));
-                page->ref_count = 1;
-
-                // Copy segment data into page
-                size_t copy_size = MIN(PAGE_SIZE, phdr->p_filesz - (j * PAGE_SIZE));
-                if (copy_size > 0) {
-                    memcpy(PHYS_TO_KERNEL_VIRT(page->paddr), bin->data.elf.raw + phdr->p_offset + (j * PAGE_SIZE), copy_size);
+                if (!page) {
+                    printk("Failed to allocate page for process\n");
+                    return -ENOMEM;
                 }
 
-                // Map page with appropriate permissions
-                uint32_t prot = MMU_NORMAL_MEMORY | MMU_SHAREABLE | MMU_EXECUTE_NEVER;
-                if (is_writable) prot |= PAGE_AP_FULL_ACCESS;
-                else prot |= PAGE_AP_USER_RO;
-                if (is_code) prot |= MMU_EXECUTE;
+                // Clear the page first
+                memset(PHYS_TO_KERNEL_VIRT(page->paddr), 0, PAGE_SIZE);
+
+                // Calculate how much to copy from file for this page
+                uint32_t copy_offset = 0;
+                uint32_t copy_size = 0;
+
+                if (j == 0) {
+                    // First page - account for unaligned start
+                    copy_offset = page_offset;
+                    copy_size = MIN(PAGE_SIZE - page_offset, phdr->p_filesz);
+                } else {
+                    // Subsequent pages
+                    uint32_t segment_offset = (j * PAGE_SIZE) - page_offset;
+                    if (segment_offset < phdr->p_filesz) {
+                        copy_size = MIN(PAGE_SIZE, phdr->p_filesz - segment_offset);
+                        copy_offset = 0;
+                    }
+                }
+
+                // Copy data from file if needed
+                if (copy_size > 0) {
+                    uint32_t file_offset = phdr->p_offset;
+                    if (j == 0) {
+                        // First page
+                        file_offset += 0; // No additional offset needed
+                    } else {
+                        // Calculate offset into the file for this page
+                        file_offset += (j * PAGE_SIZE) - page_offset;
+                    }
+
+                    // printk("  Page %d: vaddr=0x%x, copy_size=0x%x, file_offset=0x%x\n",
+                    //        j, page_vaddr, copy_size, file_offset);
+
+                    // Copy data from file to page
+                    if (file_offset + copy_size <= bin->data.elf.size) {
+                        memcpy(PHYS_TO_KERNEL_VIRT(page->paddr) + copy_offset,
+                              bin->data.elf.raw + file_offset,
+                              copy_size);
+                    } else {
+                        printk("Error: ELF file offset out of bounds\n");
+                        return -EINVAL;
+                    }
+                }
+
+                // Set up page metadata
+                page->vaddr = (void*)page_vaddr;
+                page->ref_count = 1;
+
+                // Set up permissions - CRITICAL: Make sure these are consistent
+                uint32_t prot = MMU_NORMAL_MEMORY | MMU_SHAREABLE;
+
+                if (is_code) {
+                    // Code segment - executable, possibly read-only
+                    prot |= MMU_EXECUTE; // Enable execution
+                    prot &= ~MMU_EXECUTE_NEVER; // Ensure execute never is not set
+                    page->page_type = PROCESS_PAGE_CODE;
+                } else {
+                    // Data segment - not executable
+                    prot |= MMU_EXECUTE_NEVER; // Disable execution
+                    prot &= ~MMU_EXECUTE; // Ensure execute is not set
+                    page->page_type = PROCESS_PAGE_DATA;
+                }
+
+                // Set access permissions
+                if (is_writable) {
+                    prot |= PAGE_AP_FULL_ACCESS; // RW
+                } else {
+                    prot |= PAGE_AP_USER_RO; // RO
+                }
 
                 page->flags = prot;
 
-                page->page_type = is_code ? PROCESS_PAGE_CODE : PROCESS_PAGE_DATA;
+                // Add page to process
                 process_page_ref_t* ref = create_page_ref(page);
+                if (!ref) {
+                    printk("Failed to create page reference\n");
+                    return -ENOMEM;
+                }
+
                 list_add_tail(&ref->list, &p->pages_head);
                 p->num_pages++;
             }
         }
     }
+
     return 0;
 }
 

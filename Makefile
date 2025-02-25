@@ -58,6 +58,8 @@ $(SDCARD_BUILD_DIR)/$(SDCARD_IMAGE_NAME): kernel bootloader userspace
 	@mmd -i $@ ::/boot
 	@mmd -i $@ ::/bin
 	@mmd -i $@ ::/elf
+	@echo "Hello World!" > $(BUILD_DIR)/hello.txt
+	@mcopy -i $@ $(BUILD_DIR)/hello.txt ::/hello.txt
 	@mcopy -i $@ $(OUTPUT_BIN) ::$(SDCARD_KERNEL_PATH)
 	@mcopy -i $@ $(USERSPACE_BUILD)/bin/* ::$(SDCARD_USERSPACE_BIN)
 	@mcopy -i $@ $(USERSPACE_BUILD)/elf/* ::$(SDCARD_USERSPACE_ELF)

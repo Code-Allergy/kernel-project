@@ -310,6 +310,11 @@ DEFINE_SYSCALL1(waitpid, int32_t, pid) {
 }
 END_SYSCALL
 
+DEFINE_SYSCALL3(execve, const char*, path, char** const, argv, char const**, envp) {
+    panic("Unimplemented syscall: execve!");
+}
+END_SYSCALL
+
 const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
     [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
@@ -327,6 +332,7 @@ const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
     [SYS_LSEEK]        = {{.fn3 = sys_lseek},          "lseek",        3},
     [SYS_WAITPID]      = {{.fn1 = sys_waitpid},      "waitpid",        1},
+    [SYS_EXECVE]       = {{.fn3 = sys_execve},        "execve",        3},
 };
 
 

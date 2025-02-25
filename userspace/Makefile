@@ -18,6 +18,7 @@ GCC_LIB_DIR = $(dir $(shell $(CC) -print-libgcc-file-name))
 CFLAGS = -g -O0 -Wall -mcpu=cortex-a8 -marm -nostdlib -nostdinc -ffreestanding -I. -Ilib/include
 
 # LDFLAGS = -Llib -L$(GCC_LIB_DIR) --entry _start
+# TODO: we won't need this linker script once we have elf loading working again
 LDFLAGS = -T linker.ld -Llib -L$(GCC_LIB_DIR)
 
 # for now, we load everything in one region
@@ -33,12 +34,12 @@ BINARY_TARGETS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%, $(SOURCES))
 all: $(BINARY_TARGETS)
 
 # Rule to create binary for each source file
-$(BIN_DIR)/%: $(ELF_DIR)/%.elf | $(BIN_DIR)
+$(BIN_DIR)/%: $(ELF_DIR)/% | $(BIN_DIR)
 	@echo "[OBJCOPY] Creating stripped binary $@"
 	@$(OBJCOPY) -O binary $< $@
 
 # Create elf from object files
-$(ELF_DIR)/%.elf: $(OBJ_DIR)/%.o | $(ELF_DIR)
+$(ELF_DIR)/%: $(OBJ_DIR)/%.o | $(ELF_DIR)
 	@echo "[LD]      Linking userspace program $@"
 	@$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -74,5 +75,5 @@ clean:
 	@$(MAKE) -C lib clean
 	@rm -rf $(BUILD_DIR)
 
-.PRECIOUS: $(ELF_DIR)/%.elf $(OBJ_DIR)/%.o
+.PRECIOUS: $(ELF_DIR)/% $(OBJ_DIR)/%.o
 .PHONY: all clean make-lib

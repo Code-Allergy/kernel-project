@@ -16,23 +16,13 @@ int main() {
     }
     else if (pid == 0) {
         // Child process
-        int res = exec("/mnt/elf/sh.elf");
+        int res = exec("/mnt/elf/sh");
         fprintf(stderr, "exec failed with code %d\n", res);
         exit(1);
     }
 
-    while (1) {
-        // wait on child, for now, just while loop
-    }
-
-    // // Parent process becomes init
-    // while (1) {
-    //     pid = wait(NULL);
-    //     if (pid < 0) {
-    //         perror("wait");
-    //         exit(1);
-    //     }
-    // }
+    int retval = waitpid(pid);
+    printf("Shell process ended with return code %d, hanging indefinitely!\n", retval);
 
     return 0;
 }
