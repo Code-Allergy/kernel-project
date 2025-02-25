@@ -1,4 +1,5 @@
 #include "elf32.h"
+#include "kernel/list.h"
 #include <kernel/vfs.h>
 #include <kernel/syscall.h>
 #include <kernel/printk.h>
@@ -210,10 +211,18 @@ DEFINE_SYSCALL1(exit, int, exit_status) {
     free_process_memory(current_process);
     free_aligned_pages(&kpage_allocator, current_process->ttbr0, 4);
 
+    // wake up a waiting parent and set the exit status
+    if (current_process->waiting_parent) {
+        current_process->waiting_parent->state = PROCESS_READY;
+        current_process->stack_top[0] = exit_status; // r0
+    }
+
     current_process->state = PROCESS_KILLED;
     current_process->exit_status = exit_status;
     current_process = NULL;
     scheduler_driver.schedule_next = 1;
+
+
     return 0;
 }
 END_SYSCALL
@@ -283,6 +292,24 @@ DEFINE_SYSCALL3(lseek, int, fd, off_t, offset, int, when) {
 }
 END_SYSCALL
 
+DEFINE_SYSCALL1(waitpid, int32_t, pid) {
+    process_t* target = get_process_by_pid(pid);
+    if (!target) return -ECHILD; // no child processes
+    if (target->ppid != current_process->pid) return -ECHILD; // not a child process
+
+    // add process to target
+    target->waiting_parent = current_process;
+
+    // sleep until child process is done
+    current_process->state = PROCESS_BLOCKED;
+    current_process = NULL;
+    scheduler_driver.schedule_next = 1;
+
+    // this value is not returned to the parent process
+    return 0;
+}
+END_SYSCALL
+
 const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_DEBUG]        = {{.fn2 = sys_debug},          "debug",        2},
     [SYS_EXIT]         = {{.fn1 = sys_exit},           "exit",         1},
@@ -299,6 +326,7 @@ const syscall_entry_t syscall_table[NR_SYSCALLS + 1] = {
     [SYS_GETTIMEOFDAY] = {{.fn2 = sys_gettimeofday},  "gettimeofday",  2},
     [SYS_USLEEP]       = {{.fn2 = sys_usleep},        "usleep",        2},
     [SYS_LSEEK]        = {{.fn3 = sys_lseek},          "lseek",        3},
+    [SYS_WAITPID]      = {{.fn1 = sys_waitpid},      "waitpid",        1},
 };
 
 

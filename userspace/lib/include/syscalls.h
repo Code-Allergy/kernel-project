@@ -18,6 +18,7 @@
 #define SYSCALL_GETTIMEOFDAY_NO 12
 #define SYSCALL_USLEEP_NO 13
 #define SYSCALL_LSEEK_NO 14
+#define SYSCALL_WAITPID_NO 15
 
 
 #define OPEN_MODE_READ      0x01
@@ -120,10 +121,12 @@ int readdir(int fd, dirent_t *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 int lseek(int fd, int offset, int mode);
 int usleep(uint64_t usec);
-
+int waitpid(int pid);
 
 // very basic exec
 int exec(const char* path);
+
+
 
 
 #endif

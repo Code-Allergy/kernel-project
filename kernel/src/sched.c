@@ -570,3 +570,14 @@ scheduler_t scheduler_driver = {
     .schedule_next = 0,
     .tick = tick,
 };
+
+process_t* get_process_by_pid(int32_t pid) {
+    process_t* p;
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        p = &process_table[i];
+        if (p->pid == pid) {
+            return p;
+        }
+    }
+    return NULL;
+}

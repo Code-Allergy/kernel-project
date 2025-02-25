@@ -69,7 +69,7 @@ typedef struct process_page {
 } process_page_t;
 
 
-typedef struct {
+typedef struct process_struct {
     uint32_t* stack_top;
     int32_t pid;
     int32_t ppid;
@@ -99,6 +99,7 @@ typedef struct {
     uint32_t syscall_trace; // syscalls to trace (bitmask)
     int32_t exit_status;    // exit status of the process
 
+    struct process_struct* waiting_parent;
     // debug info
     char* process_name;            // Name or identifier for the process
     uint32_t creation_time;        // Process creation timestamp
@@ -125,6 +126,9 @@ typedef struct {
     void (*tick)(void);
 } scheduler_t;
 extern scheduler_t scheduler_driver;
+
+// get the process by pid
+process_t* get_process_by_pid(int32_t pid);
 
 // this can create or fork a process, based on which parameter is non-NULL
 process_t* create_process(binary_t* bin, process_t* parent);

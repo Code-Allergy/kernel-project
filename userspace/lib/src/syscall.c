@@ -69,3 +69,7 @@ int lseek(int fd, int offset, int mode) {
 int exec(const char* path) {
     return syscall_1(SYSCALL_EXEC_NO, (uint32_t) path);
 }
+
+int waitpid(int pid) {
+    return syscall_1(SYSCALL_WAITPID_NO, pid);
+}

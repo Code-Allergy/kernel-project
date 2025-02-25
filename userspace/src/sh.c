@@ -194,7 +194,7 @@ int main(void) {
                     }
                     exit(1);
                 } else {
-                    // wait here
+                    waitpid(pid);
                 }
             }
 
