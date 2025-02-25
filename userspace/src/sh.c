@@ -33,25 +33,36 @@ typedef struct {
 
 int cmd_exit(int argc, char **argv) {
     (void)argc; (void)argv;
+    printf("Exiting shell!\n");
     exit(0);
 }
 
 int cmd_ls(int argc, char **argv) {
     int entries;
     dirent_t entry[4];
-    (void)argc; (void)argv;
-
-    int dir = open(PATH, OPEN_MODE_NOBLOCK, 0);
+    // char *path = argc > 1 ? argv[1] : "."; // Use provided path or current directory
+    const char* path = "/";
+    int dir = open(path, OPEN_MODE_NOBLOCK, 0);
 
     if (dir < 0) {
-        printf("Could not open directory\n");
+        printf("Could not open directory '%s'\n", path);
         return 1;
     }
 
-    while ((entries = readdir(dir, (dirent_t*)&entry, 4)) != 0) {
-        for (int i = 0; i < entries; i++) {
-            printf("%s  ", entry[i].d_name);
-        }
+    while (1) {
+        entries = readdir(dir, (dirent_t*)&entry, 4);
+        printf("Got %d entries\n", entries);
+        // if (entries < 0) {
+        //     printf("Error reading directory '%s'\n", path);
+        //     close(dir);
+        //     return 1;
+        // } else if (entries == 0) {
+        //     break; // End of directory entries
+        // }
+
+        // for (int i = 0; i < entries; i++) {
+        //     printf("%s  ", entry[i].d_name);
+        // }
     }
 
     printf("\n");
@@ -59,9 +70,41 @@ int cmd_ls(int argc, char **argv) {
     return 0;
 }
 
+
+
+int cmd_cat(int argc, char **argv) {
+    int fd;
+    char buf[128];
+    ssize_t bytes_read;
+
+    if (argc < 2) {
+        // Read from stdin if no file provided
+        while ((bytes_read = read(0, buf, sizeof(buf))) > 0) {
+            write(1, buf, bytes_read);
+        }
+        return 0;
+    }
+
+    // Open file
+    fd = open(argv[1], OPEN_MODE_READ, 0);
+    if (fd < 0) {
+        printf("cat: cannot open %s\n", argv[1]);
+        return 1;
+    }
+
+    // Read file and output to stdout
+    while ((bytes_read = read(fd, buf, sizeof(buf))) > 0) {
+        write(1, buf, bytes_read);
+    }
+
+    close(fd);
+    return 0;
+}
+
 builtin_cmd builtins[] = {
     {"exit", cmd_exit},
     {"ls", cmd_ls},
+    {"cat", cmd_cat},
     {NULL, NULL}
 };
 
@@ -113,6 +156,10 @@ int main(void) {
 
         // Handle enter
         if (c == '\n' || c == '\r') {
+            if (pos == 0) {
+                write(stdout, "\n"PROMPT, strlen("\n"PROMPT));
+                continue;
+            }
             buf[pos] = '\0';
             write(stdout, "\n", 1);
 

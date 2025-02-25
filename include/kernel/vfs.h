@@ -61,11 +61,12 @@ typedef struct dirent {
 } dirent_t;
 
 typedef struct file {
-    vfs_dentry_t *dirent;    /* Pointer to the underlying directory entry */
+    vfs_dentry_t* dirent;   /* Pointer to the underlying directory entry */
+    vfs_dentry_t* dir_pos;  /* Pointer to the position in the current directory */
     off_t offset;           /* Current file offset */
     int flags;              /* Open flags (e.g., O_RDONLY, etc.) */
     size_t refcount;        /* Reference count */
-    void* private_data;  /* Pointer to private data */
+    void* private_data;     /* Pointer to private data */
 } vfs_file_t;
 
 typedef int (*open_fn)(vfs_dentry_t*, int flags);

@@ -48,73 +48,39 @@ int vfs_default_close(int fd) {
     return 0;
 }
 
-static int vfs_default_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
-    if (!dir || !buffer || buffer_sz == 0) {
-        return -EINVAL; // Invalid arguments
+int vfs_default_readdir(vfs_file_t* file, dirent_t* buffer, size_t max_entries) {
+    vfs_dentry_t* dir = file->dirent;
+
+    if (!dir || !(dir->inode->mode & VFS_DIR)) {
+        return -ENOTDIR;
     }
 
-    // Check if this is actually a directory
-    if (!(dir->inode->mode & VFS_DIR)) {
-        return -ENOTDIR; // Not a directory
+    vfs_dentry_t* current = file->dir_pos;
+    size_t count = 0;
+
+    // Initialize position if first call
+    if (!current) {
+        current = dir->first_child;
     }
 
-    // Default behavior: traverse in-memory dentries if available
-    vfs_dentry_t* entry = dir->first_child; // Start from first child
-    size_t num_read = 0;
-    size_t bytes_read = 0;
+    // Read until max_entries or end of directory
+    while (current && count < max_entries) {
+        // Populate the dirent structure
+        // buffer[count].d_ino = current->inode->inode_number;
+        strncpy(buffer[count].d_name,
+               current->name,
+               sizeof(buffer[count].d_name));
 
-    while (entry && bytes_read < buffer_sz) {
-        // Store pointer as inode and copy the name
-        buffer[num_read].d_ino = (ino_t)entry;
-        strncpy(buffer[num_read].d_name, entry->name, sizeof(buffer[num_read].d_name));
-
-        // Move to the next entry in the directory
-        entry = entry->next_sibling;
-        num_read++;
-        bytes_read += sizeof(dirent_t);
-
-        // Stop if we have filled the buffer or exhausted the entries
-        if (bytes_read >= buffer_sz) {
-            break;
-        }
+        count++;
+        current = current->next_sibling;
     }
 
-    // Return the number of entries read
-    return num_read;
+    // Update position for next read
+    file->dir_pos = current;
+
+    return count;
 }
 
-// static int vfs_default_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t buffer_sz) {
-//     if (!dir || !buffer || buffer_sz == 0) {
-//         return -EINVAL; // Invalid arguments
-//     }
-
-//     // Check if this is actually a directory
-//     if (!(dir->inode->mode & VFS_DIR)) {
-//         return -ENOTDIR; // Not a directory
-//     }
-
-//     // If the filesystem has a `readdir` function, delegate to it
-//     if (dir->inode->ops && dir->inode->ops->readdir) {
-//         return dir->inode->ops->readdir(dir, buffer, buffer_sz);
-//     }
-
-//     // Default behavior: traverse in-memory dentries if available
-//     vfs_dentry_t* entry = dir->first_child; // Start from first child
-//     size_t num_read = 0;
-//     size_t bytes_read = 0;
-
-//     while (entry && bytes_read < buffer_sz) {
-//         buffer[num_read].d_ino = (ino_t)entry; // Store pointer as inode
-//         strncpy(buffer[num_read].d_name, entry->name, sizeof(buffer[num_read].d_name));
-
-//         // Move to the next entry
-//         entry = entry->next_sibling;
-//         num_read++;
-//         bytes_read += sizeof(dirent_t);
-//     }
-
-//     return num_read;
-// }
 
 // Find a child node by name in a directory
 vfs_dentry_t* vfs_find_child(vfs_dentry_t* dir, const char* name) {
@@ -132,34 +98,6 @@ vfs_dentry_t* vfs_find_child(vfs_dentry_t* dir, const char* name) {
 
     return NULL;
 }
-
-// vfs_dentry_t* vfs_default_lookup(vfs_dentry_t* entry, const char* name) {
-//     if (!name || name[0] != '/') {
-//         return NULL;
-//     }
-
-//     vfs_dentry_t* current = entry;
-//     char* path_copy = strdup(name);
-//     char* token = strtok(path_copy, "/");
-//     // uint32_t pos = strlen(token) + 1;
-//     while (token) {
-//         current = vfs_find_child(current, token);
-//         if (!current) {
-//             break;
-//         }
-
-//         // if the current node is a mount point, we need to traverse the mount point instead
-//         if (current->mount) {
-//             return current->mount->root->inode->ops->lookup(current->mount->root, name);
-//         }
-
-//         token = strtok(NULL, "/");
-//         // pos += strlen(token) + 1;
-//     }
-//     kfree(path_copy);
-//     return current;
-// }
-
 
 vfs_dentry_t* vfs_default_lookup(vfs_dentry_t* entry, const char* path) {
     if (!path || path[0] != '/') {
@@ -371,24 +309,6 @@ void create_test_directory_structure(vfs_dentry_t* root) {
             vfs_add_child(root, new_dir);
         }
     }
-}
-
-int vfs_readdir(vfs_dentry_t* dir, dirent_t* buffer, size_t max_entries) {
-    if (!dir || !(dir->inode->mode & VFS_DIR)) {
-        return -ENOTDIR;
-    }
-
-    vfs_dentry_t* entry = dir->first_child; // Start at first child
-    size_t count = 0;
-
-    while (entry && count < max_entries) {
-        // buffer[count].d_ino = entry->inode->inode_number;
-        strncpy(buffer[count].d_name, entry->name, sizeof(buffer[count].d_name));
-        count++;
-        entry = entry->next_sibling;
-    }
-
-    return count; // Return number of entries read
 }
 
 

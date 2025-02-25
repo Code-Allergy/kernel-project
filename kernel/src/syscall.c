@@ -183,6 +183,7 @@ DEFINE_SYSCALL1(exec, char*, path) {
     }
 
     dentry->inode->ops->close(fd);
+    current_process->num_fds--;
     binary_t* bin = load_elf32(buffer, dentry->inode->size);
 
     if (swap_process(bin, current_process) != 0) { // might need to propagate error

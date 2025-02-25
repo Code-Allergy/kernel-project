@@ -311,6 +311,7 @@ static int clone_parent_pages(process_t* p, process_t* parent) {
             process_page_ref_t *ref = create_page_ref(data_page);
             list_add_tail(&ref->list, &p->pages_head);
         }
+        p->num_pages++;
     }
     return 0;
 }
@@ -477,7 +478,10 @@ void free_process_memory(process_t* p) {
 
         list_del(&ref->list);
         kfree(ref);
+        p->num_pages--;
     }
+
+
 }
 
 

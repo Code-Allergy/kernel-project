@@ -2,12 +2,19 @@ CRITICAL:
 blocking processes on events - for ipc, hardware
  - need per process kernel stacks to make sure we return to where we were in the kernel
 
-nonblocking file io so we can start on making a basic shell
 block device for mmc so we aren't cheating with the fat32 driver directly and can more easily support other filesystems
 
 debug elf loading - data section access error? loading unknown address
+proper syscall trace functionality with ability to listen to only certain processes
 
-critical bug logging and instability with O2 optimization
+waitpid syscall for shell functionality
+process should free all memory on exit, but stay alive until waitpid comes over. if it never does, it will stay in the process table forever
+ - in the future, we need a reaper that will clean up these processes
+
+kernel should allocate initial file descriptors for processes, not userspace lib. userspace lib allocating them means exec will have duplicate fd's
+ - along with this, we should expose a tty device that handles some of the printing and input for the shell, rather than polling/waiting for individual characters.
+
+a data abort handler that isn't fucking useless
 
 general:
 managed stacks for all kernel modes instead of static (system, irq, svc, abt, und)
