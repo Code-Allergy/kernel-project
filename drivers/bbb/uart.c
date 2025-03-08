@@ -1,9 +1,7 @@
-#include <stdint.h>
-
 #include <kernel/uart.h>
 #include <kernel/printk.h>
 #include <kernel/boot.h>
-#include <utils.h>
+#include "utils.h"
 #include "uart.h"
 #include "ccm.h"
 

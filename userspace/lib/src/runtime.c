@@ -1,5 +1,8 @@
 // ctr0
-
+// TODO :
+// environ
+// argc, argv passed on stack in main
+// set heap pointer, initialize simple allocator
 #include <syscalls.h>
 
 extern int main(void);
@@ -14,27 +17,6 @@ __attribute__((noreturn)) void _exit(int return_val) {
 }
 
 void __attribute__((section(".text.startup"))) _start(void) {
-    // initialize file descriptors
-    int fd;
-
-    fd = open("/dev/uart0", OPEN_MODE_READ | OPEN_MODE_NOBLOCK, 0);
-    if (fd < 0) {
-        debug("Failed to load stdin for process\n");
-        _exit(-1);
-    }
-
-    fd = open("/dev/uart0", OPEN_MODE_WRITE, 0);
-    if (fd < 0) {
-        debug("Failed to load stdout for process\n");
-        _exit(-1);
-    }
-
-    fd = open("/dev/uart0", OPEN_MODE_WRITE, 0);
-    if (fd < 0) {
-        debug("Failed to load stderr for process\n");
-        _exit(-1);
-    }
-
     int ret = main();
 
     _exit(ret);

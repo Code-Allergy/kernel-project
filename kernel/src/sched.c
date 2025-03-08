@@ -146,14 +146,14 @@ void __attribute__ ((noreturn)) scheduler(void) {
 
     // TODO: This is a hack to fix the r0 register being written over at some point. this shouldn't be needed.
     if (current_process->forked) {
-        // if (current_process->stack_top[0] != 0) printk("WARNING: Stacked process wasn't set to return 0!\n");
+        if (current_process->stack_top[0] != 0) LOG(WARN, "Forked process wasn't set to return 0! (was %d)\n", current_process->stack_top[0]);
         current_process->stack_top[0] = 0;
         current_process->forked = 0;
     }
 
     // TODO this is a hack, fix it. this WILL break.
     // fix the stack from the compiler function prologue
-    __asm__ ("add sp, sp, #8\n");
+    __asm__ ("add sp, sp, #16\n");
     // TO fix, we should have the scheduler setup in another function and return then pass to asm
     // this way we won't have to deal with the compiler's prologue
 
@@ -471,6 +471,7 @@ static int setup_stack_and_heap(process_t* p) {
     stack_page->page_type = PROCESS_PAGE_STACK;
     stack_page->flags = L2_USER_DATA_PAGE;
     p->num_pages++;
+    p->stack_base_paddr = stack_page->paddr;
     ref = create_page_ref(stack_page);
     list_add_tail(&ref->list, &p->pages_head);
 
@@ -575,6 +576,13 @@ process_t* create_process(binary_t* bin, process_t* parent) {
     list_for_each_entry(current_ref, process_page_ref_t, &p->pages_head, list) {
         mmu_driver.map_page(p->ttbr0, current_ref->page->vaddr, current_ref->page->paddr, current_ref->page->flags);
     }
+
+
+    // set up initial process fds
+    p->fd_table[0] = vfs_open("/dev/uart0", OPEN_MODE_READ | OPEN_MODE_NOBLOCK);
+    p->fd_table[1] = vfs_open("/dev/uart0", OPEN_MODE_WRITE);
+    p->fd_table[2] = vfs_open("/dev/uart0", OPEN_MODE_WRITE);
+    p->num_fds = 3;
 
     p->state = PROCESS_READY;
     p->pid = get_next_pid();

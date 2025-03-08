@@ -87,7 +87,20 @@ DEFINE_SYSCALL2(open, const char*, path, int, flags) {
         return -ENOTSUP; // Operation not supported
     }
 
-    return dentry->inode->ops->open(dentry, flags);
+    vfs_file_t* file = dentry->inode->ops->open(dentry, flags);
+    if (IS_ERR(file)) {
+        return PTR_ERR(file);
+    }
+    for (int i = 0; i < MAX_FDS; i++) {
+        if (!current_process->fd_table[i]) {
+            current_process->fd_table[i] = file;
+            current_process->num_fds++;
+            LOG(INFO, "YES %d %d\n", i, current_process->pid);
+            return i;
+        }
+    }
+
+    return -EMFILE; // Too many open files
 }
 END_SYSCALL
 
@@ -177,14 +190,17 @@ DEFINE_SYSCALL1(exec, char*, path) {
         return -ENOMEM; // Out of memory
     }
 
-    int fd = dentry->inode->ops->open(dentry, 0);
-    if (dentry->inode->ops->read(current_process->fd_table[fd], buffer, dentry->inode->size)
+    vfs_file_t* file = dentry->inode->ops->open(dentry, 0);
+    if (IS_ERR(file)) {
+        return PTR_ERR(file);
+    }
+
+    if (dentry->inode->ops->read(file, buffer, dentry->inode->size)
         != (ssize_t)dentry->inode->size) {
             return -EIO; // I/O error
     }
 
-    dentry->inode->ops->close(fd);
-    current_process->num_fds--;
+    kfree(file);
     binary_t* bin = load_elf32(buffer, dentry->inode->size);
 
     if (swap_process(bin, current_process) != 0) { // might need to propagate error
@@ -214,7 +230,8 @@ DEFINE_SYSCALL1(exit, int, exit_status) {
     // wake up a waiting parent and set the exit status
     if (current_process->waiting_parent) {
         current_process->waiting_parent->state = PROCESS_READY;
-        current_process->stack_top[0] = exit_status; // r0
+        current_process->waiting_parent->stack_top[0] = exit_status; // r0
+        LOG(INFO, "Parent should get return value %d\n", exit_status);
     }
 
     current_process->state = PROCESS_KILLED;

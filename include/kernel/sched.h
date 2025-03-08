@@ -71,6 +71,7 @@ typedef struct process_page {
 
 typedef struct process_struct {
     uint32_t* stack_top;
+    uint32_t* stack_base_paddr;
     int32_t pid;
     int32_t ppid;
     uint32_t priority;

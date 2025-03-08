@@ -69,11 +69,11 @@ typedef struct file {
     void* private_data;     /* Pointer to private data */
 } vfs_file_t;
 
-typedef int (*open_fn)(vfs_dentry_t*, int flags);
+typedef vfs_file_t* (*open_fn)(vfs_dentry_t*, int flags);
 typedef int (*close_fn)(int fd);
 typedef ssize_t (*read_fn)(vfs_file_t*, void*, size_t);
 typedef ssize_t (*write_fn)(vfs_file_t*, const void*, size_t);
-typedef int (*readdir_fn)(vfs_dentry_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
+typedef int (*readdir_fn)(vfs_file_t*, dirent_t*, size_t); // size_t should be the BUFFER SIZE (bytes) NOT number of entries
 typedef vfs_dentry_t* (*lookup_fn)(vfs_dentry_t*, const char* name);
 
 // File operations structure
@@ -162,7 +162,12 @@ extern vfs_ops_t fat32_filesystem_ops;
 
 void vfs_init(void);
 
-int vfs_default_open(vfs_dentry_t* entry, int flags);
+
+// kernel interface
+vfs_file_t* vfs_open(const char* path, int flags);
+
+// vfs_file_t* new_vfs_default_open(vfs_dentry_t* entry, int flags);
+vfs_file_t* vfs_default_open(vfs_dentry_t* entry, int flags);
 int vfs_default_close(int fd);
 vfs_dentry_t* vfs_finddir(const char* path);
 

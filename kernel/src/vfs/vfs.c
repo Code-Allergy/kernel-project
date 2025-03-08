@@ -12,15 +12,58 @@
 // Global root node, this is the root of the virtual filesystem at / (root)
 vfs_dentry_t* vfs_root_node = NULL;
 
+vfs_file_t* vfs_open(const char* path, int flags) {
+    if (!path) return ERR_PTR(-EINVAL);
 
-int vfs_default_open(vfs_dentry_t* entry, int flags) {
+    vfs_dentry_t* dentry = vfs_root_node->inode->ops->lookup(vfs_root_node, path);
+    if (!dentry) {
+        return ERR_PTR(-ENOENT); // No such file or directory
+    }
+
+    if (!dentry->inode || !dentry->inode->ops
+        || !dentry->inode->ops->open) {
+        return ERR_PTR(-ENOTSUP);
+    }
+
+    return dentry->inode->ops->open(dentry, flags);
+}
+
+
+// int vfs_default_open(vfs_dentry_t* entry, int flags) {
+//     if (!entry) {
+//         return -EINVAL;
+//     }
+
+//     // verify that mode flags are valid, for now we assume it is
+//     // create an open file structure for the node
+//     vfs_file_t* file = (vfs_file_t*)kmalloc(sizeof(*file));
+//     if (entry->mount) {
+//         file->dirent = entry->mount->root;
+//     } else {
+//         file->dirent = entry;
+//     }
+
+//     file->offset = 0;
+//     file->flags = flags; // TODO - flags should be handled
+
+//     // TODO - handle freed-up file descriptors
+//     current_process->fd_table[current_process->num_fds] = file;
+
+//     return current_process->num_fds++;
+// }
+
+vfs_file_t* vfs_default_open(vfs_dentry_t* entry, int flags) {
     if (!entry) {
-        return -EINVAL;
+        return ERR_PTR(-EINVAL);
     }
 
     // verify that mode flags are valid, for now we assume it is
     // create an open file structure for the node
     vfs_file_t* file = (vfs_file_t*)kmalloc(sizeof(*file));
+    if (!file) {
+        return ERR_PTR(-ENOMEM);
+    }
+
     if (entry->mount) {
         file->dirent = entry->mount->root;
     } else {
@@ -29,11 +72,11 @@ int vfs_default_open(vfs_dentry_t* entry, int flags) {
 
     file->offset = 0;
     file->flags = flags; // TODO - flags should be handled
-
+    return file;
     // TODO - handle freed-up file descriptors
-    current_process->fd_table[current_process->num_fds] = file;
+    // current_process->fd_table[current_process->num_fds] = file;
 
-    return current_process->num_fds++;
+    // return current_process->num_fds++;
 }
 
 int vfs_default_close(int fd) {
@@ -160,7 +203,6 @@ vfs_ops_t vfs_ops = {
     .close = vfs_default_close,
     .readdir = vfs_default_readdir,
     .lookup = vfs_default_lookup,
-
 };
 
 // TODO finish filling dirent with rc

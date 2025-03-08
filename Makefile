@@ -105,4 +105,4 @@ boot-bbb: bbb
 CLEAN_LABEL = [\033[0;32mCLEAN\033[0m]
 clean:
 	@echo "[CLEAN]   Cleaning project build directory"
-	@$(RM) $(BUILD_DIR)
+	$(RM) $(BUILD_BASE)
