@@ -266,18 +266,21 @@ END_SYSCALL
 DEFINE_SYSCALL2(usleep, uint32_t, us_high, uint32_t, us_low) {
     uint64_t us = ((uint64_t) us_high << 32) | (uint64_t) us_low;
 
-    current_process->wake_ticks = clock_timer.get_ticks() + clock_timer.us_to_ticks(us);
-    current_process->state = PROCESS_SLEEPING;
-
-    if (sleep_queue.count < MAX_PROCESSES) {
-        sleep_queue.procs[sleep_queue.count++] = current_process;
-    } else {
-        // this should never be able to happen
-        panic("Unable to sleep! sleep_queue.count > MAX_PROCESSES!\n");
+    // Ensure current_process is not NULL
+    if (!current_process) {
+        // This case should ideally not happen in a syscall context
+        // If it does, it indicates a deeper problem.
+        // Returning an error is a safe default.
+        return -1; // Consider a more specific error code like -EFAULT or -ESRCH
     }
 
+    // Add the current process to the timing wheel.
+    // timing_wheel_add will set the process state to PROCESS_SLEEPING.
+    timing_wheel_add(&kernel_timing_wheel, current_process, us);
+
+    // Hint to the scheduler that a context switch might be needed.
     scheduler_driver.schedule_next = 1;
-    return 0;
+    return 0; // Success
 }
 END_SYSCALL
 

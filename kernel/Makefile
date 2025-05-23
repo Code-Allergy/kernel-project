@@ -47,7 +47,7 @@ CFLAGS += -g -O0
 # CFLAGS += -fstack-protector-all -fstack-protector-none -O0 -DDEBUG
 # CFLAGS += -fno-stack-protector -O2
 
-CFLAGS += -I$(BASE_INCLUDE) -I$(SRC_DIR) -I. -I../bootloader
+CFLAGS += -I$(abspath $(MAKEFILE_DIR)$(BASE_INCLUDE)) -I$(abspath $(MAKEFILE_DIR)$(SRC_DIR)) -I$(abspath $(MAKEFILE_DIR).) -I$(abspath $(MAKEFILE_DIR)../bootloader)
 
 CFLAGS += -DPLATFORM_$(PLATFORM) -DGIT_VERSION=\"$(GIT_VERSION)\"
 
@@ -103,8 +103,10 @@ $(OUTPUT_IMG): $(OUTPUT_BIN)
 ################################################################################################
 # kernel Compilation rules
 ################################################################################################
+
 $(BUILD_DIR)/kernel/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)/kernel
 	@echo "[CC]      Kernel: $<"
+	@echo "CFLAGS for $<: $(CFLAGS)"
 	@$(MKDIR) $(@D)
 	@$(CC) $(CFLAGS) -c $< -o $@
 

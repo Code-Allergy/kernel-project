@@ -1,4 +1,7 @@
-#include "kernel/int.h"
+#include <stdint.h>       // Standard types first
+#include <kernel/list.h>  // Define list_head_t early
+
+#include "kernel/int.h"   // Local kernel headers
 #include <kernel/boot.h>
 #include <kernel/printk.h>
 #include <kernel/sched.h>
@@ -16,9 +19,8 @@
 #include <kernel/time.h>
 #include <kernel/rtc.h>
 #include <kernel/log.h>
+#include <kernel/sleep.h> // Uses list_head_t
 #include <elf32.h>
-
-#include <stdint.h>
 
 
 extern uint32_t __bss_start;
@@ -117,6 +119,10 @@ void kernel_main(bootloader_t* _bootloader_info) {
     init_page_allocator(&kpage_allocator);
     kernel_heap_init();
     // setup dynamic managed stacks better
+
+    // Initialize the timing wheel
+    // KERNEL_HEARTBEAT_TIMER is from kernel/timer.h, and kernel_timing_wheel is from kernel/sleep.h
+    timing_wheel_init(&kernel_timing_wheel, KERNEL_HEARTBEAT_TIMER);
 
     vfs_init();
 

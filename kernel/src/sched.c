@@ -115,7 +115,7 @@ void __attribute__((noreturn, naked)) user_context_return(uint32_t stack_ptr);
 
 void __attribute__ ((noreturn)) scheduler(void) {
     // wake up sleeping processes if necessary
-    check_sleep_expiry();
+    // check_sleep_expiry(); // Removed: This is now handled by timing_wheel_tick() in the timer interrupt
     // how do we decied on an order for waking sleep or blocked?
     // wake up a blocked process if necessary
 
