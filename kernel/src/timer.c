@@ -4,7 +4,8 @@
 
 // system clock
 void system_clock(void) {
-    timing_wheel_tick(&kernel_timing_wheel); // Process any due sleep events
+    // timing_wheel_tick(&kernel_timing_wheel); // Process any due sleep events (Removed)
+    delta_list_tick(); // Process delta list sleep queue
     scheduler_driver.tick();
 }
 

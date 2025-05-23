@@ -274,9 +274,13 @@ DEFINE_SYSCALL2(usleep, uint32_t, us_high, uint32_t, us_low) {
         return -1; // Consider a more specific error code like -EFAULT or -ESRCH
     }
 
-    // Add the current process to the timing wheel.
-    // timing_wheel_add will set the process state to PROCESS_SLEEPING.
-    timing_wheel_add(&kernel_timing_wheel, current_process, us);
+    // Add the current process to the timing wheel. (Removed)
+    // timing_wheel_add will set the process state to PROCESS_SLEEPING. (Removed)
+    // timing_wheel_add(&kernel_timing_wheel, current_process, us); (Removed)
+
+    // Add the current process to the delta list sleep queue.
+    // delta_list_add will set the process state to PROCESS_SLEEPING.
+    delta_list_add(current_process, us);
 
     // Hint to the scheduler that a context switch might be needed.
     scheduler_driver.schedule_next = 1;

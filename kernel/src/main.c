@@ -120,9 +120,10 @@ void kernel_main(bootloader_t* _bootloader_info) {
     kernel_heap_init();
     // setup dynamic managed stacks better
 
-    // Initialize the timing wheel
-    // KERNEL_HEARTBEAT_TIMER is from kernel/timer.h, and kernel_timing_wheel is from kernel/sleep.h
-    timing_wheel_init(&kernel_timing_wheel, KERNEL_HEARTBEAT_TIMER);
+    // Initialize the timing wheel (Removed)
+    // timing_wheel_init(&kernel_timing_wheel, KERNEL_HEARTBEAT_TIMER);
+    // Initialize the delta list sleep queue
+    delta_list_init();
 
     vfs_init();
 

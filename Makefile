@@ -82,7 +82,8 @@ qemu: sdcard
 	-cpu cortex-a8 -drive if=sd,format=raw,file=$(OUTPUT_IMG) \
 	-serial mon:stdio -nographic \
 	-kernel $(BOOTLOADER_BIN) \
-	-d guest_errors,unimp,int  -D qemu.log
+	-d guest_errors,unimp,int  -D qemu.log \
+	-append "/bin/sleep"
 
 
 qemu-gdb: sdcard
